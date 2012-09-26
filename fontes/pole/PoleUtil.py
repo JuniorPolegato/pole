@@ -1,0 +1,1554 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""PoleUtil - Conjunto de funções úteis em Python de uso frequente
+
+Arquivo: PoleUtil.py
+Versão.: 0.1.0
+Autor..: Claudio Polegato Junior
+Data...: 25 Mar 2011
+
+Copyright © 2011 - Claudio Polegato Junior <junior@juniorpolegato.com.br>
+Todos os direitos reservados
+"""
+
+"""\package PoleUtil
+\brief Conjunto de funções úteis para auxiliar na geração da NFe.
+
+Este pacote imcorpora funções para auxiliar na geração de NFe's, bem
+como poder ser utilizados para outros fins.
+Inclui-se aqui funções para validar e formatar CPF, CNPJ, RG e
+Inscrição Estadual, além de cálculo para módulo variável, como módulo
+11, 10 e 9, extração de dígitos, com ou sem símbolo decimal, de uma
+lista de caracteres, formatar números inteiro e real com os símbolos
+decimal e agrupamento, bem como tranformar números formatados em inteiro
+e real.
+"""
+
+APP = 'pole'
+VER = (0,4,1)
+
+# Importing localization module configured previous by Gtk
+import locale
+language, encode = (locale.setlocale(locale.LC_ALL, '') + '..').split('.')[:2]
+
+# Importing e configuration internationalization module gettex
+import os.path
+import gettext
+
+def load_pole_translations(DIR):
+    gettext.bindtextdomain(APP, DIR)
+    gettext.textdomain(APP)
+
+_ = gettext.gettext
+
+DIR = '/usr/share/locale'
+for locale_folder in ('../pole/po/locale', 'po/locale', 'locale', '../po/locale', '../locale', '/usr/share/locale', '/usr/local/share/locale', '/usr/local/'):
+    if os.path.exists(locale_folder + '/' + language + '/LC_MESSAGES/' + APP + '.mo'):
+        DIR = locale_folder
+        load_pole_translations(DIR)
+        break
+
+import re
+import math
+import smtplib
+import datetime
+import mimetypes
+import base64
+import sys
+
+def digits(string, zero_when_empty = True):
+    """\brief Extrai apenas os dígitos de uma lista de \a caracteres.
+    
+    Função que retorna apenas os dígitos de uma lista de \a carateres
+    fornecidos, fazendo uso de expressão regulares para tanto. Caso
+    \a zero_se_vazio_ou_nulo seja \c True, retorna '0' se
+    \a caracteres for \c None ou \c '', sendo que for \c False, retorna
+    o próprio \a caracteres.
+
+    \param caracteres               [\c str/int]    Caracteres dos quais
+                                                    serão extraídos os
+                                                    dígitos.
+    \param zero_se_vazio_ou_nulo    [\c bool]       Se \a carecters for
+                                                    \c None ou \c '',
+                                                    retorna zero se
+                                                    \c True ou
+                                                    \c caracteres se
+                                                    \c False.
+    \return                         [\c str]        Dígitos contidos na
+                                                    lista de
+                                                    \a caracters
+                                                    fornecidos.
+    """
+    res = re.sub(r'[ -/:-ÿ]', r'', str(string))
+    if not len(res) and zero_when_empty:
+        return '0'
+    return res
+
+somente_digitos = digits
+
+def somente_digitos_e_decimal(caracteres, zero_se_vazio_ou_nulo = True):
+    """\brief Extrai apenas os dígitos e o primeiro separador de decimal
+    de uma lista de \a caracteres.
+    
+    Função que retorna apenas os dígitos de uma lista de \a carateres
+    fornecidos, fazendo uso da função somente_digitos. Caso
+    \a zero_se_vazio_ou_nulo seja \c True, retorna '0D0' se
+    \a caracteres for \c None ou \c '', onde D é o símbolo decimal
+    atual.Caso \a zero_se_vazio_ou_nulo seja \c False, retorna o próprio
+    \a caracteres se \a caracteres for \c None ou \c ''.
+
+    \param caracteres               [\c str/int]    Caracteres dos quais
+                                                    serão extraídos os
+                                                    dígitos.
+    \param zero_se_vazio_ou_nulo    [\c bool]       Se \a carecters for
+                                                    \c None ou \c '',
+                                                    retorna zero se
+                                                    \c True ou
+                                                    \c caracteres se
+                                                    \c False.
+    \return                         [\c str]        Dígitos e símbolo
+                                                    decimal contidos na
+                                                    lista de
+                                                    \a caracters
+                                                    fornecidos.
+    """
+    if isinstance(caracteres, float):
+        return locale.str(caracteres)
+    if not caracteres or not len(str(caracteres)):
+        if zero_se_vazio_ou_nulo:
+            return '0' + locale.localeconv()['decimal_point'] + '0'
+        return caracteres
+    decimal = locale.localeconv()['decimal_point']
+    valor = str(caracteres).split(decimal, 1)
+    valor[0] = somente_digitos(valor[0])
+    if len(valor) > 1:
+        valor[1] = somente_digitos(valor[1])
+    else:
+        valor.append('0')
+    return valor[0] + decimal + valor[1]
+
+def inteiro(caracteres, arredondamento = 0, 
+                                          zero_se_vazio_ou_nulo = True):
+    """\brief Transforma uma lista de carecteres, geralmente um inteiro
+              ou real formatado, em um inteiro.
+    \param caracteres       [\c str/int/float]  caracteres ou número a
+                                                ser transformado em
+                                                inteiro.
+    \param arredondamento   [\c int]            Tipo de arredondamento:
+                                                negativo => para baixo;
+                                                zero => arredondamento
+                                                4/5;
+                                                positivo => para cima.
+    \return                 [\c int]            Inteiro representado por
+                                                \a caracteres
+    """
+    return int(real(caracteres, 0, arredondamento,
+                                                 zero_se_vazio_ou_nulo))
+
+def real(caracteres, casas = 2, arrendodamento = 0,
+                                          zero_se_vazio_ou_nulo = True):
+    """\brief Transforma uma lista de carecteres, geralmente um inteiro
+              ou real formatado, em um número real.
+    \param caracteres       [\c str/int/float]  caracteres ou número a
+                                                ser transformado em
+                                                inteiro.
+    \param casas            [c\ int]            Casas decimais
+                                                significativas onde será
+                                                aplicado arredondamento.
+    \param arredondamento   [\c int]            Tipo de arredondamento:
+                                                negativo => para baixo;
+                                                zero => arredondamento
+                                                4/5;
+                                                positivo => para cima.
+    \return                 [\c float]          Real representado por
+                                                \a caracteres
+    """
+    numero = locale.atof(somente_digitos_e_decimal(caracteres,
+                                                 zero_se_vazio_ou_nulo))
+    mult_casas = 10.0 ** casas
+    if arrendodamento < 0:
+        return math.floor(numero * mult_casas) / (mult_casas)
+    if arrendodamento == 0:
+        return round(numero, casas)
+    return math.ceil(numero * mult_casas) / (mult_casas)
+
+def formatar_inteiro(caracteres, tamanho = 0, preenchimento = '',
+                      arredondamento = 0, zero_se_vazio_ou_nulo = True):
+    """\brief Formata um inteiro de acordo com as regras de agrupamento
+              da localização atual.
+    \param caracteres       [\c str/int/float]  Caracteres ou número a
+                                                ser formatado em
+                                                inteiro.
+    \param tamanho          [\c int]            Tamanho mínimo do campo
+                                                retornado.
+    \param preenchimento    [\c str]            Preencimento do campo
+                                                retornado, podendo ser
+                                                '0' ou ''.
+    \param arredondamento   [\c int]            Tipo de arredondamento:
+                                                negativo => para baixo;
+                                                zero => arredondamento
+                                                4/5;
+                                                positivo => para cima.
+    \param zero_se_vazio_ou_nulo    [\c bool]   Se \a carecters for
+                                                \c None ou \c '',
+                                                retorna zero se \c True
+                                                ou \c caracteres se
+                                                \c False.
+    \return                         [\c str]    Caracteres representando
+                                                o número real formatado
+                                                nas regras de
+                                                agrupamento e separador
+                                                decimal da localização
+                                                atual, de acordo com os
+                                                parâmetros passados.
+    """
+    mascara = '%%%s%dd' % (preenchimento, tamanho)
+    return locale.format(mascara, inteiro(caracteres, arredondamento,
+                                           zero_se_vazio_ou_nulo), True,
+                               not len(locale.localeconv()['grouping']))
+
+def formatar_real(caracteres, casas = 2, tamanho = 0,
+                  preenchimento = '', arredondamento = 0, moeda = False,
+                      moeda_internacional = False, moeda_lateral = True,
+                                          zero_se_vazio_ou_nulo = True):
+    """\brief Formata um númer rela de acordo com as regras de
+              agrupamento da localização atual.
+    \param caracteres       [\c str/int/float]  Caracteres ou número a
+                                                ser formatado em real.
+    \param casas            [c\ int]            Casas decimais
+                                                significativas onde será
+                                                aplicado arredondamento.
+    \param tamanho          [\c int]            Tamanho mínimo do campo
+                                                retornado.
+    \param preenchimento    [\c str]            Preencimento do campo
+                                                retornado, podendo ser
+                                                '0' ou ''.
+    \param arredondamento   [\c int]            Tipo de arredondamento:
+                                                negativo => para baixo;
+                                                zero => arredondamento
+                                                4/5;
+                                                positivo => para cima.
+    \param moeda            [\c bool]           Se coloca ou não o
+                                                símbolo de moeda
+                                                corrente.
+    \param moeda_internacional  [\c bool]       Se coloca ou não o
+                                                símbolo de moeda
+                                                internacional corrente.
+    \param moeda_lateral    [\c bool]           Se o símbolo de moeda
+                                                fica alinhado mais à
+                                                borda, dependendo do
+                                                \a tamanho passado. Caso
+                                                \c False ou o \a tamanho
+                                                passado menor que a
+                                                quantidade de
+                                                caracteres, a moeda
+                                                ficará junto ao número
+                                                respeitando a
+                                                configuração local.
+    \param zero_se_vazio_ou_nulo    [\c bool]   Se \a carecters for
+                                                \c None ou \c '',
+                                                retorna zero se \c True
+                                                ou \c caracteres se
+                                                \c False.
+    \return                         [\c str]    Caracteres representando
+                                                o número real formatado
+                                                nas regras de
+                                                agrupamento e separador
+                                                decimal da localização
+                                                atual, de acordo com os
+                                                parâmetros passados.
+    """
+    mascara = '%%%s%d.%df' % (preenchimento, tamanho, casas)
+    if not moeda and not moeda_internacional:
+        formatado = locale.format(mascara, real(caracteres, casas,
+                           arredondamento, zero_se_vazio_ou_nulo), True,
+                               not len(locale.localeconv()['grouping']))
+    else:
+        #if p_cs_precedes/n_cs_precedes
+        #if moeda and not moeda_internacional:
+        #sem_preenchimento = formatado.lstrip(' ' + preenchimento)
+        pass
+
+    return formatado
+
+def modulo_11(digitos, max = 9, min = 2, retorno = ('0', '0'),
+               soma = 0, pesos = None, modulo = 11, complemento = True,
+               reduzir = False):
+    """\brief Módulo 11 - cálculo do módulo 11 (ou outro) com parâmetros
+       configuráveis.
+    
+    Esta função faz o cálculo da soma da multiplicação de cada dígito,
+    de trás para frente, por min a max (padrão 2 a 9) ou pesos,
+    respectivamente, retornando o complemento do resto da divisão desta
+    soma por \c modulo (padrão 11), sendo que é possível passar uma
+    lista de pesos, valor da soma inicial e uma lista dos caracteres de
+    retorno quando o  resultado for 10 ou 11 (ou mais caso o módulo seja
+    maior que 11), onde o primeiro elemento da lista é para resultado
+    10, o segundo para 11, e assim por diante.
+    
+    \param digitos  [\c str/int]    Dígitos a serem fornecidos para se
+                                    calcular o módulo destes.
+    \param max      [\c int]        Valor máximo que o multiplicador
+                                    para cálculo do módulo pode assumir,
+                                    utilizado se \a peso for \c None.
+                                    Padrão 9.
+    \param min      [\c int]        Valor mínimo que o multiplicador
+                                    para cálculo do módulo pode assumir,
+                                    utilizado se \a peso for \c None.
+                                    Padrão 2.
+    \param retorno  [\c lista(str)] Lista de caracteres retornados
+                                    quando o resultado for 10, 11, 12,
+                                    e assim por diante, dependendo do
+                                    módulo. Padrão ('0', '0').
+    \param soma     [\c int]        Valor inicial da soma. Padrão 0.
+    \param pesos    [\c lista(int)] Lista de pesos utilizados para
+                                    calcular a soma, sendo que se for
+                                    \c None será utilizado a faixa de
+                                    \a min a \a max. Repare que o
+                                    primeiro peso (correspondente a
+                                    \a min) será aplicado ao último
+                                    dígito, assim pode ser que seja
+                                    necessário passar os pesos de forma
+                                    inversar ou colocar \c [::-1] após a
+                                    lista de pesos quando chamar a
+                                    função. Padrão \c None.
+    \param modulo   [\c int]        Valor a ser utilizado para cálculo
+                                    do módulo. Padrão 11.
+    \param compelmento  [\c bool]   Se retorna o complemento. Caso
+                                    contrário retorna o resto. Padrão
+                                    \c True.
+    \param reuzir  [\c bool]        Se True, reduz o produto de cada
+                                    elemento a um dígito.
+    \return         [\c str]        O caracter correspondente ao cálculo
+                                    do módulo.
+    """
+    if not digitos:
+        return None
+    digitos = somente_digitos(digitos)[::-1]            # Filtra apenas os dígitos e os inverte
+    if pesos:                                           # Caso sejam fornecidos os pesos a operar
+        pos_peso = 0                                    #   posicionado no primeiro peso
+        for digito in digitos:                          #   Para cada dígito em digitos
+            produto = int(digito) * pesos[pos_peso]     #     Multiplica o dígito, tranformado em inteiro, pelo peso correspondente e o adiciona em soma
+            if reduzir:
+                while produto > 9:
+                    produto = sum([int(x) for x in str(produto)])
+            soma += produto
+            if pos_peso == len(pesos): pos_peso = 0     #     Se for o último peso, volta para o primeiro
+            else: pos_peso += 1                         #     Senão soma-se 1 a posição do peso
+    else:                                               # Caso não sejam fornecidos os pesos a operar, trabalha com valores entre min e max
+        mult = min                                      #   Multiplicador inicial em min (este vai até max e volta a min)
+        for digito in digitos:                          #   Para cada dígito em digitos
+            produto = int(digito) * mult                #     Multiplica o dígito, tranformado em inteiro, pelo multiplicador e o adiciona em soma
+            if reduzir:
+                while produto > 9:
+                    produto = sum([int(x) for x in str(produto)])
+            soma += produto
+            if mult == max: mult = min                  #     Se o multiplicador for max, volta para min
+            else: mult += 1                             #     Senão soma-se 1 a este
+    resto_11 = soma % modulo                            # Resto da divisão da soma por 11
+    if complemento:                                     # Se for pedido o complemento
+        complemento_11 = modulo - resto_11              #   Complento do resto por 11, isto é, o que falta para chegar a 11
+    else:                                               # Se não for pedido o complemento
+        complemento_11 = resto_11                       #   Utiliza o resto por 11 para fazer o retorno
+    if complemento_11 > 9:                              # Se o complemento for maior que 9, isto é, dois dígitos
+        return retorno[complemento_11-10]               #   Retorna o valor correspondente passado no parâmetro retorno da função, padrão '0'
+    return str(complemento_11)                          # Retorna o complemento como caracter
+
+def nulo_para_zero(valor):
+    """\brief Retorna zero em \c float ser o valor for \c None ou o próprio \a valor caso contrário.
+    
+    \param valor    [\c untype]  Valor a ser analisado.
+    \return         [\c untype]  0.0 (zero \c float) se valor for \c None ou o \a valor caso contrário.
+    """
+    if not valor:
+        return 0.0
+    return valor
+
+def validar_cpf(cpf):
+    """\brief Verifica a validade de um CPF informado.
+    
+    Verifica a validade de um CPF, sendo que elimina caracteres extras, 
+    considerando apenas os dígitos, completando com zeros à esquerda se necessário.
+    Também emite avisos caso encontre algumas divergência.
+    
+    \param cpf  [\c str/int]    CPF a analisar.
+    \return     [\c tupla]      Lista com 4 elementos:
+                    1) \c True se validado e \c False caso contrário.
+                    2) Dígitos do CPF esperado.
+                    3) Avisos.
+                    4) Dígitos do CPF fornecido que foram analisados.
+    """
+    if not cpf or cpf == '':
+        return (False, '', ('CPF não informado.',), cpf)
+    avisos = []
+    digitos_cpf = somente_digitos(cpf)
+    if len(digitos_cpf) != len(str(cpf)): # CPF fornecido com algo além dos dígitos, analisando formatação...
+        if len(str(cpf)) != 14:
+            avisos += ['CPF mal formatado: esperado tamanho de 14 caracteres.']
+        elif not (cpf[3] == cpf[7] == '.' and cpf[11] == '-'):
+            avisos += ['CPF mal formatado: esperado `.´ nas posições 4 e 8 e `-´ na 12.']
+    if len(digitos_cpf) != 11:
+        avisos += ['CPF com poucos dígitos, completado com zeros à esquerda.']
+        digitos_cpf = ('00000000000' + digitos_cpf)[-11:]
+    dv1 = modulo_11(digitos_cpf[:9], 11)
+    dv2 = modulo_11(digitos_cpf[:9] + dv1, 11)
+    cpf_esperado = digitos_cpf[:9] + dv1 + dv2
+    verificado = (cpf_esperado == digitos_cpf)
+    if not verificado:
+        avisos += ['CPF inválido: dígitos verificadores não conferem.']
+    return (verificado, cpf_esperado, avisos[1:], digitos_cpf)
+
+def formatar_cpf(cpf):
+    """\brief Formata o CPF informado.
+    
+    Considerando apenas os dígitos, colocar um ponto entre cada 3 dos 9
+    dígitos iniciais, um traço e os dois dígitos verificadores.
+    Também completa com zeros à se faltar e retorna dígitos extras, se
+    houver, logo após os dígitos verificadores.
+    
+    \param cpf  [\c str/int]    CPF a formatar.
+    \return     [\c str]        CPF formatado.
+    """
+    digitos = ('00000000000' + somente_digitos(cpf))[-11:]
+    return digitos[:3] + '.' + digitos[3:6] + '.' + digitos[6:9] + '-' + digitos[9:]
+
+def validar_cnpj(cnpj):
+    """\brief Verifica a validade do CNPJ informado.
+    
+    Verifica a validade de um CNPJ, sendo que elimina caracteres extras, 
+    considerando apenas os dígitos, completando com zeros à esquerda se necessário.
+    Também emite avisos caso encontre algumas divergência.
+    
+    \param cnpj  [\c str/int]    CNPJ a analisar.
+    \return      [\c tupla]      Lista com 4 elementos:
+                    1) \c True se validado e \c False caso contrário.
+                    2) Dígitos do CNPJ esperado.
+                    3) Avisos.
+                    4) Dígitos do CNPJ fornecido que foram analisados.
+    """
+    if not cnpj or cnpj == '':
+        return (False, '', ('CNPJ não informado.',), cnpj)
+    avisos = []
+    digitos_cnpj = somente_digitos(cnpj)
+    if len(digitos_cnpj) != len(str(cnpj)): # CNPJ fornecido com algo além dos dígitos, analisando formatação...
+        if len(str(cnpj)) != 19:
+            avisos += ['CNPJ mal formatado: esperado tamanho de 14 caracteres.']
+        elif not (cnpj[2] == cnpj[6] == '.' and cnpj[10] == '/' and cnpj[15] == '-'):
+            avisos += ['CNPJ mal formatado: esperado `.´ nas posições 4 e 8 e `-´ na 12.']
+    if len(digitos_cnpj) != 14:
+        avisos += ['CNPJ com poucos dígitos, completado com zeros à esquerda.']
+        digitos_cnpj = ('00000000000000' + digitos_cnpj)[-14:]
+    dv1 = modulo_11(digitos_cnpj[:12])
+    dv2 = modulo_11(digitos_cnpj[:12] + dv1)
+    cnpj_esperado = digitos_cnpj[:12] + dv1 + dv2
+    verificado = (cnpj_esperado == digitos_cnpj)
+    if not verificado:
+        avisos += ['CNPJ inválido: dígitos verificadores não conferem.']
+    return (verificado, cnpj_esperado, tuple(avisos), digitos_cnpj)
+
+def formatar_cnpj(cnpj):
+    """\brief Formata o CNPJ informado.
+    
+    Considerando apenas os dígitos, colocar um ponto após o 2º dígito e entre cada 3 dos 6
+    dígitos seguintes, uma barra seguida dos 4 dígitos de nº de unidade,
+    um traço e os dois dígitos verificadores.
+    Também completa com zeros à se faltar e retorna dígitos extras, se
+    houver, logo após os dígitos verificadores.
+    
+    \param cnpj [\c str/int]    CNPJ a formatar.
+    \return     [\c str]        CNPJ formatado.
+    """
+    digitos = ('00000000000000' + somente_digitos(cnpj))[-14:]
+    return digitos[:2] + '.' + digitos[2:5] + '.' + digitos[5:8] + '/' + digitos[8:12] + '-' + digitos[12:]
+
+def DV1_MG(digitos):
+    """\brief Cálculo do 1º dígito verificador de Minas Gerais (MG).
+
+    Insere-se '0' entre os 3º e 4º dígitos, multica-se cada dígito por
+    1 e 2 sucessivamente, juntando os resultados numa lista de dígitos,
+    depois soma-se os dígitos desta lista e retorna o complemento do
+    resto da divisão desta soma por 10.
+
+    \param digitos      [\c str/int] 11 dígitos da IE de MG.
+    \return             [\c str] 1º dígito verificador.
+    """
+    if not digitos:
+        return None
+    digitos = somente_digitos(digitos)
+    digitos = digitos[:3] + '0' + digitos[3:]
+    lista = ''
+    mult = 1
+    for digito in digitos:
+        lista += str(int(digito) * mult)
+        mult += 1 - (mult == 2) * 2
+    soma = 0
+    for digito in lista:
+        soma += int(digito)
+    if not soma % 10:
+        return '0'
+    return str(10 - soma % 10)
+
+def DV_RR(digitos):
+    """\brief Cálculo do dígito verificador de Roraima (RR).
+    
+    Esta função faz o cálculo da soma da multiplicação de cada dígito
+    pela sua posição, retornando o resto da divisão desta soma por 9.
+    
+    \param digitos  [\c str/int]    Dígitos a serem fornecidos para se
+                                    calcular o DV de RR.
+    \return         [\c str]        Caracter correspondente ao DV de RR.
+    """
+    if not digitos:
+        return None
+    digitos = somente_digitos(digitos)
+    mult = 1
+    soma = 0
+    for digito in digitos:
+        soma += int(digito) * mult
+        mult += 1
+    return str(soma % 9)
+
+ufs = ('AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+       'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+       'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO')
+digitos = {'AC': 13, 'AL':  9, 'AP':  9, 'AM':  9, 'BA':  9,
+           'CE':  9, 'DF': 13, 'ES':  9, 'GO':  9, 'MA':  9,
+           'MT': 11, 'MS':  9, 'MG': 13, 'PA':  9, 'PB':  9,
+           'PR': 10, 'PE':  9, 'PI':  9, 'RJ':  8, 'RN': 10,
+           'RS': 10, 'RO': 14, 'RR':  9, 'SC':  9, 'SP': 12,
+           'SE':  9, 'TO':  9}
+fixo_inicial = {'AC': None,
+                'AL': ('24',),
+                'AP': ('03',),
+                'AM': None, 
+                'BA': None, 
+                'CE': None, 
+                'DF': ('07',),
+                'ES': None,
+                'GO': ('10', '11', '15'),
+                'MA': None, 
+                'MT': None, 
+                'MS': ('2',),
+                'MG': None, 
+                'PA': ('15',),
+                'PB': None, 
+                'PR': None,
+                'PE': None, 
+                'PI': None, 
+                'RJ': None, 
+                'RN': ('20',),
+                'RS': None, 
+                'RO': None, 
+                'RR': ('24',),
+                'SC': ('25',),
+                'SP': None, 
+                'SE': ('27',),
+                'TO': ('29',)}
+formatacao = {'AC': (('.', 2), ('.', 6), ('/', 10), ('-', 14)),
+              'AL': (('.', 2), ('.', 6), ('-', 10)),
+              'AP': (('.', 2), ('.', 6), ('-', 10)),
+              'AM': (('.', 2), ('.', 6), ('-', 10)),
+              'BA': (('.', 3), ('.', 7)),
+              'CE': (('.', 2), ('.', 6), ('-', 10)),
+              'DF': (('.', 2), ('.', 9), ('-', 13)),
+              'ES': (('.', 2), ('.', 6), ('-', 10)),
+              'GO': (('.', 2), ('.', 6), ('-', 10)),
+              'MA': (('.', 2), ('.', 6), ('-', 10)),
+              'MT': (('.', 2), ('.', 6), ('-', 10)),
+              'MS': (('.', 2), ('.', 6), ('-', 10)),
+              'MG': (('.', 2), ('.', 6), ('.', 10), ('-', 13)),
+              'PA': (('.', 2), ('.', 6), ('-', 10)),
+              'PB': (('.', 2), ('.', 6), ('-', 10)),
+              'PR': (('.', 2), ('.', 6), ('-', 10)),
+              'PE': (('.', 1), ('.', 5), ('-', 9)),
+              'PI': (('.', 2), ('.', 6), ('-', 10)),
+              'RJ': (('.', 2), ('.', 6), ('-', 10)),
+              'RN': (('.', 2), ('.', 6), ('-', 10)),
+              'RS': (('/', 3),),
+              'RO': (('.', 1), ('.', 5), ('.', 9), ('.', 13), ('-', 17)),
+              'RR': (('.', 2), ('.', 6), ('-', 10)),
+              'SC': (('.', 3), ('.', 7)),
+              'SP': (('.', 3), ('.', 7), ('.', 11)),
+              'SE': (('.', 2), ('.', 6), ('-', 10)),
+              'TO': (('.', 2), ('.', 6), ('-', 10))}
+
+def validar_ie(ie, uf):
+    """\brief Verifica a validade da Inscrição Estadual para a UF
+              informada.
+    
+    \param ie   [\c str/int]    Inscrição Estadual a analisar.
+    \param uf   [\c str/int]    Unidade Federativa a qual pertence a IE.
+    \return      [\c tupla]      Lista com 4 elementos:
+                    1) \c True se validado e \c False caso contrário.
+                    2) Dígitos da IE esperada.
+                    3) Avisos.
+                    4) Dígitos da IE fornecido que foram analisados.
+    
+    Veja as regras em http://www.sintegra.gov.br/insc_est.html,
+                               http://www.sintegra.gov.br/Verific8.doc e
+                        http://www.pfe.fazenda.sp.gov.br/consist_ie.shtm
+    \param Acre(AC)                 01.004.823/001-12 - 13 dígitos, módulo 11.
+    \param Alagoas(AL)              24XNNNNND - 9 dígitos, 24 fixo, X em [0,3,5,7,8], N é dígito, D por módulo 11.
+    \param Amapá(AP)                03NNNNNND - 9 dígitos, 03 fixo, N é dígito, D por módulo 11 (11 = d, soma = p), onde p=5 e d=0 para 03000001 a 03017000, p=9 e d=1 para 03017001 a 03019022 e p=0 e d=0 para 03019023 em diante.
+    \param Amazonas(AM)             99.999.999-9 - 9 dígitos, módulo 11
+    \param Bahia(BA)                Mudou para xxx.xxx.xxx || 612345-57 - 8 dígitos, módulo 10 se iniciar por [0,1,2,3,4,5,8] e módulo 11 caso contrário, calculando e 2º DV antes
+    \param Ceará(CE)                06000001-5 - 9 dígitos, módulo 11.
+    \param Distrito_Federal(DF)     07.300001.001-09 - 13 dígitos, 07 fixo, módulo 11.
+    \param Espírito_Santo(ES)       99.999.999-0 - 9 dígitos, módulo 11.
+    \param Goiás(GO)                10.987.654-7 - 9 dígitos, 2 primeiros em [10,11,15], módulo 11.
+    \param Maranhão(MA)             12000038-5 - 9 dígitos, módulo 11.
+    \param Mato_Grosso(MT)          0013000001-9 - 11 dígitos, módulo 11.
+    \param Mato_Grosso_do_Sul(MS)   2NNNNNNN-D - 9 dígitos, 2 fixo, módulo 11.
+    \param Minas_Gerais(MG)         062.307.904/0081 - 13 dígitos, 3 município, 6 código, 2 ordem de estabelecimento, 1º DV por DV1_MG (inserindo '0' entre o 3º e o 4º dígitos), e 2º DV por módulo 11 com max = 11.
+    \param Pará(PA)                 15-999999-5 - 9 dígitos, 15 fixo, módulo 11.
+    \param Paraíba(PB)              06.000.001-5 - 9 dígitos, módulo 11.
+    \param Paraná(PR)               NNN.NNNNN-DD - 10 dígitos, módulo 11 com max = 7.
+    \param Pernambuco(PE)           0321418-40 - 9 dígitos, módulo 11. Obs.: antigamente 18.1.001.0000004-9, por módulo 11, mas depois o 9 volta para 1, não implementado.
+    \param Piauí(PI)                01234567-9 - 9 dígitos, módulo 11.
+    \param Rio_de_Janeiro(RJ)       99.999.99-3 - 8 dígitos, módulo 11 com max = 7.
+    \param Rio_Grande_do_Norte(RN)  20.040.040-1(9 dígitos) ou 20.0.040.040-0(10 dígitos) - 20 fixo, módulo 11 com max = 10.
+    \param Rio_Grande_do_Sul(RS)    224/365879-2 - 10 dígitos, 3 dígitos do município, módulo 11.
+    \param Rondônia(RO)             0000000062521-3 - 14 dígitos, módulo 11. Obs.: antes de 01/08/2000 era, 101.62521-3 - 3 dígitos do município, módulo 11 dos outros 5 dígitos.
+    \param Roraima(RR)              24.008266-8 - 9 dígitos, 24 fixo, DV_RR (~ módulo 9).
+    \param Santa_Catarina(SC)       251.040.852 - 9 dígitos, 25 fixo, último dígito é módulo 11.
+    \param São_Paulo(SP)            110.042.490.114 - 12 dígitos, 9º e 12º dígitos verificadores => 9º: resto por 11 dos 8 primeiros dígitos com os pesos [1,3,4,5,6,7,8,10] da esquerda para a direita (inverso do princípio do módulo 11, usa [::-1]); 12º: resto por 11 dos 11 dígitos anteriores com max = 10. Obs.: São Paulo não tem mais IE de produtor.
+    \param Sergipe(SE)              27.123.456-3 - 9 dígitos, 27 fixo, módulo 11.
+    \param Tocantins(TO)            29.01.022783-6 - 11 dígitos, 29 fixo, 3º e 4º em [01,02,03,99], módulo 11.
+    """
+    uf = uf.upper()
+    if uf not in ufs:
+        return (False, '', ('UF `' + uf + '´não encontrada. Deveria ser uma entre: ' + ', '.join(ufs)[::-1].replace(',', 'uo ', 1)[::-1],), ie)
+    if not ie or ie == '':
+        return (False, '', ('Inscrição Estadual não informada.', ), ie)
+    if ie == 'ISENTO':
+        return (True, 'ISENTO', '', ie)
+    digitos_ie = somente_digitos(ie)
+    if not int(digitos_ie):
+        return (False, '', ('Inscrição Estadual inválida por não conter dígitos.', ), ie)
+    avisos = []
+    if uf == 'TO' and len(digitos_ie) == 11:
+        if digitos_ie[2:4] not in ('01', '02', '03', '99'):
+            return (False, '', ('Inscrição Estadual inválida por não conter 01, 02, 03 ou 99 nos 3º e 4º dígitos.', ), ie)
+        digitos_ie = digitos_ie[:2] + digitos_ie[4:]
+    if len(str(ie)) > len(digitos_ie):
+        if len(str(ie)) == digitos[uf] + len(formatacao[uf]):
+            divergencias = ''
+            for caracter, posicao in formatacao[uf]:
+                if ie[posicao] != caracter:
+                    divergencias += 'esperado ' + caracter + ' e encontrado ' + ie[posicao] + ' na posição ' + str(posicao) + '; '
+            if divergencias != '':
+                avisos += ['IE mal formatada: ' + divergencias[:-2] + '.']
+        else:
+            avisos += ['IE mal formatado: esperado tamanho de ' + str(digitos[uf] + len(formatacao[uf])) + ' caracteres para ' + uf + ', mas encontrado ' + str(len(str(ie))) + '.']
+    if len(digitos_ie) > digitos[uf]:
+        avisos += ['IE com muitos dígitos: esperado ' + str(digitos[uf]) + ' dígitos e encontrado ' + str(len(digitos_ie)) + '.']
+        return (False, '', avisos, digitos_ie)
+    if len(digitos_ie) < digitos[uf] - (uf == 'RN'): # RN pode aceitar 9 dígitos
+        if ie[0] != 'P':
+            avisos += ['IE com poucos dígitos: esperado ' + str(digitos[uf]) + ' digitos e encontrado ' + str(len(digitos_ie)) + ', completando com zeros à esquerda.']
+            digitos_ie = ('0' * digitos[uf] + digitos_ie)[-digitos[uf]:]
+    if fixo_inicial[uf]:
+        if digitos_ie[:len(fixo_inicial[uf][0])] not in fixo_inicial[uf]:
+            esperado = ', '.join(fixo_inicial[uf])[::-1].replace(',', 'uo ', 1)[::-1]
+            avisos += ['Dígitos iniciais não conferem para ' + uf + ': econtrado ' + digitos_ie[:len(fixo_inicial[uf][0])] + ', mas esperado ' + esperado + '.']
+    if uf in ('AC', 'DF', 'PE'):
+        dv1 = modulo_11(digitos_ie[:-2])
+        dv2 = modulo_11(digitos_ie[:-2] + dv1)
+        ie_esperada = digitos_ie[:-2] + dv1 + dv2
+    elif uf in ('AL', 'AM', 'CE', 'ES', 'GO', 'MA', 'MT', 'MS', 'PA', 'PB', 'PI', 'RN', 'RO', 'SC', 'SE', 'TO', 'RS'):
+        dv = modulo_11(digitos_ie[:-1])
+        ie_esperada = digitos_ie[:-1] + dv
+    elif uf == 'AP':
+        if int(digitos_ie[:-1]) <= '03017000':
+            dv = modulo_11(digitos_ie[:8], soma = 5)
+        elif int(digitos_ie[:-1]) <= '03019022':
+            dv = modulo_11(digitos_ie[:-1], soma = 9, resto = ('0', '1'))
+        else:
+            dv = modulo_11(digitos_ie[:-1])
+        dv = '2'
+        ie_esperada = digitos_ie[:-1] + dv
+    elif uf == 'BA':
+        if digitos_ie[1] in ('0', '1', '2', '3', '4', '5', '8'):
+            dv2 = modulo_11(digitos_ie[:-2], modulo = 10)
+            dv1 = modulo_11(digitos_ie[:-2] + dv2, modulo = 10)
+        else:
+            dv2 = modulo_11(digitos_ie[:-2])
+            dv1 = modulo_11(digitos_ie[:-2] + dv2)
+        ie_esperada = digitos_ie[:-2] + dv1 + dv2
+    elif uf == 'PR':
+        dv1 = modulo_11(digitos_ie[:-2], max = 7)
+        dv2 = modulo_11(digitos_ie[:-2] + dv1, max = 7)
+        ie_esperada = digitos_ie[:-2] + dv1 + dv2
+    elif uf == 'RJ':
+        dv = modulo_11(digitos_ie[:-1], max = 7)
+        ie_esperada = digitos_ie[:-1] + dv
+    elif uf == 'RR':
+        dv = DV_RR(digitos_ie[:-1])
+        ie_esperada = digitos_ie[:-1] + dv
+    elif uf == 'SP':
+        dv1 = modulo_11(digitos_ie[:8], pesos = [1, 3, 4, 5, 6, 7, 8, 10][::-1], complemento = False)
+        dv2 = modulo_11(digitos_ie[:8] + dv1 + digitos_ie[9:11], max = 10, complemento = False)
+        ie_esperada = digitos_ie[:8] + dv1 + digitos_ie[9:11] + dv2
+    elif uf == 'MG':
+        if ie[0] == 'P':
+            ie_esperada = 'PR' + digitos_ie
+        else:
+            dv1 = DV1_MG(digitos_ie[:-2])
+            dv2 = modulo_11(digitos_ie[:-2] + dv1, max = 11)
+            ie_esperada = digitos_ie[:-2] + dv1 + dv2
+    else:
+        ie_esperada = ''
+    verificado = (ie_esperada[:2] == 'PR' or ie_esperada == digitos_ie)
+    if not verificado:
+        avisos += ['IE inválida: dígitos verificadores não conferem. (' + formatar_ie(ie_esperada, uf) + ')']
+    return (verificado, ie_esperada, tuple(avisos), digitos_ie)
+
+    '''
+    dv1 = modulo_11(digitos_cnpj[:12])
+    dv2 = modulo_11(digitos_cnpj[:12] + dv1)
+    cnpj_esperado = digitos_cnpj[:12] + dv1 + dv2
+    verificado = (cnpj_esperado == digitos_cnpj)
+    if not verificado:
+        avisos += ' CNPJ inválido: dígitos verificadores não conferem'
+    return (verificado, cnpj_esperado, avisos[1:], digitos_cnpj)
+    '''
+
+def formatar_ie(ie, uf):
+    """\brief Formata a Inscrição Estadual informada.
+    
+    Considerando apenas os dígitos, colocar um ponto após o 2º dígito e entre cada 3 dos 6
+    dígitos seguintes, uma barra seguida dos 4 dígitos de nº de unidade,
+    um traço e os dois dígitos verificadores.
+    Também completa com zeros à se faltar e retorna dígitos extras, se
+    houver, logo após os dígitos verificadores.
+    
+    \param ie   [\c str/int]    Inscrição Estadual a formatar.
+    \param uf   [\c str/int]    Unidade Federativa a qual pertence a IE.
+    \return     [\c str]        IE formatada.
+    """
+    uf = uf.upper()
+    if uf not in ufs:
+        return ''
+    digitos_ie = somente_digitos(ie)
+    digitos_ie = ('0' * digitos[uf] + digitos_ie)[-digitos[uf]:]
+    formatado = ''
+    posicao_anterior = 0
+    contador = 0
+    for caracter, posicao_atual in formatacao[uf]:
+        formatado += digitos_ie[posicao_anterior:posicao_atual - contador] + caracter
+        posicao_anterior = posicao_atual - contador
+        contador += 1
+    formatado += digitos_ie[posicao_anterior:]
+    return formatado
+
+def validar_rg(rg, uf):
+    """\brief Para fazer.
+    """
+    pass
+
+def formatar_rg(rg, uf):
+    """\brief Para fazer.
+    """
+    pass
+    
+def enviar_email(servidor, remetente, senha, destinatarios, assunto = None, texto = None, html_ou_arquivo_html = None, nome_da_maquina_local = None, confirmar_recebimento = True, arquivos_anexos = None):
+
+    print "Enviando e-mail para", destinatarios, "..."
+    sys.stdout.flush()
+
+    # /usr/share/mime-info/gnome-vfs.mime
+    #mimetypes.init(mimetypes.knownfiles)
+    #for anexo in arquivos_anexos:
+    #    tipo = mimetypes.guess_type(anexo)
+    #    print "Anexando:", anexo, " - ", tipo[0]
+    #exit(0)
+
+
+    # Conectar ao servidor SMTP
+    #print 'Conecatando...'
+    conexao = smtplib.SMTP(servidor)
+    if not nome_da_maquina_local:
+        nome_da_maquina_local = 'nome.maquina.local.com.br'
+    # Autenticar no servidor SMTP
+    if not senha or senha.strip() == '':
+        #print 'Autenticando não requerida...'
+        pass
+    else:
+        #print 'Autenticando...'
+        remetente_autenticacao = re.sub(r'.*<(.*)>', r'\1', remetente)
+        conexao.login(remetente_autenticacao, senha)
+    # Coloca um texto e html básicos caso não seja especificado o texto e nem o html
+    if not texto and not html_ou_arquivo_html:
+        texto = 'Corpo da mensagem não especificado.'
+        html = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="pt-br">
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <meta content="Junior Polegato, Claudio" name="author" />
+        <title>Enviando e-mail utilizando Python</title>
+    </head>
+    <body>
+        <h1>Corpo da mensagem não especificado.</h1>
+    </body>
+</html>
+'''
+    elif texto:
+        html = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="pt-br">
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <meta content="Junior Polegato, Claudio" name="author" />
+        <title>Enviando e-mail utilizando Python</title>
+    </head>
+    <body>
+        ''' + texto.replace('\r', '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br/>\n').replace('  ', '&nbsp; ') + '''
+    </body>
+</html>
+'''
+    else:
+        if html_ou_arquivo_html[0] != '<':
+            arquivo_html = open(html_ou_arquivo_html)
+            html = arquivo_html.read()
+            arquivo_html.close()
+        else:
+            html = html_ou_arquivo_html
+        # Extrair o corpo da mensagem html
+        texto = re.sub(r'.*<body>(.*)</body>.*', r'\1', html.replace('\n', ''))
+        # Trocar negrito no modo html por * no modo texto
+        texto = re.sub(r'<b>|</b>', r'*', texto)
+        # Trocar itálico no modo html por / no modo texto
+        texto = re.sub(r'<i>|</i>', r'/', texto)
+        # Trocar sublinhado no modo html por _ no modo texto
+        texto = re.sub(r'<u>|</u>', r'_', texto)
+        # Identificar quebras de linha no html e colocar no modo texto
+        texto = re.sub(r'<br>|<br.*/>|<p>|</p>|<h.>|</h.>', r'\n', texto)
+        # Ignorar as marcações html
+        texto = re.sub(r'<[^>]*>', r'', texto)
+        # Substituir vários espaços e tabulações juntos por um espaço só
+        re.sub(r'[ \t][ \t]*', r' ', texto)
+        # Eliminar o espaço residual depois de uma quebra de linha
+        texto = texto.replace('\n ', '\n')
+        # Eliminar o espaço residual antes de uma quebra de linha
+        texto = texto.replace(' \n', '\n')
+        # Trocar o &nbsp; por espaço, &gt; por >, &lt; por <, &quote; por ", &#39; por ' e &amp; por &
+        texto = texto.replace('&nbsp;', ' ').replace('&gt;', '>').replace('&lt;', '<').replace('&quote;', '"').replace('&#39;', "'").replace('&amp;', '&')
+    # Fuso horário no formato RFC 822
+    fuso = datetime.datetime.now() - datetime.datetime.utcnow()
+    fuso = int(fuso.days * 24 * 60 + (fuso.seconds + fuso.microseconds/1000000.)/60.)
+    fuso = ('%+03d%02d') % (fuso/60, fuso%60)
+    locale.setlocale(locale.LC_ALL, 'C')
+    data = 'Date: ' + datetime.datetime.now().strftime('%a, %d %b %Y %H:%M:%S ') + fuso + '\r\n'
+    locale.setlocale(locale.LC_ALL, '')
+    if not confirmar_recebimento:
+        confirmacao = ''
+    elif confirmar_recebimento == True:
+        confirmacao = 'Disposition-Notification-To: ' + remetente + '\r\n'
+    else:
+        confirmacao = 'Disposition-Notification-To: ' + confirmar_recebimento + '\r\n'
+    # Compor a mensagem com o cabeçalho, texto, html e arquivos em anexo
+    cabecalho = (confirmacao + 
+                 data +
+                 'From: ' + remetente + '\r\n'
+                 'User-Agent: EnvMail - Junior Polegato - v0.2 - Python\r\n'
+                 'MIME-Version: 1.0\r\n'
+                 'To: ' + ',\r\n    '.join(destinatarios) + '\r\n'
+                 'Subject: ' + assunto + '\r\n'
+                 'Content-Type: multipart/mixed;\r\n'
+                 '    boundary="SnVuaW9yIFBvbGVnYXRvIG14"\r\n'
+                 '\r\n'
+                )
+    texto_html = ('This is a multi-part message in MIME format.\r\n'
+                  '--SnVuaW9yIFBvbGVnYXRvIG14\r\n'
+                  'Content-Type: multipart/alternative;\r\n'
+                  '    boundary="SnVuaW9yIFBvbGVnYXRv"\r\n'
+                  '\r\n'
+                  '--SnVuaW9yIFBvbGVnYXRv\r\n'
+                  'Content-Type: text/plain; charset=UTF-8; format=flowed\r\n'
+                  'Content-Transfer-Encoding: 8bit\r\n'
+                  '\r\n'
+                  + texto + '\r\n'
+                  '\r\n'
+                  '--SnVuaW9yIFBvbGVnYXRv\r\n'
+                  'Content-Type: text/html; charset=UTF-8\r\n'
+                  'Content-Transfer-Encoding: 7bit\r\n'
+                  '\r\n'
+                  + html + '\r\n'
+                  '\r\n'
+                  '--SnVuaW9yIFBvbGVnYXRv--\r\n'
+                  '\r\n'
+                )
+    # Aqui vem os anexos em base64
+    mimetypes.init()
+    if arquivos_anexos:
+        anexos = []
+        for anexo in arquivos_anexos:
+            arquivo = open(anexo)
+            conteudo = arquivo.read()
+            arquivo.close()
+            tipo = mimetypes.guess_type(anexo)
+            if not tipo[0]:
+                tipo = ('application/binary', None)
+            #print "Anexando:", anexo, " - ", tipo[0]
+            #print conteudo
+            #print base64.encodestring(conteudo)
+            anexos += ['--SnVuaW9yIFBvbGVnYXRvIG14\r\n'
+                       'Content-Type: ' + tipo[0] + ';\r\n'
+                       '    name="' + re.sub(r'.*/', r'', anexo) + '"\r\n'
+                       'Content-Transfer-Encoding: base64\r\n'
+                       '\r\n'
+                       + base64.encodestring(conteudo)
+                    ]
+        anexos = '\r\n'.join(anexos) + '--SnVuaW9yIFBvbGVnYXRvIG14--\r\n'
+    else:
+        anexos = '--SnVuaW9yIFBvbGVnYXRvIG14--\r\n'
+
+    # Enviar a mensagem
+    #print 'Enviando...'
+    conexao.sendmail(remetente, destinatarios, cabecalho + texto_html + anexos)
+    # Terminar a conexão
+    #print 'Terminando...'
+    conexao.quit()
+
+def varrer_mg():
+    print '\n\n\n\n\n\n-------------------------------------------------------------------\n\n\n'
+    import cx_Oracle as oracle
+    conexao = oracle.connect('usuario/senha@banco')
+    cursor = conexao.cursor()
+    UF = 'MG'
+    cursor.execute("select cod_entidade, razao_social, cnpj, inscr_estadual from entidade where pessoa = 'J' and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCNPJ - Jurídica\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cnpj(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    print '\n\nIE - Jurídica\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_ie(entidade[3], UF)
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[3]))) + str(entidade[3]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, cpf, rg from entidade where pessoa = 'F' and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCPF - Física\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cpf(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, cpf from entidade where pessoa = 'P' and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCPF - Produtor\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cpf(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, cnpj from entidade where pessoa = 'P' and (cnpj is not null or cnpj <> '' or cpf is null or cpf = '') and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCNPJ - Produtor\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cnpj(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, inscr_estadual from entidade where pessoa = 'P' and (inscr_estadual is not null or rg is null) and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nIE - Produtor\n'
+    erros = 0
+    for entidade in entidades:
+        avisos = ''
+        if entidade[2][:2] != 'PR':
+            avisos = 'Deve iniciar com PR. '
+        digitos = somente_digitos(entidade[2])
+        if len(digitos) != 7:
+            if len(digitos) != 13:
+                avisos += 'Deve ter 7 dígitos no formato PR123/1234.'
+            else:
+                resultado = validar_ie(entidade[2], UF)
+                if not resultado[0]:
+                    erros += 1
+                    print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+                continue
+        else:
+            pass
+            #cursor.execute("update entidade set inscr_estadual = 'PR" + digitos[:3] + '/' + digitos[3:] + "' where cod_entidade = " + str(entidade[0]))
+            #cursor.execute("commit")
+        if avisos != '':
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1] + ' => ' + avisos
+
+    cursor.execute("select cod_entidade, razao_social, rg from entidade where pessoa = 'P' and inscr_estadual is null and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nIE - Produtor encontrada no RG, colocar no lugar correto\n'
+    erros = 0
+    for entidade in entidades:
+        avisos = ''
+        if entidade[2][:2] != 'PR':
+            avisos = 'Deve iniciar com PR. '
+        if len(somente_digitos(entidade[2])) == 7:
+            pass
+        else:
+            avisos += 'Deve ter 7 dígitos no formato PR123/1234.'
+        if avisos != '':
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1] + ' => ' + avisos
+
+def varrer_sp():
+    print '\n\n\n\n\n\n-------------------------------------------------------------------\n\n\n'
+    import cx_Oracle as oracle
+    conexao = oracle.connect('usuario/senha@banco')
+    cursor = conexao.cursor()
+    UF = 'SP'
+    '''
+    cursor.execute("select cod_entidade, razao_social, cnpj, inscr_estadual from entidade where pessoa = 'J' and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCNPJ - Jurídica\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cnpj(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    print '\n\nIE - Jurídica\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_ie(entidade[3], UF)
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[3]))) + str(entidade[3]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, cpf, rg from entidade where pessoa = 'F' and razao_social is not null and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCPF - Física\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cpf(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, cpf from entidade where pessoa = 'P' and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCPF - Produtor\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cpf(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, cnpj from entidade where pessoa = 'P' and (cnpj is not null or cnpj <> '' or cpf is null or cpf = '') and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nCNPJ - Produtor\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_cnpj(entidade[2])
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+    '''
+    cursor.execute("select cod_entidade, razao_social, inscr_estadual from entidade where pessoa = 'P' and (inscr_estadual is not null or rg is null) and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nIE - Produtor - Deve ser IE normal\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_ie(entidade[2], UF)
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[2]))) + str(entidade[2]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+    cursor.execute("select cod_entidade, razao_social, rg from entidade where pessoa = 'P' and inscr_estadual is null and substr(regiao, 1, 2) = '" + UF + "'")
+    entidades = cursor.fetchall()
+    print '\n\nIE - Produtor encontrada no RG, colocar no lugar correto - Deve ser IE normal\n'
+    erros = 0
+    for entidade in entidades:
+        resultado = validar_ie(entidade[3], UF)
+        if not resultado[0]:
+            erros += 1
+            print formatar_inteiro(erros, tamanho = 4) + ': ' + ' ' * (18 - len(str(entidade[3]))) + str(entidade[3]) + ' - ' + formatar_inteiro(entidade[0], tamanho = 5) + ' - ' + entidade[1]
+
+# Converting and formating numbers e boolean values
+CURRENCY = -1
+BOOL_STRINGS = (('True', 'Yes', 'Y', _('True'), _('Yes'), _('Y'), '1'), ('False', 'No', 'N', _('False'), _('No'), _('N'), '0'))
+DATE = 0
+TIME = 1
+DATE_TIME = 2
+MONTH = 3
+HOURS = 4
+DAYS_HOURS = 5
+TIME_FORMAT = locale.nl_langinfo(locale.T_FMT)
+DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', locale.nl_langinfo(locale.D_FMT))
+
+def strftime(date, format):
+    if type(date) != datetime.time and date.year < 1900:
+        year = date.year
+        date = date.replace(year = 9999)
+        formated = date.strftime(format)
+        if '9999' in formated:
+            return formated.replace('9999', '%04i' % year)
+        return formated.replace('99', '%02i' % (year % 100))
+    return date.strftime(format)
+
+def convert_and_format(content, return_type, decimals = locale.localeconv()['frac_digits'], bool_formated = (_('True'), _('False')), bool_strings = BOOL_STRINGS):
+    _("""Convert content into return_type and format it, returning a tuple
+       within converted value (return_type) and fomated value (string).
+       This function just accept int, bool, float and str in content and return_type.
+       content is the content to be converted and formated.
+       return_type is the type to convert content.
+       decimals is valid just for float return type, specifying fracts digits or, if negative, currency formatation.
+       bool_formated is valid just to bool return type, specifying a tuple with 2 strings, 'False' and 'True' by default.
+    """)
+
+    # Verifying type of content
+    if content == None:
+        content = ""
+    elif type(content) not in (int, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
+        raise TypeError, _('Invalid argument "content" of type `%s´. Expected int, bool, float, str, date, time or datetime.') % (type(content).__name__,)
+
+    # Verifying type of return_type
+    if type(return_type) != type and return_type not in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
+        raise TypeError, _('Invalid argument "return_type" like a value. Expected int, bool, float, str, date, time or datetime.')
+
+    # Verifying type of return_type
+    if return_type not in (int, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
+        raise TypeError, _('Invalid argument "return_type" of type `%s´. Expected int, bool, float, str, date, time or datetime.') % (str(return_type).split("'")[1],)
+
+    # Verifying type of decimals
+    if return_type in (float, datetime.date, datetime.time, datetime.datetime, datetime.timedelta) and type(decimals) != int:
+        raise TypeError, _('Invalid argument "decimals" of type `%s´. Expected int.') % (type(decimals).__name__,)
+
+    # Verifying bool formated strings
+    if return_type == bool:
+        if type(bool_formated) not in (tuple, list):
+            raise TypeError, _('Invalid argument "bool_formated" of type `%s´. Expected tuple or list.') % (type(bool_formated).__name__,)
+        if len(bool_formated) != 2 or type(bool_formated[0]) not in (str, unicode) or type(bool_formated[1]) not in (str, unicode):
+            raise ValueError, _('Invalid argument "bool_formated" specification `%s´. Expected a tuple or list within 2 strings.') % (repr(bool_formated),)
+        if type(bool_strings) not in (tuple, list):
+            raise TypeError, _('Invalid argument "bool_strings" of type `%s´. Expected tuple or list.') % (type(bool_strings).__name__,)
+        if len(bool_strings) != 2 or type(bool_strings[0]) not in (tuple, list) or type(bool_strings[1]) not in (tuple, list):
+            raise ValueError, _('Invalid argument "bool_strings" specification `%s´. Expected a tuple or list within 2 tuples or lists.') % (repr(bool_strings),)
+        if len(bool_strings) != 2 or type(bool_strings[0]) not in (tuple, list) or type(bool_strings[1]) not in (tuple, list):
+            raise ValueError, _('Invalid argument "bool_strings" specification `%s´. Expected a tuple or list within 2 tuples or lists.') % (repr(bool_strings),)
+        if [s for s in bool_strings[0] + bool_strings[1] if type(s) != str]:
+            raise ValueError, _('Invalid argument "bool_strings" specification `%s´. Expected a tuple or list within 2 tuples or lists of strings.') % (repr(bool_strings),)
+
+    # Converting date and/or time content
+    if type(content) in (datetime.datetime, datetime.date, datetime.time):
+        if return_type == bool:
+            raise TypeError, _('Invalid return_type of type `bool´ when datetime content was specified.')
+        if return_type == datetime.date and type(content) == datetime.time:
+            raise TypeError, _('Invalid return_type of type `date´ when `time´ content was specified.')
+        if return_type == datetime.time and type(content) == datetime.date:
+            raise TypeError, _('Invalid return_type of type `time´ when `date´ content was specified.')
+        if return_type not in (int, float, datetime.timedelta):
+            if return_type in (datetime.datetime, datetime.date) and decimals == MONTH:
+                value = return_type(content.year, content.month, 1)
+                if DATE_FORMAT[1] == 'Y':
+                    formated = strftime(value, '%Y/%m')
+                else:
+                    formated = strftime(value, '%m/%Y')
+            elif return_type == datetime.date or return_type == datetime.datetime and decimals == DATE:
+                value = return_type(content.year, content.month, content.day)
+                formated = strftime(value, DATE_FORMAT)
+            elif return_type == datetime.time or return_type == datetime.datetime and decimals == TIME:
+                if return_type == datetime.time:
+                    value = datetime.time(content.hour, content.minute, content.second, content.microsecond)
+                else:
+                    value = datetime.datetime(1900, 1, 1, content.hour, content.minute, content.second, content.microsecond)
+                formated = strftime(value, TIME_FORMAT)
+            elif decimals in (HOURS, DAYS_HOURS):
+                if return_type == datetime.time:
+                    value = datetime.time(content.hour, content.minute, content.second, content.microsecond)
+                elif type(content) == datetime.time:
+                    value = datetime.datetime(1900, 1, 1, content.hour, content.minute, content.second, content.microsecond)
+                else:
+                    value = content
+                if type(content) == datetime.time:
+                    content = datetime.timedelta(hours = content.hour, minutes = content.minute, seconds = content.second, microseconds = content.microsecond)
+                else:
+                    content -= datetime.datetime(1900, 1, 1)
+                formated = convert_and_format(content, datetime.timedelta, decimals)[1]
+            else:
+                if type(content) == datetime.time:
+                    value = datetime.datetime(1900, 1, 1, content.hour, content.minute, content.second, content.microsecond)
+                elif type(content) == datetime.date:
+                    value = datetime.datetime(content.year, content.month, content.day)
+                else:
+                    value = content
+                formated = strftime(value, DATE_FORMAT + ' ' + TIME_FORMAT)
+            if return_type == str:
+                return (formated, formated)
+            return [value, formated]
+        if type(content) == datetime.date:
+            delta = datetime.datetime(content.year, content.month, content.day) - datetime.datetime(1900, 1, 1)
+        elif type(content) == datetime.time:
+            delta = datetime.datetime(1900, 1, 1, content.hour, content.minute, content.second, content.microsecond) - datetime.datetime(1900, 1, 1)
+        else:
+            delta = content - datetime.datetime(1900, 1, 1)
+        if return_type == datetime.timedelta:
+            content = delta
+        elif return_type == int:
+            content = delta.days
+        else:
+            content = delta.days + (delta.seconds + delta.microseconds / 1000000.)/(24*60*60)
+
+    # Formating date and/or time outputs
+    if return_type in (datetime.datetime, datetime.date, datetime.time):
+        first = DATE_FORMAT[1]
+        if type(content) == str: # vide locale format with locale.nl_langinfo(locale.D_FMT)
+            now = datetime.datetime.now()
+            if ' ' in content:
+                date, hour = content.split(' ', 1)
+            elif return_type == datetime.time or return_type == datetime.datetime and decimals == 1:
+                hour = content
+                date = ''
+            else:
+                date = content
+                hour = ''
+            date = filter(lambda c: c.isdigit() or c == '/', re.sub('[^0-9]', '/', date))
+            hour = filter(lambda c: c.isdigit() or c == ':', re.sub('[^0-9]', ':', hour))
+            year, mon, day = (1900, 1, 1)
+            if date.isdigit():
+                if decimals == 3:
+                    if first == 'Y':
+                        date = date[:6]
+                        day = 1
+                        mon = int(date[-2:])
+                        if len(date) > 2:
+                            year = date[:-2]
+                        else:
+                            year = now.year
+                    else:
+                        date = date[:6]
+                        day = 1
+                        mon = int(date[:2])
+                        if len(date) > 2:
+                            year = date[2:]
+                        else:
+                            year = now.year
+                else:
+                    if first == 'Y':
+                        if len(date) > 4:
+                            year = date[:-4]
+                        else:
+                            year = now.year
+                        if len(date) > 2:
+                            mon = int(date[-4:-2])
+                        else:
+                            mon = now.month
+                        day = int(date[-2:])
+                    else:
+                        day = int(date[:2])
+                        if len(date) > 2:
+                            mon = int(date[2:4])
+                            if len(date) > 4:
+                                year = date[4:8]
+                            else:
+                                year = now.year
+                        else:
+                            mon = now.month
+                            year = now.year
+                        if first == 'm':
+                            x = day
+                            day = mon
+                            mon = x
+            elif len(date) > 0:
+                date = date.split('/')
+                if decimals == 3:
+                    day = 1
+                    if first == 'Y':
+                        year = date[0]
+                        mon = int(date[1])
+                    else:
+                        mon = int(date[0])
+                        year = date[1]
+                else:
+                    if first == 'Y':
+                        mon = int(date[0])
+                        day = int(date[1])
+                        if len(date) == 2:
+                            year = now.year
+                        else:
+                            year = date[3]
+                    else:
+                        if first == 'm':
+                            mon = int(date[0])
+                            day = int(date[1])
+                        else:
+                            day = int(date[0])
+                            mon = int(date[1])
+                        if len(date) < 3:
+                            year = now.year
+                        else:
+                            year = date[2]
+            if type(year) == str:
+                if len(year) < 4:
+                    year = int(year)
+                    if year < 100:
+                        year += now.year / 100 * 100
+                    else:
+                        year += now.year / 1000 * 1000
+                else:
+                    year = int(year)
+            if day > 31:
+                day = 31
+            elif day == 0:
+                day = 1
+            if mon > 12:
+                mon = 12
+            elif mon == 0:
+                mon = 1
+            h = m = s = 0
+            if hour.isdigit():
+                h = int(hour[:2])
+                if len(hour) > 2:
+                    m = int(hour[2:4])
+                    if len(hour) > 4:
+                        s = int(hour[4:6])
+            elif len(hour) > 0:
+                hour = hour.split(':')
+                h = int(hour[0])
+                m = int(hour[1])
+                if len(hour) > 2:
+                    s = int(hour[2])
+            try:
+                date = datetime.date(year, mon, day)
+            except ValueError:
+                try:
+                    date = datetime.date(year, mon, day - 1)
+                except ValueError:
+                    try:
+                        date = datetime.date(year, mon, day - 2)
+                    except ValueError:
+                        date = datetime.date(year, mon, day - 3)
+            date = datetime.datetime(date.year, date.month, date.day, h, m ,s)
+            #delta = date - datetime.datetime(1900, 1, 1)
+            if decimals == MONTH and return_type in (datetime.datetime, datetime.date):
+                if return_type == datetime.date:
+                    date = date.date()
+                if first == 'Y':
+                    return [date, strftime(date, '%Y/%m')] # was delta.days
+                return [date, strftime(date, '%m/%Y')] # was delta.days
+            if return_type == datetime.date or return_type == datetime.datetime and decimals == 0:
+                if return_type == datetime.date:
+                    date = date.date()
+                return [date, strftime(date, DATE_FORMAT)] # was delta.days
+            #value = delta.days + (delta.seconds + delta.microseconds / 1000000.)/(24*60*60)
+            if return_type == datetime.time or return_type == datetime.datetime and decimals == 1:
+                if return_type == datetime.time:
+                    date = date.time()
+                return [date, strftime(date, TIME_FORMAT)] # was value - int(value)
+            #if return_type == datetime.datetime:
+            return [date, strftime(date, DATE_FORMAT + ' ' + TIME_FORMAT)] # was value
+        elif type(content) in (int, float, datetime.timedelta):
+            if type(content) == datetime.timedelta:
+                date = datetime.datetime(1900, 1, 1) + content
+            else:
+                d = int(content)
+                s = int((content-d)*24*60*60)
+                u = int(((content-d)*24*60*60-s)*1000000)
+                date = datetime.datetime(1900, 1, 1) + datetime.timedelta(d, s, u)
+            h = date.hour
+            m = date.minute
+            s = date.second
+            if decimals == MONTH and return_type in (datetime.datetime, datetime.date):
+                if return_type == datetime.date:
+                    date = date.date()
+                if first == 'Y':
+                    return [date, strftime(date, '%Y/%m')]
+                return (date, strftime(date, '%m/%Y'))
+            if return_type == datetime.date or return_type == datetime.datetime and decimals == DATE:
+                if return_type == datetime.date:
+                    date = date.date()
+                return [date, strftime(date, DATE_FORMAT)]
+            if return_type == datetime.time or return_type == datetime.datetime and decimals == TIME:
+                if return_type == datetime.time:
+                    date = date.time()
+                return [date, strftime(date, TIME_FORMAT)]
+            #if return_type == datetime.datetime:
+            return [date, strftime(date, DATE_FORMAT + ' ' + TIME_FORMAT)]
+        raise TypeError('Content type `' + str(type(content)).split("'")[1] + '´ can\'t be converted to datetime, date or time.')
+
+    # Converting numeric content
+    if type(content) in (int, bool, float):
+        if return_type == int:
+            value = int(round(content))
+        else:
+            value = return_type(content)
+    # Converting str content with locale support
+    else:
+        if return_type == float:
+            value = locale.atof(content)
+        elif return_type == int:
+            value = int(round(locale.atof(content)))
+        elif return_type == bool:
+            bs_up = [[i.upper() for i in bool_strings[0]], [i.upper() for i in bool_strings[1]]]
+            if content.upper() in bs_up[0] + bs_up[1]:
+                value = (content.upper() in bs_up[0])
+                return [value, content]
+            else:
+                value = bool(locale.atof(content))
+        else:
+            value = content
+    # Formating with locale support
+    if return_type == datetime.timedelta:
+        days = value.days + (value.days < 0)
+        seconds = value.seconds * (1, -1)[value.days < 0]
+        hours = seconds / 3600
+        minutes = (seconds - hours * 3600) / 60
+        seconds -= hours * 3600 + minutes * 60
+        if decimals == HOURS:
+            formated = '%02i:%02i:%02i' % (days * 24 + hours, minutes, seconds)
+        else:
+            formated = '%i %02i:%02i:%02i' % (days, hours, minutes, seconds)
+    elif return_type == float:
+        if decimals < 0:
+            formated = locale.currency(value, True, True)
+        else:
+            formated = locale.format('%.' + str(decimals) + 'f', value, True, True)
+    elif return_type == int:
+        formated = locale.format('%i', value, True, True)
+    elif return_type == bool:
+        formated = bool_formated[1 - value]
+    else:
+        formated = value
+    return [value, formated]
+cf = convert_and_format
+VALUE = 0
+STRING = 1
+
+
+def last_day(date):
+    date = convert_and_format(date, datetime.date)[0]
+    if date.month in (1, 3, 5, 7, 8, 10, 12):
+        date = date.replace(day = 31)
+    elif date.month in (4, 6, 9, 11):
+        date = date.replace(day = 30)
+    else:
+        try:
+            date = date.replace(day = 29)
+        except ValueError:
+            date = date.replace(day = 28)
+    return date
+
+def get_printers():
+    printers = []
+    if sys.platform == 'cli':
+        PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % sys.platform))
+    else:
+        import os
+        import subprocess
+        # chose an implementation, depending on os
+        if os.name == 'posix':
+            printers = [line.split()[0] for line in subprocess.Popen("lpstat -a", shell = True, bufsize = 1024, stdout = subprocess.PIPE).stdout.read().strip().split('\n')]
+            try:
+                default =  subprocess.Popen("lpstat -d", shell = True, bufsize = 1024, stdout = subprocess.PIPE).stdout.read().strip().split()[-1]
+                printers.remove(default)
+                printers.insert(0, default)
+            except:
+                pass
+        elif os.name == 'nt': #sys.platform == 'win32':
+            PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
+        elif os.name == 'java':
+            PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
+        else:
+            PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
+    return printers
+
+def print_file(printer, file, title = None, server = 'localhost', raw = False):
+    if title is None:
+        title = file.rsplit('/', 1)[-1]
+    return print_str(printer, open(file).read(), title, server, raw)
+
+def print_str(printer, string, title = None, server = 'localhost', raw = True):
+    if sys.platform == 'cli':
+        PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % sys.platform))
+    else:
+        import os
+        import subprocess
+        if title is None:
+            title = 'Desconhecido'
+        # chose an implementation, depending on os
+        if os.name == 'posix':
+            process = subprocess.Popen("lp -h '%s' -d '%s' -t '%s'%s" % (server, printer, title, ('',' -o raw')[raw]), shell = True, bufsize = 1024, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+            process.stdin.write(string)
+            process.stdin.close()
+            return (process.stdout.read(), process.stderr.read())
+        elif os.name == 'nt': #sys.platform == 'win32':
+            PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
+        elif os.name == 'java':
+            PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
+        else:
+            PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
+    return None
+
+if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        enviar_email('smtp.okubomercantil.com.br',
+                     'NF-e Okubo Mercantil<nfe@okubomercantil.com.br>',
+                     'oknfe1465',
+                     #('Claudio - Okubo Mercantil <claudio@okubomercantil.com.br>', 'Ju <junior@juniorpolegato.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>', 'Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>'),
+                     ('Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>'),
+                     'NFe\'s da Okubo Mercantil de ' + sys.argv[1].replace('_', '/'),
+                     'Bom dia!\n\n         Segue em anexo as NFe\'s da Okubo Mercantil em XML do dia ' + sys.argv[1].replace('_', '/') + ' comprimidas em arquivo ZIP.\n\n\nObrigado,\n\n         Gerência de Tecnologia da Informação\n         Okubo Mercantil\n         www.okubomercantil.com.br\n         (16)3514-9966',
+                     arquivos_anexos = ('/tmp/nfe_okubo_mercantil_' + sys.argv[1] + '.zip',)
+                    )
+        enviar_email('smtp.okubomercantil.com.br',
+                     'NF-e Okubo Mercantil<nfe@okubomercantil.com.br>',
+                     'oknfe1465',
+                     #('Claudio - Okubo Mercantil <claudio@okubomercantil.com.br>', 'Ju <junior@juniorpolegato.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>', 'Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>'),
+                     ('Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>', 'Fernanda - Jupiter Contabilidade <fernanda.atendimento@jupitercontabilidade.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>'),
+                     'DANFe\'s da Okubo Mercantil de ' + sys.argv[1].replace('_', '/'),
+                     'Bom dia!\n\n         Segue em anexo os DANFe\'s da Okubo Mercantil em PDF do dia ' + sys.argv[1].replace('_', '/') + ', comprimidos em arquivo ZIP.\n\n\nObrigado,\n\n         Gerência de Tecnologia da Informação\n         Okubo Mercantil\n         www.okubomercantil.com.br\n         (16)3514-9966',
+                     arquivos_anexos = ('/tmp/danfe_okubo_mercantil_' + sys.argv[1] + '.zip',)
+                    )
+        sys.exit(0)
+    enviar_email('smtp.okubomercantil.com.br',
+                 'NF-e Okubo Mercantil<nfe@okubomercantil.com.br>',
+                 'oknfe1465',
+                 ('Claudio - Okubo Mercantil <claudio@okubomercantil.com.br>', 'Ju <junior@juniorpolegato.com.br>'),
+                 'Teste com arquivos em anexo',
+                 'Aqui vão arquivos em anexo...\n\n\nDepois quero saber se deu certo...',
+                 arquivos_anexos = (
+                 '/home/junior/Projetos/NFe/producao/autorizadas/protocoladas/35090955965149000105550010000003992519566612-135090123988154-nfe.xml',
+                 )
+                )
+    sys.exit(0)
+    
+    
+    cpf = '275aadaf.sdfg2sdfg3d,f1dgf.hj,fg1k6kl,8kjl/jlk0ç,klçjx'
+    print 'formatar_cpf(cpf)                            :', formatar_cpf(cpf)
+    print 'validar_cpf(cpf)                             :', validar_cpf(cpf)
+    print 'validar_cpf(formatar_cpf(cpf))               :', validar_cpf(formatar_cpf(cpf))
+    print 'formatar_cpf(validar_cpf(cpf)[1])            :', formatar_cpf(validar_cpf(cpf)[1])
+    print 'validar_cnpj(55965149000103)                 :', validar_cnpj(55965149000103)
+    print 'formatar_cnpj(55965149000103)                :', formatar_cnpj(55965149000103)
+    print 'formatar_inteiro(55965149000103)             :', formatar_inteiro(55965149000103)
+    print 'formatar_inteiro(55965149000103, 100)        :', formatar_inteiro(55965149000103, 100)
+    print '100660/2342.3443                             :', 100660/2342.3443
+    print 'somente_digitos_e_decimal(100660/2342.3443)  :', somente_digitos_e_decimal(100660/2342.3443)
+    print 'somente_digitos_e_decimal(cpf)               :', somente_digitos_e_decimal(cpf)
+    print 'somente_digitos_e_decimal(1234566)           :', somente_digitos_e_decimal(1234566)
+    print 'inteiro(somente_digitos_e_decimal(1234566))  :', inteiro(somente_digitos_e_decimal(1234566))
+    print 'real(somente_digitos_e_decimal(1234566))     :', real(somente_digitos_e_decimal(1234566))
+    print 'inteiro(somente_digitos_e_decimal(2342.3443)):', inteiro(somente_digitos_e_decimal(2342.3443))
+    print 'real(somente_digitos_e_decimal(2342.3443))   :', real(somente_digitos_e_decimal(2342.3463))
+    print validar_ie('110.042.490.114', 'SP')
+    print validar_ie('MG: 062.307.904.00-81', 'MG')
+    print formatar_ie('0000000062521-3', 'RO')

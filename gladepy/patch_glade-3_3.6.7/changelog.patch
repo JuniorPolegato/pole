@@ -1,0 +1,20 @@
+diff -rNu glade-3-3.6.7-orig/debian/changelog glade-3-3.6.7/debian/changelog
+--- glade-3-3.6.7-orig/debian/changelog	2010-02-11 11:34:55.000000000 -0200
++++ glade-3-3.6.7/debian/changelog	2010-02-11 11:37:43.000000000 -0200
+@@ -1,3 +1,16 @@
++glade-3 (3.6.7-1.1) unstable; urgency=low
++
++  * Non-maintainer upload.
++  * Added a call to external program ~/bin/glade-code-generator <project> <function>:
++    - Created a new toggle column in signal-editor's treeview
++    - Created save-and-execute signal in signal-editor
++    - When clicked on toggle emit save-and-execute signal, passing function handler name
++    - Create save-and-execute function in glade-window and connected it to signal created above
++    - This function calls ~/bin/glade-code-generator <project> <function  handler name>
++    - This permits update code and cursor positioning on \nfunction by GladePy
++
++ -- Claudio Polegato Junior <linux@juniorpolegato.com.br>  Thu, 11 Feb 2010 11:36:41 -0200
++
+ glade-3 (3.6.7-1) unstable; urgency=low
+ 
+   [ Sam Morris ]

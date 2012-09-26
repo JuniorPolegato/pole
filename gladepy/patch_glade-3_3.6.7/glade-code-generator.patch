@@ -1,0 +1,146 @@
+diff -rNu glade-3-3.6.7/gladeui/glade-signal-editor.c glade-3-3.6.7-x/gladeui/glade-signal-editor.c
+--- glade-3-3.6.7/gladeui/glade-signal-editor.c	2009-04-18 14:52:04.000000000 -0300
++++ glade-3-3.6.7-x/gladeui/glade-signal-editor.c	2010-02-11 15:19:53.000000000 -0200
+@@ -54,6 +54,7 @@
+ 	HANDLER_EDITING_DONE,
+ 	USERDATA_EDITING_STARTED,
+ 	USERDATA_EDITING_DONE,
++	SAVE_AND_EXECUTE_CLICKED,
+ 	LAST_SIGNAL
+ };
+ 
+@@ -645,6 +646,24 @@
+ 		g_object_set (G_OBJECT (cell), "weight", PANGO_WEIGHT_NORMAL, NULL);
+ }
+ 
++static gboolean
++glade_signal_editor_save_and_execute_clicked (GtkCellRendererToggle *cell_renderer,
++                             gchar                 *path_str,
++                             GladeSignalEditor     *editor)
++{
++	GtkTreeModel *model = GTK_TREE_MODEL (editor->model);
++	GtkTreePath  *path = gtk_tree_path_new_from_string (path_str);
++	GtkTreeIter   iter;
++	gchar        *handler;
++	gboolean      handled = FALSE;
++
++	gtk_tree_model_get_iter (model, &iter, path);
++	gtk_tree_model_get (model, &iter, GSE_COLUMN_HANDLER, &handler, -1);
++	if (handler && g_strcmp0(handler, HANDLER_DEFAULT))
++		g_signal_emit (editor, glade_signal_editor_signals[SAVE_AND_EXECUTE_CLICKED], 0, handler, &handled);
++	return handled;
++}
++
+ static void
+ glade_signal_editor_handler_cell_data_func (GtkTreeViewColumn *tree_column,
+ 					    GtkCellRenderer *cell,
+@@ -729,6 +748,15 @@
+ 						 NULL, NULL);
+  	gtk_tree_view_append_column (view, column);
+ 
++	/*********************** execute column ************************/
++	renderer = gtk_cell_renderer_toggle_new ();
++	column = gtk_tree_view_column_new();
++	gtk_tree_view_column_pack_start(column, renderer, FALSE);
++	gtk_tree_view_column_set_title(column, _("X"));
++	gtk_tree_view_append_column (view, column);
++	g_signal_connect (renderer, "toggled",
++			G_CALLBACK (glade_signal_editor_save_and_execute_clicked), editor);
++
+ 	/************************ handler column ************************/
+  	if (!editor->handler_store)
+ 			editor->handler_store = GTK_TREE_MODEL (gtk_list_store_new (1, G_TYPE_STRING));
+@@ -1144,6 +1172,7 @@
+ 	klass->userdata_editing_done = glade_signal_editor_userdata_editing_done_impl;
+ 	klass->handler_editing_started = NULL;
+ 	klass->userdata_editing_started = NULL;
++	klass->save_and_execute_clicked = NULL;
+ 
+ 	g_object_class_install_property (object_class,
+ 	                                 PROP_HANDLER_COLUMN,
+@@ -1293,6 +1322,25 @@
+ 			      3,
+ 			      G_TYPE_STRING, GTK_TYPE_TREE_ITER,
+ 			      GTK_TYPE_CELL_EDITABLE);
++
++	/**
++	 * GladeSignalEditor::save-and-execute-clicked:
++	 * @signal_editor: the #GladeSignalEditor which received the signal.
++	 * @handler_name: the handler name of line clicked
++	 * 
++	 * Emitted when clicked on check box before function handler name.
++	 * Used to save and execute a external program.
++	 */
++	glade_signal_editor_signals[SAVE_AND_EXECUTE_CLICKED] =
++		g_signal_new ("save-and-execute-clicked",
++			      G_TYPE_FROM_CLASS (object_class),
++			      G_SIGNAL_RUN_LAST,
++			      G_STRUCT_OFFSET (GladeSignalEditorClass, save_and_execute_clicked),
++			      glade_boolean_handled_accumulator, NULL,
++			      glade_marshal_BOOLEAN__STRING,
++			      G_TYPE_BOOLEAN,
++			      1,
++			      G_TYPE_STRING);
+ }
+ 
+ /* Default implementation of completion */
+diff -rNu glade-3-3.6.7/gladeui/glade-signal-editor.h glade-3-3.6.7-x/gladeui/glade-signal-editor.h
+--- glade-3-3.6.7/gladeui/glade-signal-editor.h	2009-04-18 14:52:04.000000000 -0300
++++ glade-3-3.6.7-x/gladeui/glade-signal-editor.h	2010-02-11 15:19:53.000000000 -0200
+@@ -85,6 +85,9 @@
+ 						gchar *signal_name,
+ 						GtkTreeIter *iter,
+ 						GtkCellEditable *editable);
++
++	gboolean (*save_and_execute_clicked)   (GladeSignalEditor *self,
++						gchar *handler_name);
+ };
+ 
+ GType glade_signal_editor_get_type (void) G_GNUC_CONST;
+diff -rNu glade-3-3.6.7/src/glade-window.c glade-3-3.6.7-x/src/glade-window.c
+--- glade-3-3.6.7/src/glade-window.c	2009-06-22 22:28:29.000000000 -0300
++++ glade-3-3.6.7-x/src/glade-window.c	2010-02-11 15:19:45.000000000 -0200
+@@ -2915,6 +2915,31 @@
+ 	dock->detached = FALSE;
+ }
+ 
++static gboolean
++glade_window_save_and_execute(GladeSignalEditor *editor,
++							  gchar* handler,
++							  GladeWindow *window)
++{
++	GladeProject *project;
++	gchar *project_path;
++
++	save_cb (NULL, window);
++
++	project = glade_design_view_get_project (window->priv->active_view);
++	if (project)
++	{
++		project_path = glade_project_get_path (project);
++		if (project_path)
++		{
++			gchar* command_line = g_strdup_printf("%s/bin/glade-code-generator %s %s", g_get_home_dir(), project_path, handler);
++			g_spawn_command_line_async(command_line, NULL);
++			g_free(command_line);
++			return TRUE;
++		}
++	}
++	return FALSE;
++}
++
+ static void
+ glade_window_init (GladeWindow *window)
+ {
+@@ -3044,6 +3069,11 @@
+ 	                  G_CALLBACK (glade_signal_editor_userdata_editing_started_default_impl),
+ 	                  NULL);
+ 
++	g_signal_connect (G_OBJECT (glade_app_get_editor()->signal_editor),
++	                  "save-and-execute-clicked",
++	                  G_CALLBACK (glade_window_save_and_execute),
++	                  window);
++
+ 	/* status bar */
+ 	priv->statusbar = gtk_statusbar_new ();
+ 	priv->statusbar_menu_context_id = gtk_statusbar_get_context_id (GTK_STATUSBAR (priv->statusbar),

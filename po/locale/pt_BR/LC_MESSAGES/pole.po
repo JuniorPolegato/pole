@@ -1,0 +1,503 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: pole-0.2.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2012-05-08 08:52-0300\n"
+"PO-Revision-Date: \n"
+"Last-Translator: Claudio Polegato Junior <junior@juniorpolegato.com.br>\n"
+"Language-Team: Claudio Polegato Junior <junior@juniorpolegato.com.br>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Portuguese\n"
+"X-Poedit-Country: BRAZIL\n"
+"X-Poedit-SourceCharset: utf-8\n"
+"X-Poedit-Basepath: .\n"
+"X-Poedit-SearchPath-0: /home/junior/Projetos/pole\n"
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:50
+msgid "[Read Only]"
+msgstr "[Somente leitura]"
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:159
+#, c-format
+msgid "Could not display the URL '%s'"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:163
+msgid "No suitable web browser could be found."
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:444
+msgid "User Interface Designer"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:670
+#, c-format
+msgid "Activate '%s' %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:677
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:685
+#, c-format
+msgid "Activate '%s'"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1083
+msgid "Open…"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1126
+#, c-format
+msgid "The file %s has been modified since reading it"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1130
+msgid "If you save it, all the external changes could be lost. Save it anyway?"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1134
+msgid "_Save Anyway"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1141
+msgid "_Don't Save"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1167
+#, c-format
+msgid "Failed to save %s: %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1189
+#, c-format
+msgid "Project '%s' saved"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1209
+msgid "Save As…"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1254
+#, c-format
+msgid "Could not save the file %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1258
+msgid "You do not have the permissions necessary to save the file."
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1279
+#, c-format
+msgid "Could not save file %s. Another project with that path is open."
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1304
+msgid "No open projects to save"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1334
+#, c-format
+msgid "Save changes to project \"%s\" before closing?"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1345
+msgid "Your changes will be lost if you don't save them."
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1349
+msgid "_Close without Saving"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1376
+#, c-format
+msgid "Failed to save %s to %s: %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1388
+msgid "Save…"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1886
+msgid "Could not display the online user manual"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1889
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1927
+#, c-format
+msgid "No suitable web browser executable could be found to be executed and to display the URL: %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1924
+msgid "Could not display the online developer reference manual"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1993
+msgid "translator-credits"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:1994
+msgid "A user interface designer for GTK+ and GNOME."
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2370
+msgid "Select"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2373
+msgid "Select widgets in the workspace"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2396
+msgid "Drag Resize"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2399
+msgid "Drag and resize widgets in the workspace"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2440
+msgid "Could not create a new project."
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2494
+#, c-format
+msgid "The project %s has unsaved changes"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2498
+msgid "If you reload it, all unsaved changes could be lost. Reload it anyway?"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2507
+#, c-format
+msgid "The project file %s has been externally modified"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2511
+msgid "Do you want to reload the project?"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2517
+msgid "_Reload"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2639
+msgid "_Undo"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2641
+#, c-format
+msgid "Undo: %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2641
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2652
+msgid "the last action"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2650
+msgid "_Redo"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2652
+#, c-format
+msgid "Redo: %s"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2985
+msgid "Go back in undo history"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:2987
+msgid "Go forward in undo history"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:3039
+msgid "Palette"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:3049
+msgid "Inspector"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-window.c:3056
+msgid "Properties"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:77
+msgid "<Type here>"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:745
+msgid "Signal"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:755
+msgid "X"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:783
+msgid "Handler"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:814
+msgid "User data"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:831
+msgid "Lookup"
+msgstr ""
+
+#: /home/junior/Projetos/pole/gladepy/patch_glade-3_3.6.7/glade-signal-editor.c:842
+msgid "After"
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1081
+#: /home/junior/Projetos/pole/PoleUtil.py:1101
+msgid "True"
+msgstr "Verdadeiro"
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1081
+msgid "Yes"
+msgstr "Sim"
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1081
+msgid "Y"
+msgstr "S"
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1081
+#: /home/junior/Projetos/pole/PoleUtil.py:1101
+msgid "False"
+msgstr "Falso"
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1081
+msgid "No"
+msgstr "Não"
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1081
+msgid "N"
+msgstr "N"
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1102
+msgid ""
+"Convert content into return_type and format it, returning a tuple\n"
+"       within converted value (return_type) and fomated value (string).\n"
+"       This function just accept int, bool, float and str in content and return_type.\n"
+"       content is the content to be converted and formated.\n"
+"       return_type is the type to convert content.\n"
+"       decimals is valid just for float return type, specifying fracts digits or, if negative, currency formatation.\n"
+"       bool_formated is valid just to bool return type, specifying a tuple with 2 strings, 'False' and 'True' by default.\n"
+"    "
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1115
+#, python-format
+msgid "Invalid argument \"content\" of type `%s´. Expected int, bool, float, str, date, time or datetime."
+msgstr "Argumento \"conteúdo\" do tipo `%s´ é inválido. Esperado int, bool, float, str, date, time ou datetime."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1119
+msgid "Invalid argument \"return_type\" like a value. Expected int, bool, float, str, date, time or datetime."
+msgstr "Argumento \"tipo_retorno\" como valor é inválido. Esperado int, bool, float, str, date, time ou datetime."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1123
+#, python-format
+msgid "Invalid argument \"return_type\" of type `%s´. Expected int, bool, float, str, date, time or datetime."
+msgstr "Argumento \"tipo_retorno\" do tipo `%s´ é inválido. Esperado int, bool, float, str, date, time ou datetime."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1127
+#, python-format
+msgid "Invalid argument \"decimals\" of type `%s´. Expected int."
+msgstr "Argumento \"decimais\" do tipo `%s´ é inválido. Esperado int."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1132
+#, python-format
+msgid "Invalid argument \"bool_formated\" of type `%s´. Expected tuple or list."
+msgstr "Argumento \"formatos_boleanos\" do tipo `%s´ é inválido. Esperado tupla ou lista."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1134
+#, python-format
+msgid "Invalid argument \"bool_formated\" specification `%s´. Expected a tuple or list within 2 strings."
+msgstr "Argumento \"formatos_boleanos\" especificado por `%s´ é inválido. Esperado tupla ou lista com 2 strings."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1136
+#, python-format
+msgid "Invalid argument \"bool_strings\" of type `%s´. Expected tuple or list."
+msgstr "Argumento \"strings_boleanas\" do tipo `%s´ é inválido. Esperado tupla ou lista."
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1138
+#: /home/junior/Projetos/pole/PoleUtil.py:1140
+#, python-format
+msgid "Invalid argument \"bool_strings\" specification `%s´. Expected a tuple or list within 2 tuples or lists."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1142
+#, python-format
+msgid "Invalid argument \"bool_strings\" specification `%s´. Expected a tuple or list within 2 tuples or lists of strings."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1147
+msgid "Invalid return_type of type `bool´ when datetime content was specified."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1149
+msgid "Invalid return_type of type `date´ when `time´ content was specified."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1151
+msgid "Invalid return_type of type `time´ when `date´ content was specified."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleUtil.py:1442
+#: /home/junior/Projetos/pole/PoleUtil.py:1456
+#: /home/junior/Projetos/pole/PoleUtil.py:1458
+#: /home/junior/Projetos/pole/PoleUtil.py:1460
+#: /home/junior/Projetos/pole/PoleUtil.py:1470
+#: /home/junior/Projetos/pole/PoleUtil.py:1483
+#: /home/junior/Projetos/pole/PoleUtil.py:1485
+#: /home/junior/Projetos/pole/PoleUtil.py:1487
+#, python-format
+msgid "It is not possible get printers from %s plataform or operating system."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:32
+msgid "Information"
+msgstr "Informação"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:33
+msgid "Warning"
+msgstr "Aviso"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:34
+msgid "Question"
+msgstr "Questão"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:35
+msgid "Error"
+msgstr "Erro"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:150
+msgid "_Today"
+msgstr "_Hoje"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:150
+msgid "_Now"
+msgstr "_Agora"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:176
+msgid "Year:"
+msgstr "Ano:"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:208
+msgid "Time:"
+msgstr "Horário:"
+
+#: /home/junior/Projetos/pole/PoleGTK.py:338
+#: /home/junior/Projetos/pole/PoleGTK.py:346
+msgid "Invalid or not found column name `"
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:354
+msgid ""
+"This value could not be converted or formatted.\n"
+"\n"
+"This value is ignored and the previous value will not change."
+msgstr ""
+"Alguns valores não puderam ser convertidos nem formatados!\n"
+"\n"
+"Eles serão mostrados como são e avaliados para zero (0 ou 0,00) ou falso."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:368
+msgid "Invalid type of column index or name `"
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:503
+msgid "Invalid values column format, expected max of 4 values: name, type[, decimal][,edit]."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:508
+msgid "Invalid column parameters. Expected color or title,type[,decimals][,edit]."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:558
+#, fuzzy, python-format
+msgid "Invalid type `%s´. Expected int, bool, float, str, datetime, date, time, month or hours."
+msgstr "Argumento \"conteúdo\" do tipo `%s´ é inválido. Esperado int, bool, float, str, date, time ou datetime."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:570
+#, python-format
+msgid "Invalid value for decimals ou editable `%s´. Expected digits, 'DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS' or 'DAYS_HOURS' for decimals or 'edit' for editable."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:574
+msgid "Expected just one `edit´ for editable."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:577
+#, fuzzy, python-format
+msgid "Invalid value for editable `%s´. Expected `edit´ for editable, just one."
+msgstr "O valor `%s´ é inválido para coluna editável. Esperado `edit´ para tornar uma coluna editável."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:688
+#: /home/junior/Projetos/pole/PoleGTK.py:695
+#: /home/junior/Projetos/pole/PoleGTK.py:756
+msgid "No columns structure defined."
+msgstr "Estrutura de colunas não definida."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:705
+#: /home/junior/Projetos/pole/PoleGTK.py:765
+msgid "Type `"
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:707
+#: /home/junior/Projetos/pole/PoleGTK.py:709
+#: /home/junior/Projetos/pole/PoleGTK.py:767
+#: /home/junior/Projetos/pole/PoleGTK.py:769
+#, fuzzy
+msgid "Path or iter is not valid."
+msgstr "O caminho não é válido."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:748
+#: /home/junior/Projetos/pole/PoleGTK.py:796
+msgid ""
+"Some values could not be converted or formatted!\n"
+"\n"
+"They will be displayed as they are and evalueted by zero (0 ou 0.0) or false."
+msgstr ""
+"Alguns valores não puderam ser convertidos nem formatados!\n"
+"\n"
+"Eles serão mostrados como são e avaliados para zero (0 ou 0,00) ou falso."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:860
+#, fuzzy
+msgid "Error: Parent project has no window."
+msgstr "Pai não possui widgets."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:868
+#, fuzzy
+msgid "Error: Module has no window."
+msgstr "Módulo não possui widgets."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:904
+#, python-format
+msgid "Invalid argument \"xml_file_or_xml_string\" of type `%s´. Expected str."
+msgstr ""
+
+#: /home/junior/Projetos/pole/PoleGTK.py:911
+msgid "Invalid content. Expected XML data."
+msgstr "Conteúdo inválido. Esperado dados em XML."
+
+#: /home/junior/Projetos/pole/PoleGTK.py:1043
+#: /home/junior/Projetos/pole/PoleGTK.py:1045
+msgid ""
+"\n"
+"\n"
+"Function: "
+msgstr ""
+"\n"
+"\n"
+"Função: "
+
+#~ msgid "No code context"
+#~ msgstr "Sem código"

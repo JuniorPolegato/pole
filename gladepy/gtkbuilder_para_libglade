@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sed -i 's/object/widget/;s/interface/glade-interface/' $1

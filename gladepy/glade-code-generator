@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec ${HOME}/bin/gladepy.py -f "$2" "$1"
