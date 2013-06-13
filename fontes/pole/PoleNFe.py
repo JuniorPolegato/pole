@@ -16,6 +16,7 @@ Todos os direitos reservados
 import os
 import time
 import datetime
+import pytz
 
 # Módulos SUDS utilizados no programa
 import suds.client
@@ -36,6 +37,12 @@ import PoleXML
 # Conversão
 import PoleUtil
 cf = PoleUtil.convert_and_format
+
+# DANFe
+try:
+    from PoleDANFe import danfe
+except ImportError as err:
+    print "Problemas ao importar o módulo PoleDANFe: " + str(err)
 
 # Constantes
 
@@ -96,6 +103,9 @@ class https_ssl(urllib2.HTTPSHandler):
     def https_open(self, req):
         return self.do_open(self.conexao, req)
     def conexao(self, host, timeout = None):
+        # Na versão do httplib do servidor o HTTPSConnection funciona Ok,
+        # e este que criei não, então tem que usar "httplib.HTTPSConnection"
+        # para rodar no servidor
         return HTTPSConnection(host, timeout = timeout, key_file = self.key_file, cert_file = self.cert_file)
 
 # Sobrescrita a função "str" de Element (E) para não endentar nem quebrar linha
@@ -254,7 +264,7 @@ class Webservice(object):
         suds.bindings.binding.envns = ('SOAP-ENV', 'http://www.w3.org/2003/05/soap-envelope')
         # Cria uma função do primeiro serviço, primeira URL (port) e primeiro método, visto que são únicos
         funcao = suds.client.Method(wsdl, wsdl.wsdl.services[0].ports[0].methods.values()[0])
-        # Configura o cabeçalho e retorno em XML
+        # Configura o cabeçalho e retorno em XML - Na versão do servidor não tem o parâmetro prettyxml, então tem que comentá-lo para rodar lá
         wsdl.set_options(soapheaders = self.__cabecalho(wsdl, xml('', 1)['versao']), retxml = True, prettyxml = True)
         # Executa a função e coleta o resultado em XML
         resultado = funcao(suds.sax.parser.Parser().parse(string = PoleXML.exportar(xml, -1)).root())
@@ -277,7 +287,7 @@ class Webservice(object):
     def consultar_chave(self, chave):
         consulta = PoleXML.XML()
         consulta.consSitNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        consulta.consSitNFe['versao'] = '2.00'
+        consulta.consSitNFe['versao'] = '2.01'
         consulta.consSitNFe.tpAmb = self.__ambiente
         consulta.consSitNFe.xServ = 'CONSULTAR'
         consulta.consSitNFe.chNFe = chave
@@ -302,20 +312,31 @@ class Webservice(object):
                     break
         return retorno
 
-    def cancelar_chave(self, justificativa, chave, protocolo = None):
+    def cancelar_chave(self, justificativa, chave_nfe, protocolo = None):
         if not protocolo:
-            protocolo = str(self.consultar_chave(chave).retConsSitNFe.protNFe.infProt.nProt)
+            consulta = self.consultar_chave(chave_nfe)
+            protocolo = str(consulta.retConsSitNFe.protNFe.infProt.nProt)
         cancelamento = PoleXML.XML()
-        cancelamento.cancNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        cancelamento.cancNFe['versao'] = '2.00'
-        cancelamento.cancNFe.infCanc['Id'] = 'ID' + chave
-        cancelamento.cancNFe.infCanc.tpAmb = self.__ambiente
-        cancelamento.cancNFe.infCanc.xServ = 'CANCELAR'
-        cancelamento.cancNFe.infCanc.chNFe = chave
-        cancelamento.cancNFe.infCanc.nProt = protocolo
-        cancelamento.cancNFe.infCanc.xJust = justificativa
-        self.assinar(cancelamento, cancelamento.cancNFe.infCanc)
-        return self.servico('NfeCancelamento2', cancelamento)
+        #cancelamento.cancNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        #cancelamento.cancNFe['versao'] = '2.00'
+        #cancelamento.cancNFe.infCanc['Id'] = 'ID' + chave_nfe
+        #cancelamento.cancNFe.infCanc.tpAmb = self.__ambiente
+        #cancelamento.cancNFe.infCanc.xServ = 'CANCELAR'
+        #cancelamento.cancNFe.infCanc.chNFe = chave_nfe
+        #cancelamento.cancNFe.infCanc.nProt = protocolo
+        #cancelamento.cancNFe.infCanc.xJust = justificativa
+        #self.assinar(cancelamento, cancelamento.cancNFe.infCanc)
+        #recibo = self.servico('NfeCancelamento2', cancelamento)
+        #retorno = PoleXML.XML()
+        #retorno.procCancNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        #retorno.procCancNFe['versao'] = '2.00'
+        #retorno.procCancNFe.cancNFe = cancelamento.cancNFe
+        #retorno.procCancNFe.retCancNFe = recibo.retCancNFe
+        #return retorno
+        cancelamento.nProt = protocolo
+        cancelamento.xJust = justificativa
+        return self.enviar_envento('Cancelamento', chave_nfe,
+                                   datetime.datetime.now(), 1, cancelamento)
 
     def cancelar_num_nota(self, justificativa, num_nota):
         consulta = self.consultar_num_nota(num_nota)
@@ -342,31 +363,34 @@ class Webservice(object):
         self.assinar(inutilizacao, inutilizacao.inutNFe.infInut)
         return self.servico('NfeInutilizacao2', inutilizacao)
 
-    def enviar_carta_correcao(self, cod_lote_evento, qtd_carta_correcao, correcao, chave_nfe, cnpj_cpf, data_hora_evento):
-        carta = PoleXML.XML()
-        carta.evento['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        carta.evento['versao'] = '1.00'
-        carta.evento.infEvento['Id'] = 'ID' + '110110' + chave_nfe + "%02i" % qtd_carta_correcao
-        carta.evento.infEvento.cOrgao = UFS_IBGE[self.__uf]
-        carta.evento.infEvento.tpAmb = self.__ambiente
-        if len(cnpj_cpf) > 11:
-            carta.evento.infEvento.CNPJ = cnpj_cpf
-        else:
-            carta.evento.infEvento.CPF = cnpj_cpf
-        carta.evento.infEvento.chNFe = chave_nfe
+    def enviar_envento(self, descr_evento, chave_nfe, data_hora_evento, qtd_mesmo_evento, xml_adicional):
+        tpEvento = {'Carta de Correcao': '110110', 'Cancelamento': '110111'}
+        xsd = {'Carta de Correcao': 'CCe', 'Cancelamento': 'eventoCancNFe'}
         dh = cf(data_hora_evento, datetime.datetime)[0]
-        carta.evento.infEvento.dhEvento = dh.strftime('%Y-%m-%dT%H:%M:%S') + '-03:00'
-        carta.evento.infEvento.tpEvento = '110110'
-        carta.evento.infEvento.nSeqEvento = qtd_carta_correcao
-        carta.evento.infEvento.verEvento = '1.00'
-        carta.evento.infEvento.detEvento['versao'] = '1.00'
-        carta.evento.infEvento.detEvento.descEvento = 'Carta de Correcao'
-        carta.evento.infEvento.detEvento.xCorrecao = correcao
-        carta.evento.infEvento.detEvento.xCondUso = 'A Carta de Correcao e disciplinada pelo paragrafo 1o-A do art. 7o do Convenio S/N, de 15 de dezembro de 1970 e pode ser utilizada para regularizacao de erro ocorrido na emissao de documento fiscal, desde que o erro nao esteja relacionado com: I - as variaveis que determinam o valor do imposto tais como: base de calculo, aliquota, diferenca de preco, quantidade, valor da operacao ou da prestacao; II - a correcao de dados cadastrais que implique mudanca do remetente ou do destinatario; III - a data de emissao ou de saida.'
-        self.assinar(carta, carta.evento.infEvento)
-        print repr(carta)
-        # Validar xml da carta
-        if not self.validar(carta, 'CCe'):
+        #tz = time.altzone if time.daylight else time.timezone
+        #tz = '%c%02i:%02i' % ('-' if tz > 0 else '+', tz/3600, tz/60%60)
+        #dh = dh.strftime('%Y-%m-%dT%H:%M:%S') + tz
+        tz = pytz.timezone(open('/etc/timezone').read().strip())
+        dh = tz.localize(dh).strftime('%Y-%m-%dT%H:%M:%S%z')
+        dh = dh[:-2] + ':' + dh[-2:]
+        evento = PoleXML.XML()
+        evento.evento['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        evento.evento['versao'] = '1.00'
+        evento.evento.infEvento['Id'] = 'ID' + tpEvento[descr_evento] + chave_nfe + "%02i" % qtd_mesmo_evento
+        evento.evento.infEvento.cOrgao = UFS_IBGE[self.__uf]
+        evento.evento.infEvento.tpAmb = self.__ambiente
+        evento.evento.infEvento.CNPJ = self.__cnpj
+        evento.evento.infEvento.chNFe = chave_nfe
+        evento.evento.infEvento.dhEvento = dh
+        evento.evento.infEvento.tpEvento = tpEvento[descr_evento]
+        evento.evento.infEvento.nSeqEvento = qtd_mesmo_evento
+        evento.evento.infEvento.verEvento = '1.00'
+        evento.evento.infEvento.detEvento['versao'] = '1.00'
+        evento.evento.infEvento.detEvento.descEvento = descr_evento
+        evento.evento.infEvento.detEvento += xml_adicional
+        self.assinar(evento, evento.evento.infEvento)
+        # Validar xml da evento
+        if not self.validar(evento, xsd[descr_evento]):
             erros = "Erro(s) no XML: "
             for erro in self.erros:
                 erros += erro['type_name'] + ': ' + erro['message']
@@ -375,12 +399,22 @@ class Webservice(object):
         envio = PoleXML.XML()
         envio.envEvento['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         envio.envEvento['versao'] = '1.00'
-        envio.envEvento.idLote = cod_lote_evento
-        envio.envEvento.evento = carta.evento
-        print '*' * 100
-        print repr(envio)
+        envio.envEvento.idLote = str(int(time.time() * 100000)) # microsegundo/10 do envio - 15 dígitos no máximo
+        envio.envEvento.evento = evento.evento
+        recibo = self.servico('RecepcaoEvento', envio)
+        print repr(recibo)
+        retorno = PoleXML.XML()
+        retorno.procEventoNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        retorno.procEventoNFe['versao'] = '1.00'
+        retorno.procEventoNFe.evento = evento.evento
+        retorno.procEventoNFe.retEvento = recibo.retEnvEvento.retEvento
+        return retorno
 
-        return self.servico('RecepcaoEvento', envio)
+    def enviar_carta_correcao(self, qtd_carta_correcao, correcao, chave_nfe, data_hora_evento):
+        carta = PoleXML.XML()
+        carta.xCorrecao = correcao
+        carta.xCondUso = 'A Carta de Correcao e disciplinada pelo paragrafo 1o-A do art. 7o do Convenio S/N, de 15 de dezembro de 1970 e pode ser utilizada para regularizacao de erro ocorrido na emissao de documento fiscal, desde que o erro nao esteja relacionado com: I - as variaveis que determinam o valor do imposto tais como: base de calculo, aliquota, diferenca de preco, quantidade, valor da operacao ou da prestacao; II - a correcao de dados cadastrais que implique mudanca do remetente ou do destinatario; III - a data de emissao ou de saida.'
+        return self.enviar_envento('Carta de Correcao', chave_nfe, data_hora_evento, qtd_carta_correcao, carta)
 
     def enviar_nfe(self, xml):
         # Realiza o parser sobre nfe, identificada como string se iniciar por '<', senão é identificada como nome de arquivo

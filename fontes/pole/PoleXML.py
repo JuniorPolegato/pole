@@ -108,8 +108,8 @@ class XML(object):
 
     def __call__(self, filho = None, qual = 0):
         '''Se filho for None, cria um novo nó e adiciona a estrutura, util para criar nós com mesmo nome.
-           Se filho for int, retorna nº filho do nó pai.
-           Se filho for '' equivale a todos os filho.
+           Se filho for int, retorna enésimo filho do nó pai.
+           Se filho for '' equivale a todos os filhos para uso com string abaixo
            Se filho for string e qual for inteiro igual a 0, retorna quantos filhos com este nome tem.
            Se filho for string e qual for inteiro igual a -1, cria um novo filho e adiciona a estrutura, util para criar filhos com mesmo nome ou a partir de string.
            Se filho for string e qual for inteiro igual a -2, adiciona um elemento texto ao elemento chamador.
@@ -143,7 +143,7 @@ class XML(object):
             return self.__filhos.count(filho)
         if filho == '':
             if qual > len(self.__filhos):
-                raise IndexError('Não encontrado o ' + str(qual) + 'º filho "' + filho + '" dentre o(s) ' + str(n + 1) + ' filho(s) que o nó "' + caminho + '" possui.')
+                raise IndexError('Não encontrado o ' + str(qual) + 'º filho "' + filho + '" dentre o(s) ' + str(len(self.__filhos)) + ' filho(s) que o nó "' + self.__nome + '" possui.')
             return self.__xmls[qual - 1]
         contador = qual
         for n, f in enumerate(self.__filhos):

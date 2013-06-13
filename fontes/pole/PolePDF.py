@@ -27,18 +27,19 @@ from reportlab.platypus.flowables import PageBreak
 from reportlab.platypus.tables import Table
 from reportlab.graphics.barcode.code128 import Code128
 
-grande_centro     = ParagraphStyle('normal', fontSize = 14, leading = 14, alignment = TA_CENTER)
-pequena_esquerda  = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_LEFT)
-normal_esquerda   = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_LEFT)
-pequena_centro    = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_CENTER)
-normal_centro     = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_CENTER)
-pequena_direita   = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_RIGHT)
-normal_direita    = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_RIGHT)
-pequena_justa     = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_JUSTIFY)
-normal_justa      = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_JUSTIFY)
-fonte_tab_pequena = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_LEFT)
-fonte_tab_grande  = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_LEFT)
-minuscula_direita = ParagraphStyle('normal', fontSize = 4, leading = 4, alignment = TA_RIGHT)
+extra_grande_centro = ParagraphStyle('normal', fontSize = 18, leading = 18, alignment = TA_CENTER)
+grande_centro       = ParagraphStyle('normal', fontSize = 14, leading = 14, alignment = TA_CENTER)
+pequena_esquerda    = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_LEFT)
+normal_esquerda     = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_LEFT)
+pequena_centro      = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_CENTER)
+normal_centro       = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_CENTER)
+pequena_direita     = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_RIGHT)
+normal_direita      = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_RIGHT)
+pequena_justa       = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_JUSTIFY)
+normal_justa        = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_JUSTIFY)
+fonte_tab_pequena   = ParagraphStyle('normal', fontSize = 5, leading = 5, alignment = TA_LEFT)
+fonte_tab_grande    = ParagraphStyle('normal', fontSize = 8, leading = 8, alignment = TA_LEFT)
+minuscula_direita   = ParagraphStyle('normal', fontSize = 4, leading = 4, alignment = TA_RIGHT)
 
 class PDF(object):
     X = 0
@@ -50,6 +51,7 @@ class PDF(object):
             tamanho_pagina = landscape(tamanho_pagina)
         self.canvas = Canvas(nome_do_arquivo, pagesize = tamanho_pagina)
         self.canvas.setTitle(titulo)
+        self.titulo = titulo
         self.nome_do_arquivo = nome_do_arquivo
         self.retangulos = [[0, 0, self.canvas._pagesize[0] - 2 * margem, self.canvas._pagesize[1] - 2 * margem]]
         self.margem = margem
@@ -260,13 +262,16 @@ class PDF(object):
         tabela = Table(dados[:i], colWidths, rowHeights, style, repeatRows, repeatCols, splitByRow, emptyTableAction, ident, hAlign, vAlign)
         l, a = tabela.wrapOn(self.canvas, largura, altura)
         return (tabela, i, a)
-        
 
     def celula(self, largura, altura, titulo, dados, borda = True, arredondamento = 0.5 * mm, ajuste_inferior = 0 * mm, espacamento = None, posicao = None, espessura = None, alinhamento = 'justa', multilinha = None):
         if espessura == None:
             espessura = self.espessura
         if espacamento == None:
             espacamento = self.espacamento * 2
+            #if titulo is None:
+            #    tipos = [type(x) for x in dados]
+            #    if not (str in tipos or unicode in tipos or Paragraph in tipos):
+            #        espacamento = 0
         else:
             espacamento *= 2
         if alinhamento.lower() == 'esquerda':
@@ -305,9 +310,16 @@ class PDF(object):
             altura_total = altura - espacamento
         if posicao:
             x, y = posicao
-            y = self.canvas._pagesize[1]- y
+            y = self.canvas._pagesize[1] - y
         else:
-            x, y = self.ponto_insercao(largura, altura_total + espacamento)
+            pi = self.ponto_insercao(largura, altura_total + espacamento)
+            if pi:
+                x, y = pi
+            else:
+                print ('Um objeto de %i cm x %i cm não coube na página do PDF "%s" e será apresentado'
+                       'no canto inferior direito desta página' % (largura / cm, altura_total / cm, self.titulo))
+                x = self.canvas._pagesize[0] - largura - espessura / 2
+                y = altura_total + espacamento + espessura / 2
         #print "Posição:", x/mm, y/mm
         for renderizado in renderizados:
             self.canvas.setLineWidth(espessura)

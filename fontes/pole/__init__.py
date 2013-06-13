@@ -13,22 +13,30 @@ Todos os direitos reservados
 """
 
 import PoleUtil as util
-import PoleLog  as log
+import PolePDF  as pdf
+import PoleHTTP  as http
+import PolePrinter as printer
+
+import PoleLog as log
+from PoleLog import logger
+
 
 try:
     import PoleGTK  as gtk
-except ImportError as err:
-    print "Problemas ao importar o módulo PoleGTK: " + str(err)
-import PolePDF  as pdf
+except ImportError as error:
+    logger.warning("Problemas ao importar o módulo PoleGTK: %s.", error)
 
 try:
     import PoleXML  as xml
-except ImportError as err:
-    print "Problemas ao importar o módulo PoleXML: " + str(err)
+except ImportError as error:
+    logger.warning("Problemas ao importar o módulo PoleXML: %s.", error)
 
 try:
     import PoleNFe  as nfe
-except ImportError as err:
-    print "Problemas ao importar o módulo PoleNFe: " + str(err)
+except ImportError as error:
+    logger.warning("Problemas ao importar o módulo PoleNFe: %s.", error)
 
-import PoleRelatorio  as relatorio
+try:
+    import PoleRelatorio  as relatorio
+except ImportError as error:
+     logger.warning("Problemas ao importar o módulo PoleRelatorio: %s.", error)

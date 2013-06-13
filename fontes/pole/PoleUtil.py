@@ -43,7 +43,7 @@ def load_pole_translations(DIR):
 _ = gettext.gettext
 
 DIR = '/usr/share/locale'
-for locale_folder in ('../pole/po/locale', 'po/locale', 'locale', '../po/locale', '../locale', '/usr/share/locale', '/usr/local/share/locale', '/usr/local/'):
+for locale_folder in ('../pole/po/locale', 'pole/po/locale', 'po/locale', 'locale', '../po/locale', '../locale', '/usr/share/locale', '/usr/local/share/locale', '/usr/local/'):
     if os.path.exists(locale_folder + '/' + language + '/LC_MESSAGES/' + APP + '.mo'):
         DIR = locale_folder
         load_pole_translations(DIR)
@@ -53,13 +53,15 @@ import re
 import math
 import smtplib
 import datetime
+import unicodedata
 import mimetypes
 import base64
 import sys
+from collections import OrderedDict
 
 def digits(string, zero_when_empty = True):
     """\brief Extrai apenas os dígitos de uma lista de \a caracteres.
-    
+
     Função que retorna apenas os dígitos de uma lista de \a carateres
     fornecidos, fazendo uso de expressão regulares para tanto. Caso
     \a zero_se_vazio_ou_nulo seja \c True, retorna '0' se
@@ -90,7 +92,7 @@ somente_digitos = digits
 def somente_digitos_e_decimal(caracteres, zero_se_vazio_ou_nulo = True):
     """\brief Extrai apenas os dígitos e o primeiro separador de decimal
     de uma lista de \a caracteres.
-    
+
     Função que retorna apenas os dígitos de uma lista de \a carateres
     fornecidos, fazendo uso da função somente_digitos. Caso
     \a zero_se_vazio_ou_nulo seja \c True, retorna '0D0' se
@@ -128,7 +130,7 @@ def somente_digitos_e_decimal(caracteres, zero_se_vazio_ou_nulo = True):
         valor.append('0')
     return valor[0] + decimal + valor[1]
 
-def inteiro(caracteres, arredondamento = 0, 
+def inteiro(caracteres, arredondamento = 0,
                                           zero_se_vazio_ou_nulo = True):
     """\brief Transforma uma lista de carecteres, geralmente um inteiro
               ou real formatado, em um inteiro.
@@ -274,10 +276,10 @@ def formatar_real(caracteres, casas = 2, tamanho = 0,
 
 def modulo_11(digitos, max = 9, min = 2, retorno = ('0', '0'),
                soma = 0, pesos = None, modulo = 11, complemento = True,
-               reduzir = False):
+               reduzir = False, zero_para = '0'):
     """\brief Módulo 11 - cálculo do módulo 11 (ou outro) com parâmetros
        configuráveis.
-    
+
     Esta função faz o cálculo da soma da multiplicação de cada dígito,
     de trás para frente, por min a max (padrão 2 a 9) ou pesos,
     respectivamente, retornando o complemento do resto da divisão desta
@@ -286,7 +288,7 @@ def modulo_11(digitos, max = 9, min = 2, retorno = ('0', '0'),
     retorno quando o  resultado for 10 ou 11 (ou mais caso o módulo seja
     maior que 11), onde o primeiro elemento da lista é para resultado
     10, o segundo para 11, e assim por diante.
-    
+
     \param digitos  [\c str/int]    Dígitos a serem fornecidos para se
                                     calcular o módulo destes.
     \param max      [\c int]        Valor máximo que o multiplicador
@@ -351,13 +353,15 @@ def modulo_11(digitos, max = 9, min = 2, retorno = ('0', '0'),
         complemento_11 = modulo - resto_11              #   Complento do resto por 11, isto é, o que falta para chegar a 11
     else:                                               # Se não for pedido o complemento
         complemento_11 = resto_11                       #   Utiliza o resto por 11 para fazer o retorno
+    if complemento_11 == 0:                             # Se for zero
+        return zero_para                                #   Retorna o valor definido
     if complemento_11 > 9:                              # Se o complemento for maior que 9, isto é, dois dígitos
         return retorno[complemento_11-10]               #   Retorna o valor correspondente passado no parâmetro retorno da função, padrão '0'
     return str(complemento_11)                          # Retorna o complemento como caracter
 
 def nulo_para_zero(valor):
     """\brief Retorna zero em \c float ser o valor for \c None ou o próprio \a valor caso contrário.
-    
+
     \param valor    [\c untype]  Valor a ser analisado.
     \return         [\c untype]  0.0 (zero \c float) se valor for \c None ou o \a valor caso contrário.
     """
@@ -367,11 +371,11 @@ def nulo_para_zero(valor):
 
 def validar_cpf(cpf):
     """\brief Verifica a validade de um CPF informado.
-    
-    Verifica a validade de um CPF, sendo que elimina caracteres extras, 
+
+    Verifica a validade de um CPF, sendo que elimina caracteres extras,
     considerando apenas os dígitos, completando com zeros à esquerda se necessário.
     Também emite avisos caso encontre algumas divergência.
-    
+
     \param cpf  [\c str/int]    CPF a analisar.
     \return     [\c tupla]      Lista com 4 elementos:
                     1) \c True se validado e \c False caso contrário.
@@ -401,12 +405,12 @@ def validar_cpf(cpf):
 
 def formatar_cpf(cpf):
     """\brief Formata o CPF informado.
-    
+
     Considerando apenas os dígitos, colocar um ponto entre cada 3 dos 9
     dígitos iniciais, um traço e os dois dígitos verificadores.
     Também completa com zeros à se faltar e retorna dígitos extras, se
     houver, logo após os dígitos verificadores.
-    
+
     \param cpf  [\c str/int]    CPF a formatar.
     \return     [\c str]        CPF formatado.
     """
@@ -415,11 +419,11 @@ def formatar_cpf(cpf):
 
 def validar_cnpj(cnpj):
     """\brief Verifica a validade do CNPJ informado.
-    
-    Verifica a validade de um CNPJ, sendo que elimina caracteres extras, 
+
+    Verifica a validade de um CNPJ, sendo que elimina caracteres extras,
     considerando apenas os dígitos, completando com zeros à esquerda se necessário.
     Também emite avisos caso encontre algumas divergência.
-    
+
     \param cnpj  [\c str/int]    CNPJ a analisar.
     \return      [\c tupla]      Lista com 4 elementos:
                     1) \c True se validado e \c False caso contrário.
@@ -449,13 +453,13 @@ def validar_cnpj(cnpj):
 
 def formatar_cnpj(cnpj):
     """\brief Formata o CNPJ informado.
-    
+
     Considerando apenas os dígitos, colocar um ponto após o 2º dígito e entre cada 3 dos 6
     dígitos seguintes, uma barra seguida dos 4 dígitos de nº de unidade,
     um traço e os dois dígitos verificadores.
     Também completa com zeros à se faltar e retorna dígitos extras, se
     houver, logo após os dígitos verificadores.
-    
+
     \param cnpj [\c str/int]    CNPJ a formatar.
     \return     [\c str]        CNPJ formatado.
     """
@@ -491,10 +495,10 @@ def DV1_MG(digitos):
 
 def DV_RR(digitos):
     """\brief Cálculo do dígito verificador de Roraima (RR).
-    
+
     Esta função faz o cálculo da soma da multiplicação de cada dígito
     pela sua posição, retornando o resto da divisão desta soma por 9.
-    
+
     \param digitos  [\c str/int]    Dígitos a serem fornecidos para se
                                     calcular o DV de RR.
     \return         [\c str]        Caracter correspondente ao DV de RR.
@@ -521,28 +525,28 @@ digitos = {'AC': 13, 'AL':  9, 'AP':  9, 'AM':  9, 'BA':  9,
 fixo_inicial = {'AC': None,
                 'AL': ('24',),
                 'AP': ('03',),
-                'AM': None, 
-                'BA': None, 
-                'CE': None, 
+                'AM': None,
+                'BA': None,
+                'CE': None,
                 'DF': ('07',),
                 'ES': None,
                 'GO': ('10', '11', '15'),
-                'MA': None, 
-                'MT': None, 
+                'MA': None,
+                'MT': None,
                 'MS': ('2',),
-                'MG': None, 
+                'MG': None,
                 'PA': ('15',),
-                'PB': None, 
+                'PB': None,
                 'PR': None,
-                'PE': None, 
-                'PI': None, 
-                'RJ': None, 
+                'PE': None,
+                'PI': None,
+                'RJ': None,
                 'RN': ('20',),
-                'RS': None, 
-                'RO': None, 
+                'RS': None,
+                'RO': None,
                 'RR': ('24',),
                 'SC': ('25',),
-                'SP': None, 
+                'SP': None,
                 'SE': ('27',),
                 'TO': ('29',)}
 formatacao = {'AC': (('.', 2), ('.', 6), ('/', 10), ('-', 14)),
@@ -576,7 +580,7 @@ formatacao = {'AC': (('.', 2), ('.', 6), ('/', 10), ('-', 14)),
 def validar_ie(ie, uf):
     """\brief Verifica a validade da Inscrição Estadual para a UF
               informada.
-    
+
     \param ie   [\c str/int]    Inscrição Estadual a analisar.
     \param uf   [\c str/int]    Unidade Federativa a qual pertence a IE.
     \return      [\c tupla]      Lista com 4 elementos:
@@ -584,7 +588,7 @@ def validar_ie(ie, uf):
                     2) Dígitos da IE esperada.
                     3) Avisos.
                     4) Dígitos da IE fornecido que foram analisados.
-    
+
     Veja as regras em http://www.sintegra.gov.br/insc_est.html,
                                http://www.sintegra.gov.br/Verific8.doc e
                         http://www.pfe.fazenda.sp.gov.br/consist_ie.shtm
@@ -716,13 +720,13 @@ def validar_ie(ie, uf):
 
 def formatar_ie(ie, uf):
     """\brief Formata a Inscrição Estadual informada.
-    
+
     Considerando apenas os dígitos, colocar um ponto após o 2º dígito e entre cada 3 dos 6
     dígitos seguintes, uma barra seguida dos 4 dígitos de nº de unidade,
     um traço e os dois dígitos verificadores.
     Também completa com zeros à se faltar e retorna dígitos extras, se
     houver, logo após os dígitos verificadores.
-    
+
     \param ie   [\c str/int]    Inscrição Estadual a formatar.
     \param uf   [\c str/int]    Unidade Federativa a qual pertence a IE.
     \return     [\c str]        IE formatada.
@@ -751,31 +755,31 @@ def formatar_rg(rg, uf):
     """\brief Para fazer.
     """
     pass
-    
-def enviar_email(servidor, remetente, senha, destinatarios, assunto = None, texto = None, html_ou_arquivo_html = None, nome_da_maquina_local = None, confirmar_recebimento = True, arquivos_anexos = None):
 
-    print "Enviando e-mail para", destinatarios, "..."
-    sys.stdout.flush()
-
-    # /usr/share/mime-info/gnome-vfs.mime
-    #mimetypes.init(mimetypes.knownfiles)
-    #for anexo in arquivos_anexos:
-    #    tipo = mimetypes.guess_type(anexo)
-    #    print "Anexando:", anexo, " - ", tipo[0]
-    #exit(0)
-
-
-    # Conectar ao servidor SMTP
-    #print 'Conecatando...'
-    conexao = smtplib.SMTP(servidor)
+def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=None, html_ou_arquivo_html=None,
+                       nome_da_maquina_local=None, confirmar_recebimento=True, arquivos_anexos=None, alias=None,
+                       seguranca=None, arquivo_chave=None, arquivo_certificado=None, timeout=10):
+    # Nome da máquina local
     if not nome_da_maquina_local:
-        nome_da_maquina_local = 'nome.maquina.local.com.br'
-    # Autenticar no servidor SMTP
-    if not senha or senha.strip() == '':
-        #print 'Autenticando não requerida...'
-        pass
+        nome_da_maquina_local = 'localhost.localdomain'
+    # Servidor e porta, porta 465 padrão para SSL/TLS e 587 para outra segurança
+    if seguranca:
+        seguranca = seguranca.upper()
+    servidor, porta = (servidor.strip() + (':465' if seguranca == 'SSL/TLS' else ':587')).split(':')[:2]
+    porta = int(porta)
+    # Se não especificada a segurança, está será SSL/TLS para porta 465 e Nenhuma para outras portas
+    if not seguranca:
+        seguranca = 'SSL/TLS' if porta == 465 else None
+    # Se a segurança for SSL/TLS, inicia conexão SSL, senão conexão normal
+    if seguranca == 'SSL/TLS':
+        conexao = smtplib.SMTP_SSL(servidor, porta, nome_da_maquina_local, arquivo_chave, arquivo_certificado, timeout)
     else:
-        #print 'Autenticando...'
+        conexao = smtplib.SMTP(servidor, porta, nome_da_maquina_local, timeout)
+        # Se a segurança for STARTTLS, inicia troca de certificado
+        if seguranca == 'STARTTLS':
+            conexao.starttls()
+    # Autenticar no servidor SMTP, se não tiver senha não autentica
+    if senha and senha.strip():
         remetente_autenticacao = re.sub(r'.*<(.*)>', r'\1', remetente)
         conexao.login(remetente_autenticacao, senha)
     # Coloca um texto e html básicos caso não seja especificado o texto e nem o html
@@ -848,10 +852,12 @@ def enviar_email(servidor, remetente, senha, destinatarios, assunto = None, text
         confirmacao = 'Disposition-Notification-To: ' + remetente + '\r\n'
     else:
         confirmacao = 'Disposition-Notification-To: ' + confirmar_recebimento + '\r\n'
+
+    de = alias if alias else remetente
     # Compor a mensagem com o cabeçalho, texto, html e arquivos em anexo
-    cabecalho = (confirmacao + 
+    cabecalho = (confirmacao +
                  data +
-                 'From: ' + remetente + '\r\n'
+                 'From: ' + de + '\r\n'
                  'User-Agent: EnvMail - Junior Polegato - v0.2 - Python\r\n'
                  'MIME-Version: 1.0\r\n'
                  'To: ' + ',\r\n    '.join(destinatarios) + '\r\n'
@@ -1085,15 +1091,21 @@ def varrer_sp():
 
 # Converting and formating numbers e boolean values
 CURRENCY = -1
-BOOL_STRINGS = (('True', 'Yes', 'Y', _('True'), _('Yes'), _('Y'), '1'), ('False', 'No', 'N', _('False'), _('No'), _('N'), '0'))
+BOOL_STRINGS = (('True', 'Yes', 'Y', _('True'), _('Yes'), _('T'), _('Y'), '1'), ('False', 'No', 'N', _('False'), _('No'), _('F'), _('N'), '0'))
 DATE = 0
 TIME = 1
 DATE_TIME = 2
 MONTH = 3
 HOURS = 4
 DAYS_HOURS = 5
-TIME_FORMAT = locale.nl_langinfo(locale.T_FMT)
-DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', locale.nl_langinfo(locale.D_FMT))
+try: # Try to identify date and time formats via nl_langinfo 
+    TIME_FORMAT = locale.nl_langinfo(locale.T_FMT)
+    DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', locale.nl_langinfo(locale.D_FMT))
+except Exception: # If fail, like on Windows, try to discovery via strftime("%x")
+    dh = datetime.datetime(2013, 12, 31, 11, 10, 30, 40)
+    TIME_FORMAT = dh.strftime("%X").replace('11', '%H').replace('10', '%M').replace('30', '%S').replace('40', '%F')
+    DATE_FORMAT = dh.strftime("%x").replace('2013', '%Y').replace('13', '%y').replace('12', '%m').replace('31', '%d')
+    DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', DATE_FORMAT)
 
 def strftime(date, format):
     if type(date) != datetime.time and date.year < 1900:
@@ -1105,7 +1117,7 @@ def strftime(date, format):
         return formated.replace('99', '%02i' % (year % 100))
     return date.strftime(format)
 
-def convert_and_format(content, return_type, decimals = locale.localeconv()['frac_digits'], bool_formated = (_('True'), _('False')), bool_strings = BOOL_STRINGS):
+def convert_and_format(content, return_type, decimals = locale.localeconv()['frac_digits'], bool_formated = (_('Y'), _('N')), bool_strings = BOOL_STRINGS):
     _("""Convert content into return_type and format it, returning a tuple
        within converted value (return_type) and fomated value (string).
        This function just accept int, bool, float and str in content and return_type.
@@ -1118,16 +1130,16 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
     # Verifying type of content
     if content == None:
         content = ""
-    elif type(content) not in (int, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
-        raise TypeError, _('Invalid argument "content" of type `%s´. Expected int, bool, float, str, date, time or datetime.') % (type(content).__name__,)
+    elif type(content) not in (int, long, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
+        raise TypeError, _('Invalid argument "content" of type `%s´. Expected int, long, bool, float, str, date, time or datetime.') % (type(content).__name__,)
 
     # Verifying type of return_type
     if type(return_type) != type and return_type not in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
-        raise TypeError, _('Invalid argument "return_type" like a value. Expected int, bool, float, str, date, time or datetime.')
+        raise TypeError, _('Invalid argument "return_type" like a value. Expected int, long, bool, float, str, date, time or datetime.')
 
     # Verifying type of return_type
-    if return_type not in (int, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
-        raise TypeError, _('Invalid argument "return_type" of type `%s´. Expected int, bool, float, str, date, time or datetime.') % (str(return_type).split("'")[1],)
+    if return_type not in (int, long, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
+        raise TypeError, _('Invalid argument "return_type" of type `%s´. Expected int, long, bool, float, str, date, time or datetime.') % (str(return_type).split("'")[1],)
 
     # Verifying type of decimals
     if return_type in (float, datetime.date, datetime.time, datetime.datetime, datetime.timedelta) and type(decimals) != int:
@@ -1145,7 +1157,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
             raise ValueError, _('Invalid argument "bool_strings" specification `%s´. Expected a tuple or list within 2 tuples or lists.') % (repr(bool_strings),)
         if len(bool_strings) != 2 or type(bool_strings[0]) not in (tuple, list) or type(bool_strings[1]) not in (tuple, list):
             raise ValueError, _('Invalid argument "bool_strings" specification `%s´. Expected a tuple or list within 2 tuples or lists.') % (repr(bool_strings),)
-        if [s for s in bool_strings[0] + bool_strings[1] if type(s) != str]:
+        if [s for s in bool_strings[0] + bool_strings[1] if type(s) not in (str, unicode)]:
             raise ValueError, _('Invalid argument "bool_strings" specification `%s´. Expected a tuple or list within 2 tuples or lists of strings.') % (repr(bool_strings),)
 
     # Converting date and/or time content
@@ -1156,7 +1168,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
             raise TypeError, _('Invalid return_type of type `date´ when `time´ content was specified.')
         if return_type == datetime.time and type(content) == datetime.date:
             raise TypeError, _('Invalid return_type of type `time´ when `date´ content was specified.')
-        if return_type not in (int, float, datetime.timedelta):
+        if return_type not in (int, long, float, datetime.timedelta):
             if return_type in (datetime.datetime, datetime.date) and decimals == MONTH:
                 value = return_type(content.year, content.month, 1)
                 if DATE_FORMAT[1] == 'Y':
@@ -1211,7 +1223,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
     # Formating date and/or time outputs
     if return_type in (datetime.datetime, datetime.date, datetime.time):
         first = DATE_FORMAT[1]
-        if type(content) == str: # vide locale format with locale.nl_langinfo(locale.D_FMT)
+        if type(content) in (str, unicode): # vide locale format with locale.nl_langinfo(locale.D_FMT)
             now = datetime.datetime.now()
             if ' ' in content:
                 date, hour = content.split(' ', 1)
@@ -1297,7 +1309,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
                             year = now.year
                         else:
                             year = date[2]
-            if type(year) == str:
+            if type(year) in (str, unicode):
                 if len(year) < 4:
                     year = int(year)
                     if year < 100:
@@ -1356,7 +1368,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
                 return [date, strftime(date, TIME_FORMAT)] # was value - int(value)
             #if return_type == datetime.datetime:
             return [date, strftime(date, DATE_FORMAT + ' ' + TIME_FORMAT)] # was value
-        elif type(content) in (int, float, datetime.timedelta):
+        elif type(content) in (int, long, float, datetime.timedelta):
             if type(content) == datetime.timedelta:
                 date = datetime.datetime(1900, 1, 1) + content
             else:
@@ -1386,9 +1398,11 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
         raise TypeError('Content type `' + str(type(content)).split("'")[1] + '´ can\'t be converted to datetime, date or time.')
 
     # Converting numeric content
-    if type(content) in (int, bool, float):
+    if type(content) in (int, long, bool, float):
         if return_type == int:
             value = int(round(content))
+        elif return_type == long:
+            value = long(round(content))
         else:
             value = return_type(content)
     # Converting str content with locale support
@@ -1397,6 +1411,8 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
             value = locale.atof(content)
         elif return_type == int:
             value = int(round(locale.atof(content)))
+        elif return_type == long:
+            value = long(round(locale.atof(content)))
         elif return_type == bool:
             bs_up = [[i.upper() for i in bool_strings[0]], [i.upper() for i in bool_strings[1]]]
             if content.upper() in bs_up[0] + bs_up[1]:
@@ -1422,7 +1438,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
             formated = locale.currency(value, True, True)
         else:
             formated = locale.format('%.' + str(decimals) + 'f', value, True, True)
-    elif return_type == int:
+    elif return_type in (int, long):
         formated = locale.format('%i', value, True, True)
     elif return_type == bool:
         formated = bool_formated[1 - value]
@@ -1433,6 +1449,24 @@ cf = convert_and_format
 VALUE = 0
 STRING = 1
 
+def add_days(date, days):
+    return date + datetime.timedelta(days)
+
+def add_months(date, months):
+    day = date.day
+    month = (date.month + months) % 12
+    if month == 0: month = 12
+    year = date.year + (date.month + months - 1) / 12
+    if month in (4, 6, 9, 11) and day > 30:
+        date = datetime.date(year, month, 30)
+    elif month == 2 and day > 28:
+        try:
+            date = datetime.date(year, month, 29)
+        except ValueError:
+            date = datetime.date(year, month, 28)
+    else:
+        date = datetime.date(year, month, day)
+    return date
 
 def last_day(date):
     date = convert_and_format(date, datetime.date)[0]
@@ -1498,57 +1532,403 @@ def print_str(printer, string, title = None, server = 'localhost', raw = True):
             PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % os.name))
     return None
 
-if __name__ == '__main__':
-    if len(sys.argv) == 2:
-        enviar_email('smtp.okubomercantil.com.br',
-                     'NF-e Okubo Mercantil<nfe@okubomercantil.com.br>',
-                     'oknfe1465',
-                     #('Claudio - Okubo Mercantil <claudio@okubomercantil.com.br>', 'Ju <junior@juniorpolegato.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>', 'Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>'),
-                     ('Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>'),
-                     'NFe\'s da Okubo Mercantil de ' + sys.argv[1].replace('_', '/'),
-                     'Bom dia!\n\n         Segue em anexo as NFe\'s da Okubo Mercantil em XML do dia ' + sys.argv[1].replace('_', '/') + ' comprimidas em arquivo ZIP.\n\n\nObrigado,\n\n         Gerência de Tecnologia da Informação\n         Okubo Mercantil\n         www.okubomercantil.com.br\n         (16)3514-9966',
-                     arquivos_anexos = ('/tmp/nfe_okubo_mercantil_' + sys.argv[1] + '.zip',)
-                    )
-        enviar_email('smtp.okubomercantil.com.br',
-                     'NF-e Okubo Mercantil<nfe@okubomercantil.com.br>',
-                     'oknfe1465',
-                     #('Claudio - Okubo Mercantil <claudio@okubomercantil.com.br>', 'Ju <junior@juniorpolegato.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>', 'Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>'),
-                     ('Paloma - Jupiter Contabilidade <paloma.fiscal@jupitercontabilidade.com.br>', 'Fernanda - Jupiter Contabilidade <fernanda.atendimento@jupitercontabilidade.com.br>', 'Alexandre - Okubo Mercantil <alexandre@okubomercantil.com.br>'),
-                     'DANFe\'s da Okubo Mercantil de ' + sys.argv[1].replace('_', '/'),
-                     'Bom dia!\n\n         Segue em anexo os DANFe\'s da Okubo Mercantil em PDF do dia ' + sys.argv[1].replace('_', '/') + ', comprimidos em arquivo ZIP.\n\n\nObrigado,\n\n         Gerência de Tecnologia da Informação\n         Okubo Mercantil\n         www.okubomercantil.com.br\n         (16)3514-9966',
-                     arquivos_anexos = ('/tmp/danfe_okubo_mercantil_' + sys.argv[1] + '.zip',)
-                    )
-        sys.exit(0)
-    enviar_email('smtp.okubomercantil.com.br',
-                 'NF-e Okubo Mercantil<nfe@okubomercantil.com.br>',
-                 'oknfe1465',
-                 ('Claudio - Okubo Mercantil <claudio@okubomercantil.com.br>', 'Ju <junior@juniorpolegato.com.br>'),
-                 'Teste com arquivos em anexo',
-                 'Aqui vão arquivos em anexo...\n\n\nDepois quero saber se deu certo...',
-                 arquivos_anexos = (
-                 '/home/junior/Projetos/NFe/producao/autorizadas/protocoladas/35090955965149000105550010000003992519566612-135090123988154-nfe.xml',
-                 )
-                )
-    sys.exit(0)
-    
-    
-    cpf = '275aadaf.sdfg2sdfg3d,f1dgf.hj,fg1k6kl,8kjl/jlk0ç,klçjx'
-    print 'formatar_cpf(cpf)                            :', formatar_cpf(cpf)
-    print 'validar_cpf(cpf)                             :', validar_cpf(cpf)
-    print 'validar_cpf(formatar_cpf(cpf))               :', validar_cpf(formatar_cpf(cpf))
-    print 'formatar_cpf(validar_cpf(cpf)[1])            :', formatar_cpf(validar_cpf(cpf)[1])
-    print 'validar_cnpj(55965149000103)                 :', validar_cnpj(55965149000103)
-    print 'formatar_cnpj(55965149000103)                :', formatar_cnpj(55965149000103)
-    print 'formatar_inteiro(55965149000103)             :', formatar_inteiro(55965149000103)
-    print 'formatar_inteiro(55965149000103, 100)        :', formatar_inteiro(55965149000103, 100)
-    print '100660/2342.3443                             :', 100660/2342.3443
-    print 'somente_digitos_e_decimal(100660/2342.3443)  :', somente_digitos_e_decimal(100660/2342.3443)
-    print 'somente_digitos_e_decimal(cpf)               :', somente_digitos_e_decimal(cpf)
-    print 'somente_digitos_e_decimal(1234566)           :', somente_digitos_e_decimal(1234566)
-    print 'inteiro(somente_digitos_e_decimal(1234566))  :', inteiro(somente_digitos_e_decimal(1234566))
-    print 'real(somente_digitos_e_decimal(1234566))     :', real(somente_digitos_e_decimal(1234566))
-    print 'inteiro(somente_digitos_e_decimal(2342.3443)):', inteiro(somente_digitos_e_decimal(2342.3443))
-    print 'real(somente_digitos_e_decimal(2342.3443))   :', real(somente_digitos_e_decimal(2342.3463))
-    print validar_ie('110.042.490.114', 'SP')
-    print validar_ie('MG: 062.307.904.00-81', 'MG')
-    print formatar_ie('0000000062521-3', 'RO')
+##########################################################################################################################
+
+# Possíveis caracters a digitar
+cs = {
+    "acentuados"       : "ãàáâéêíõóôúüçäëïöñèìòùîûýÿåæÃÀÁÂÉÊÍÕÓÔÚÜÇÄËÏÖÑÈÌÒÙÎÛÝŸÅÆªº",
+    "desacentuados"    : "aaaaeeiooouucaeioneiouiuyyaaAAAAEEIOOOUUCAEIONEIOUIUYYAAao",
+    "letras maiúsculas": "ABCDEFGHIJKLMNOPQRSTUVWXYZÃÀÁÂÉÊÍÕÓÔÚÜÇÄËÏÖÑÈÌÒÙÎÛÝŸÅÆ",
+    "letras minúsculas": "abcdefghijklmnopqrstuvwxyzãàáâéêíõóôúüçäëïöñèìòùîûýÿåæ",
+    "letras"           : "ABCDEFGHIJKLMNOPQRSTUVWXYZÃÀÁÂÉÊÍÕÓÔÚÜÇÄËÏÖÑÈÌÒÙÎÛÝŸÅÆabcdefghijklmnopqrstuvwxyzãàáâéêíõóôúüçäëïöñèìòùîûýÿåæ",
+    "letras e números" : "ABCDEFGHIJKLMNOPQRSTUVWXYZÃÀÁÂÉÊÍÕÓÔÚÜÇÄËÏÖÑÈÌÒÙÎÛÝŸÅÆabcdefghijklmnopqrstuvwxyzãàáâéêíõóôúüçäëïöñèìòùîûýÿåæ0123456789",
+    "números"          : "0123456789",
+    "rg"               : "0123456789-.xX",
+    "data"             : "0123456789/hHdDsSmMaA",
+    "hora"             : "0123456789:aAhHmMsSdD",
+    "data e hora"      : "0123456789/:hHdDsSmMaA",
+    "url"              : "abcdefghijklmnopqrstuvwxyz@./:_-?&\\0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "email"            : "abcdefghijklmnopqrstuvwxyz@._-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "nome"             : "ABCDEFGHIJKLMNOPQRSTUVWXYZÃÀÁÂÉÊÍÕÓÔÚÜÇÄËÏÖÑÈÌÒÙÎÛÝŸÅÆabcdefghijklmnopqrstuvwxyzãàáâéêíõóôúüçäëïöñèìòùîûýÿåæ ",
+    "razão social"     : "ABCDEFGHIJKLMNOPQRSTUVWXYZÃÀÁÂÉÊÍÕÓÔÚÜÇÄËÏÖÑÈÌÒÙÎÛÝŸÅÆabcdefghijklmnopqrstuvwxyzãàáâéêíõóôúüçäëïöñèìòùîûýÿåæ 0123456789.,&_-",
+    "ordenação"        : "#$&()[]{}<«»>^*/\\:+-±=~_`'\",;.!?|@¼½¾°¹²³ªº%0123456789AaÀàÁáÂâÃãÄäÅåÆæBbCcÇçDdEeÈèÉéÊêËëFfGgHhIiÌìÍíÎîÏïJjKkLlMmNnÑñOoÒòÓóÔôÕõÖöPpQqRrSsTtUuÙùÚúÛûÜüVvWwXxYyÝýŸÿZz"
+}
+
+# Opções a escolher
+ops = {
+    "Estado Civil"   : [["Cód.", "Est.Civil"], ["1", "Amaziado"], ["2", "Casado"], ["3", "Desquitado"], ["4", "Divorciado"], ["5", "Separado"], ["6", "Solteiro"], ["7", "Viúvo"]],
+    "Estados"        : [["Extenso", "Sigla"], ["Acre", "AC"], ["Alagoas", "AL"], ["Amazonas", "AM"], ["Amapá", "AP"], ["Bahia", "BA"], ["Ceará", "CE"], ["Distrito Federal", "DF"], ["Espírito Santo", "ES"], ["Goiás", "GO"], ["Maranhão", "MA"], ["Minas Gerais", "MG"], ["Mato Grosso do Sul", "MS"], ["Mato Grosso", "MT"], ["Pará", "PA"], ["Paraíba", "PB"], ["Pernambuco", "PE"], ["Piauí", "PI"], ["Paraná", "PR"], ["Rio de Janeiro", "RJ"], ["Rio Grande do Norte", "RN"], ["Rondônia", "RO"], ["Roraima", "RR"], ["Rio Grande do Sul", "RS"], ["Santa Catarina", "SC"], ["Sergipe", "SE"], ["São Paulo", "SP"], ["Tocantins", "TO"]],
+    "Pele"           : [["Cód.", "Cor"], ["1", "Amarela"], ["2", "Branca"], ["3", "Negra"], ["4", "Parda"], ["5", "Vermelha"]],
+    "Excelência"     : [["Cód.", "Excelência"], ["0", "Excelente"], ["1", "Bom"], ["2", "Razoável"], ["3", "Ruim"], ["4", "Péssimo"]],
+    "Pertinência"    : [["Cód.", "Pertinência"], ["0", "Sem"], ["1", "Pouco"], ["2", "Moderado"], ["3", "Muito"]],
+    "Sexo"           : [["Cód.", "Sexo", "S"], ["1", "Masculino", "M"], ["2", "Feminino", "F"]],
+    "Semana"         : [["Abrev.", "Num.", "Extenso"], ["Dom", "1", "Domingo"], ["Seg", "2", "Segunda"], ["Ter", "3", "Terça"], ["Qua", "4", "Quarta"], ["Qui", "5", "Quinta"], ["Sex", "6", "Sexta"], ["Sáb", "7", "Sábado"]],
+    "Mês"            : [["Abrev.", "Num.", "Extenso"], ["Jan", "01", "Janeiro"], ["Fev", "02", "Fevereiro"], ["Mar", "03", "Março"], ["Abr", "04", "Abril"], ["Mai", "05", "Maio"], ["Jun", "06", "Junho"], ["Jul", "07", "Julho"], ["Ago", "08", "Agosto"], ["Set", "09", "Setembro"], ["Out", "10", "Outubro"], ["Nov", "11", "Novembro"], ["Dez", "12", "Dezembro"]],
+    "Sim ou Não"     : [["O", "Opc."], ["S", "Sim"], ["N", "Não"]],
+    "Pessoa"         : [["P", "Pessoa"], ["F", "Física"], ["J", "Jurídica"], ["P", "Produtor"]],
+    "Tipo Logradouro": [["Tipo", "Descrição"], [" ", "Nulo"], ["A", "Área"], ["AC", "Acesso"], ["ACAMP", "Acampamento"], ["AD", "Adro"], ["AE", "Área Especial"], ["AER", "Aeroporto"], ["AL", "Alameda"], ["ART", "Artéria"], ["AT", "Alto"], ["ATL", "Atalho"], ["AV", "Avenida"], ["AV-CONT", "Avenida Contorno"], ["BAL", "Balneário"], ["BC", "Beco"], ["BCO", "Buraco"], ["BELV", "Belvedere"], ["BL", "Bloco"], ["BLO", "Balão"], ["BSQ", "Bosque"], ["BVD", "Boulevard"], ["BX", "Baixa"], ["C", "Cais"], ["CALC", "Calcada"], ["CAM", "Caminho"], ["CAN", "Canal"], ["CHAP", "Chácara"], ["CHAP", "Chapadão"], ["CIRC", "Circular"], ["CJ", "Conjunto"], ["CMP-VR", "Complexo Viário"], ["COL", "Colônia"], ["COND", "Condomínio"], ["COR", "Corredor"], ["CPO", "Campo"], ["CRG", "Córrego"], ["CXP", "Caixa Postal"], ["DSC", "Descida"], ["DSV", "Desvio"], ["DT", "Distrito"], ["ENT-PART", "Entrada Particular"], ["EQ", "Entre Quadra"], ["ESC", "Escada"], ["ESP", "Esplanada"], ["EST", "Estrada"], ["ESTC", "Estacionamento"], ["EST-MUN", "Estrada Municipal"], ["ETC", "Estação"], ["ETD", "Estádio"], ["ETN", "Estância"], ["EVD", "Elevada"], ["FAV", "Favela"], ["FAZ", "Fazenda"], ["FER", "Ferrovia"], ["FNT", "Fonte"], ["FRA", "Feira"], ["FTE", "Forte"], ["GAL", "Galeria"], ["GJA", "Granja"], ["HAB", "Habitacional"], ["IA", "Ilha"], ["JD", "Jardim"], ["JDE", "Jardinete"], ["LD", "Ladeira"], ["LG ", "Lago"], ["LGA", "Lagoa"], ["LOT", "Loteamento"], ["LRG", "Largo"], ["MNA", "Marina"], ["MOD", "Modulo"], ["MRO", "Morro"], ["MTE", "Monte"], ["NUC", "Núcleo"], ["PAR", "Paralela"], ["PAS", "Passeio"], ["PAT", "Pátio"], ["PC", "Praça"], ["PC-ESP", "Praça de Esportes"], ["PDA", "Parada"], ["PDO", "Paradouro"], ["PNT", "Ponta"], ["PR", "Praia"], ["PRL", "Prolongamento"], ["PRQ", "Parque"], ["PSA", "Passarela"], ["PSC-SUB", "Passagem Subterrânea"], ["PSG", "Passagem"], ["PTE", "Ponte"], ["PTO", "Porto"], ["Q", "Quadra"], ["QTA", "Quinta"], ["QTAS", "Quinta"], ["R", "Rua"], ["RAM", "Ramal"], ["REC", "Recanto"], ["RER", "Retiro"], ["RES", "Residencial"], ["RET", "Reta"], ["R-LIG", "Rua de Ligação"], ["RMP", "Rampa"], ["ROD", "Rodovia"], ["ROD-AN", "Rodo Anel"], ["ROT", "Rótula"], ["R-PED", "Rua de Pedestre"], ["RTN", "Retorno"], ["RTT", "Rotatória"], ["SIT", "Sítio"], ["SRV", "Servidão"], ["ST", "Setor"], ["SUB", "Subida"], ["TCH", "Trincheira"], ["TER", "Terminal"], ["TRV", "Trecho"], ["TRV", "Trevo"], ["TUN", "Túnel"], ["TV", "Travessa"], ["TV-PART", "Travessa Particular"], ["UNID", "Unidade"], ["V", "Via"], ["V-AC", "Via de Acesso"], ["VAL", "Vala"], ["VD", "Viaduto"], ["VER", "Vereda"], ["V-EVD", "Via Elevado"], ["V-EXP", "Via Expressa"], ["VL", "Vila"], ["VLA", "Viela"], ["VLE", "Vale"], ["V-PED", "Via de Pedestre"], ["VRTE", "Variante"], ["ZIG-ZAG", "Zigue-Zague"]],
+    "Clima"          : [["Clima"], ["Chuva"], ["Geada"], ["Nublado"], ["Sol"], ["Tempestade"]],
+    "Crédito Débito" : [["C/D", "Cód.", "Descrição"], ["C", "Crédito", "1"], ["D", "Débito", "2"]],
+    "Consistência"   : ["Campo Importado", "Diferente", "Entre", "Maior ou igual a", "Maior que", "Menor ou igual a", "Menor que", "No conjunto", "Sem"],
+}
+
+# Possíveis tipos para os bancos de dados
+python_tipo  = [None, str       , None, long      , None, None, float  , None, None, datetime.date, datetime.time, datetime.datetime, bool  , None, long     ]
+mysql_tipo   = [""  , "VarChar" , ""  , "Integer", ""  , ""  , "Float", ""  , ""  , "Date"       , "Time"       , "DateTime"        , "Char", ""  , "Integer"]
+ora_tipo     = [""  , "VarChar2", ""  , "Number" , ""  , ""  , "Number", "" , ""  , "Date"       , "Date"       , "Date"            , "Char", ""  , "Number" ]
+
+def mascara_dinheiro(casas = None, localization = '', internacional = False, negativo = True):
+    if localization != '':
+        locale.setlocale(locale.LC_ALL, localization)
+    local = locale.localeconv()
+    if localization != '':
+        locale.setlocale(locale.LC_ALL, '')
+    moeda = local['int_curr_symbol'] if internacional else local['currency_symbol']
+    spp = ' ' * local['p_sep_by_space']
+    spn = ' ' * local['n_sep_by_space']
+    ps = local['positive_sign']
+    ns = local['negative_sign']
+    if casas and type(casas) == int:
+        casas = '0' * casas
+    else:
+        casas = '0' * (local['int_frac_digits'] if internacional else local['frac_digits'])
+    if negativo:
+        return (moeda + spp + ps + "0." + casas + ",;" +
+                moeda + spn + ns + "0." + casas + ",;" +
+                moeda + spp + ps + "0." + casas)
+    return (moeda + spp + ps + "0." + casas + ",;" +
+            moeda + spp + ps + "0." + casas + ",;" +
+            moeda + spp + ps + "0." + casas)
+# Tipos
+tipos = {
+#   Nome                                           Tipo    Tamanho Casas  CxOpç  Caracteres                     Máscara 0 => obrigatório    # => opcional                           Padrao  Alterável Alinhamento
+    "CEP"                                     : (     1,        10,    0, False, cs["números"]                , "00'.'000-000;00'.'000-000;#"                                      ,     1, 0,        100),
+    "CFOP"                                    : (     1,        10,    0, False, cs["números"] + '.'          , ""                                                                 ,     1, 1,        100),
+    "CNPJ"                                    : (     1,        19,    0, False, cs["números"]                , "00'.'000'.'000/0000-00;00'.'000'.'000/0000-00;#"                  ,     1, 0,        100),
+    "Clima"                                   : (     1,        10,    0,  True, ""                           , ops["Clima"]                                                       ,     1, 0,          0),
+    "CNH"                                     : (     1,        11,    0, False, cs["números"]                , "00000000000,;00000000000,;#"                                      ,     1, 0,        100),
+    "Cód. Barras"                             : (     1,       128,    0, False, ""                           , ""                                                                 ,     1, 1,        100),
+    "Cód. Barras EAN13"                       : (     1,        13,    0, False, cs["números"]                , "0000000000000;0000000000000;#"                                    ,     1, 0,        100),
+    "CPF"                                     : (     1,        14,    0, False, cs["números"]                , "000'.'000'.'000-00;000'.'000'.'000-00;#"                          ,     1, 0,        100),
+    "Crédito ou Débito"                       : (     1,         1,    0,  True, ""                           , ops["Crédito Débito"]                                              ,     1, 0,         50),
+    "Data"                                    : (     9,        10,    0, False, cs["data"]                   , "dd/mm/yyyy"                                                       ,     1, 0,         50),
+    "Data 2"                                  : (     9,         8,    0, False, cs["data"]                   , "dd/mm/yy"                                                         ,     1, 0,         50),
+    "Data e Hora"                             : (    11,        19,    0, False, cs["data e hora"]            , "dd/mm/yyyy hh:nn:ss"                                              ,     1, 0,         50),
+    "Data 2 e Hora"                           : (    11,        17,    0, False, cs["data e hora"]            , "dd/mm/yy hh:nn:ss"                                                ,     1, 0,         50),
+    "Dinheiro"                                : (     6,        14,    0, False, cs["números"] + ',+-'        , mascara_dinheiro()                                                 ,     1, 0,        100),
+    "Dinheiro 1"                              : (     6,        14,    1, False, cs["números"] + ',+-'        , mascara_dinheiro(1)                                                ,     1, 0,        100),
+    "Dinheiro 2"                              : (     6,        14,    2, False, cs["números"] + ',+-'        , mascara_dinheiro(2)                                                ,     1, 0,        100),
+    "Dinheiro 3"                              : (     6,        14,    3, False, cs["números"] + ',+-'        , mascara_dinheiro(3)                                                ,     1, 0,        100),
+    "Dinheiro 4"                              : (     6,        14,    4, False, cs["números"] + ',+-'        , mascara_dinheiro(4)                                                ,     1, 0,        100),
+    "Dinheiro 5"                              : (     6,        14,    5, False, cs["números"] + ',+-'        , mascara_dinheiro(5)                                                ,     1, 0,        100),
+    "Dinheiro Positivo"                       : (     6,        14,    0, False, cs["números"] + ','          , mascara_dinheiro(negativo = False)                                 ,     1, 0,        100),
+    "Dinheiro 1 Positivo"                     : (     6,        14,    1, False, cs["números"] + ','          , mascara_dinheiro(1, negativo = False)                              ,     1, 0,        100),
+    "Dinheiro 2 Positivo"                     : (     6,        14,    2, False, cs["números"] + ','          , mascara_dinheiro(2, negativo = False)                              ,     1, 0,        100),
+    "Dinheiro 3 Positivo"                     : (     6,        14,    3, False, cs["números"] + ','          , mascara_dinheiro(3, negativo = False)                              ,     1, 0,        100),
+    "Dinheiro 4 Positivo"                     : (     6,        14,    4, False, cs["números"] + ','          , mascara_dinheiro(4, negativo = False)                              ,     1, 0,        100),
+    "Dinheiro 5 Positivo"                     : (     6,        14,    5, False, cs["números"] + ','          , mascara_dinheiro(5, negativo = False)                              ,     1, 0,        100),
+    "E-mail"                                  : (     1,        35,    0, False, cs["email"]                  , "lower @=1"                                                        ,     1, 1,          0),
+    "Estado"                                  : (     1,        19,    0,  True, ""                           , ops["Estados"]                                                     ,    26, 0,         50),
+    "Estado Civil"                            : (     1,        10,    0,  True, ""                           , ops["Estado Civil"]                                                ,     1, 0,         50),
+    "Excelência"                              : (     1,        13,    0,  True, ""                           , ops["Excelência"]                                                  ,     1, 0,         50),
+    "Histórico"                               : (     1,       256,    0, False, ""                           , ""                                                                 ,     1, 1,          0),
+    "Hora"                                    : (    10,         8,    0, False, cs["hora"]                   , "hh:mm:ss"                                                         ,     1, 0,         50),
+    "Inscrição Estadual"                      : (     1,        15,    0, False, cs["números"]                , "000'.'000'.'000'.'000;000'.'000'.'000'.'000;ISENTO"               ,     1, 0,        100),
+    "Inteiro"                                 : (     3,         9,    0, False, cs["números"] + "-+"         , "0,;-0,;0"                                                         ,     1, 1,        100),
+    "Inteiro 2"                               : (     3,         9,    0, False, cs["números"] + "-+"         , "00,;-00,;00"                                                      ,     1, 1,        100),
+    "Inteiro 3"                               : (     3,         9,    0, False, cs["números"] + "-+"         , "000,;-000,;000"                                                   ,     1, 1,        100),
+    "Inteiro Positivo"                        : (     3,         9,    0, False, cs["números"]                , "0,;0,;0"                                                          ,     1, 1,        100),
+    "Inteiro 2 Positivo"                      : (     3,         9,    0, False, cs["números"]                , "00,;00,;00"                                                       ,     1, 1,        100),
+    "Inteiro 3 Positivo"                      : (     3,         9,    0, False, cs["números"]                , "000,;000,;000"                                                    ,     1, 1,        100),
+    "Letras"                                  : (     1,       256,    0, False, cs["letras"]                 , "normalize"                                                        ,     1, 1,          0),
+    "Letras e Espaços"                        : (     1,       256,    0, False, cs["nome"]                   , "normalize"                                                        ,     1, 1,          0),
+    "Letras e Números"                        : (     1,       256,    0, False, cs["letras e números"]       , "normalize"                                                        ,     1, 1,          0),
+    "Letras, Números e Espaços"               : (     1,       256,    0, False, cs["letras e números"]  + " ", "normalize"                                                        ,     1, 1,          0),
+    "Livre"                                   : (     1,       256,    0, False, ""                           , "normalize"                                                        ,     1, 1,          0),
+    "Letras Mai"                              : (     1,       256,    0, False, cs["letras"]                 , "upper normalize"                                                  ,     1, 1,          0),
+    "Letras Mai e Espaços"                    : (     1,       256,    0, False, cs["nome"]                   , "upper normalize"                                                  ,     1, 1,          0),
+    "Letras Mai e Números"                    : (     1,       256,    0, False, cs["letras e números"]       , "upper normalize"                                                  ,     1, 1,          0),
+    "Letras Mai, Números e Espaços"           : (     1,       256,    0, False, cs["letras e números"]  + " ", "upper normalize"                                                  ,     1, 1,          0),
+    "Livre Mai"                               : (     1,       256,    0, False, ""                           , "upper normalize"                                                  ,     1, 1,          0),
+    "Letras Acentuadas"                       : (     1,       256,    0, False, cs["letras"]                 , ""                                                                 ,     1, 1,          0),
+    "Letras Acentuadas e Espaços"             : (     1,       256,    0, False, cs["nome"]                   , ""                                                                 ,     1, 1,          0),
+    "Letras Acentuadas e Números"             : (     1,       256,    0, False, cs["letras e números"]       , ""                                                                 ,     1, 1,          0),
+    "Letras Acentuadas, Números e Espaços"    : (     1,       256,    0, False, cs["letras e números"]  + " ", ""                                                                 ,     1, 1,          0),
+    "Livre Acentuado"                         : (     1,       256,    0, False, ""                           , ""                                                                 ,     1, 1,          0),
+    "Letras Mai Acentuadas"                   : (     1,       256,    0, False, cs["letras"]                 , "upper"                                                            ,     1, 1,          0),
+    "Letras Mai Acentuadas e Espaços"         : (     1,       256,    0, False, cs["nome"]                   , "upper"                                                            ,     1, 1,          0),
+    "Letras Mai Acentuadas e Números"         : (     1,       256,    0, False, cs["letras e números"]       , "upper"                                                            ,     1, 1,          0),
+    "Letras Mai Acentuadas, Números e Espaços": (     1,       256,    0, False, cs["letras e números"]  + " ", "upper"                                                            ,     1, 1,          0),
+    "Livre Mai Acentuado"                     : (     1,       256,    0, False, ""                           , "upper"                                                            ,     1, 1,          0),
+    "Mês"                                     : (     1,         9,    0,  True, ""                           , ops["Mês"]                                                         ,     1, 0,         50),
+    "Pele"                                    : (     1,         8,    0,  True, ""                           , ops["Pele"]                                                        ,     1, 0,         50),
+    "Pertinência"                             : (     1,        11,    0,  True, ""                           , ops["Pertinência"]                                                 ,     1, 0,         50),
+    "Pessoa"                                  : (     1,         8,    0,  True, ""                           , ops["Pessoa"]                                                      ,     1, 0,         50),
+    "Porcentagem"                             : (     6,        14,    0,  True, cs["números"] + ',+-'        , "0%,;-0%,;0%"                                                      ,     1, 0,        100),
+    "Porcentagem 1"                           : (     6,        14,    1, False, cs["números"] + ',+-'        , "0.0%,;-0.0%,;0.0%"                                                ,     1, 0,        100),
+    "Porcentagem 2"                           : (     6,        14,    2, False, cs["números"] + ',+-'        , "0.00%,;-0.00%,;0.00%"                                             ,     1, 0,        100),
+    "Porcentagem 3"                           : (     6,        14,    3, False, cs["números"] + ',+-'        , "0.000%,;-0.000%,;0.000%"                                          ,     1, 0,        100),
+    "Porcentagem 4"                           : (     6,        14,    4, False, cs["números"] + ',+-'        , "0.0000%,;-0.0000%,;0.0000%"                                       ,     1, 0,        100),
+    "Porcentagem 5"                           : (     6,        14,    5, False, cs["números"] + ',+-'        , "0.00000%,;-0.00000%,;0.00000%"                                    ,     1, 0,        100),
+    "Porcentagem 6"                           : (     6,        14,    6, False, cs["números"] + ',+-'        , "0.000000%,;-0.000000%,;0.000000%"                                 ,     1, 0,        100),
+    "Porcentagem Positivo"                    : (     6,        14,    0,  True, cs["números"] + ','          , "0%,;0%,;0%"                                                       ,     1, 0,        100),
+    "Porcentagem 1 Positivo"                  : (     6,        14,    1, False, cs["números"] + ','          , "0.0%,;0.0%,;0.0%"                                                 ,     1, 0,        100),
+    "Porcentagem 2 Positivo"                  : (     6,        14,    2, False, cs["números"] + ','          , "0.00%,;0.00%,;0.00%"                                              ,     1, 0,        100),
+    "Porcentagem 3 Positivo"                  : (     6,        14,    3, False, cs["números"] + ','          , "0.000%,;0.000%,;0.000%"                                           ,     1, 0,        100),
+    "Porcentagem 4 Positivo"                  : (     6,        14,    4, False, cs["números"] + ','          , "0.0000%,;0.0000%,;0.0000%"                                        ,     1, 0,        100),
+    "Porcentagem 5 Positivo"                  : (     6,        14,    5, False, cs["números"] + ','          , "0.00000%,;0.00000%,;0.00000%"                                     ,     1, 0,        100),
+    "Porcentagem 6 Positivo"                  : (     6,        14,    6, False, cs["números"] + ','          , "0.000000%,;0.000000%,;0.000000%0.000000%"                         ,     1, 0,        100),
+    "Quebrado"                                : (     6,        14,    0, False, cs["números"] + ',+-'        , "0.##############,;-0.##############,;0"                           ,     1, 3,        100),
+    "Quebrado 1"                              : (     6,        14,    1, False, cs["números"] + ',+-'        , "0.0,;-0.0,;0.0"                                                   ,     1, 3,        100),
+    "Quebrado 2"                              : (     6,        14,    2, False, cs["números"] + ',+-'        , "0.00,;-0.00,;0.00"                                                ,     1, 3,        100),
+    "Quebrado 3"                              : (     6,        14,    3, False, cs["números"] + ',+-'        , "0.000,;-0.000,;0.000"                                             ,     1, 3,        100),
+    "Quebrado 4"                              : (     6,        14,    4, False, cs["números"] + ',+-'        , "0.0000,;-0.0000,;0.0000"                                          ,     1, 3,        100),
+    "Quebrado 5"                              : (     6,        14,    5, False, cs["números"] + ',+-'        , "0.00000,;-0.00000,;0.00000"                                       ,     1, 3,        100),
+    "Quebrado 6"                              : (     6,        14,    6, False, cs["números"] + ',+-'        , "0.000000,;-0.000000,;0.000000"                                    ,     1, 3,        100),
+    "Quebrado Positivo"                       : (     6,        14,    0, False, cs["números"] + ','          , "0.##############,;-0.##############,;#"                           ,     1, 3,        100),
+    "Quebrado 1 Positivo"                     : (     6,        14,    1, False, cs["números"] + ','          , "0.0,;0.0,;0.0"                                                    ,     1, 3,        100),
+    "Quebrado 2 Positivo"                     : (     6,        14,    2, False, cs["números"] + ','          , "0.00,;0.00,;0.00"                                                 ,     1, 3,        100),
+    "Quebrado 3 Positivo"                     : (     6,        14,    3, False, cs["números"] + ','          , "0.000,;0.000,;0.000"                                              ,     1, 3,        100),
+    "Quebrado 4 Positivo"                     : (     6,        14,    4, False, cs["números"] + ','          , "0.0000,;0.0000,;0.0000"                                           ,     1, 3,        100),
+    "Quebrado 5 Positivo"                     : (     6,        14,    5, False, cs["números"] + ','          , "0.00000,;0.00000,;0.00000"                                        ,     1, 3,        100),
+    "Quebrado 6 Positivo"                     : (     6,        14,    6, False, cs["números"] + ','          , "0.000000,;0.000000,;0.000000"                                     ,     1, 3,        100),
+    "RG"                                      : (     1,        20,    0, False, cs["rg"]                     , "upper .<3 -<2 X<2"                                                ,     1, 1,        100),
+    "Semana"                                  : (     1,         7,    0,  True, ""                           , ops["Semana"]                                                      ,     1, 0,          0),
+    "Seqüencial"                              : (    14,        12,    0, False, cs["números"]                , "0,;0,;0"                                                          ,     1, 0,        100),
+    "Sexo"                                    : (     1,         9,    0,  True, ""                           , ops["Sexo"]                                                        ,     1, 0,         50),
+    "Sim ou Não"                              : (    12,         1,    0,  True, ""                           , ops["Sim ou Não"]                                                  ,     1, 0,         50),
+    "Telefone"                                : (     3,        15,    0, False, cs["números"]                , "(00)0000-0000;(00)0000-0000;#"                                    ,     1, 0,          0),
+    "Celular"                                 : (     3,        15,    0, False, cs["números"]                , "(00)00000-0000;(00)00000-0000;#"                                  ,     1, 0,          0),
+    "Tipo Logradouro"                         : (     1,       256,    0,  True, ""                           , ops["Tipo Logradouro"]                                             ,     1, 0,        100),
+    "Título"                                  : (     1,       256,    0, False, cs["razão social"]           , "capital normalize"                                                ,     1, 0,          0),
+    "Nome"                                    : (     1,       256,    0, False, cs["nome"]                   , "capital normalize"                                                ,     1, 0,          0),
+    "Razão Social"                            : (     1,       256,    0, False, cs["razão social"]           , "capital normalize"                                                ,     1, 0,          0),
+    "Título Mai"                              : (     1,       256,    0, False, cs["razão social"]           , "upper normalize"                                                  ,     1, 0,          0),
+    "Nome Mai"                                : (     1,       256,    0, False, cs["nome"]                   , "upper normalize"                                                  ,     1, 0,          0),
+    "Razão Social Mai"                        : (     1,       256,    0, False, cs["razão social"]           , "upper normalize"                                                  ,     1, 0,          0),
+    "Título Acentuado"                        : (     1,       256,    0, False, cs["razão social"]           , "capital"                                                          ,     1, 0,          0),
+    "Nome Acentuado"                          : (     1,       256,    0, False, cs["nome"]                   , "capital"                                                          ,     1, 0,          0),
+    "Razão Social Acentuada"                  : (     1,       256,    0, False, cs["razão social"]           , "capital"                                                          ,     1, 0,          0),
+    "Título Mai Acentuado"                    : (     1,       256,    0, False, cs["razão social"]           , "upper"                                                            ,     1, 0,          0),
+    "Nome Mai Acentuado"                      : (     1,       256,    0, False, cs["nome"]                   , "upper"                                                            ,     1, 0,          0),
+    "Razão Social Mai Acentuada"              : (     1,       256,    0, False, cs["razão social"]           , "upper"                                                            ,     1, 0,          0),
+    "URL"                                     : (     1,       256,    0, False, cs["url"]                    , "lower"                                                            ,     1, 1,          0),
+}
+# Try to add dolars, if can't get via locale, set $0.00, with comma thousand separator
+try:
+    dolares = {
+        "Dólar"                               : (     6,        14,    0, False, cs["números"] + '.+-'        , mascara_dinheiro(localization = 'en_US.UTF-8')                     ,     1, 0,        100),
+        "Dólar 1"                             : (     6,        14,    1, False, cs["números"] + '.+-'        , mascara_dinheiro(1, localization = 'en_US.UTF-8')                  ,     1, 0,        100),
+        "Dólar 2"                             : (     6,        14,    2, False, cs["números"] + '.+-'        , mascara_dinheiro(2, localization = 'en_US.UTF-8')                  ,     1, 0,        100),
+        "Dólar 3"                             : (     6,        14,    3, False, cs["números"] + '.+-'        , mascara_dinheiro(3, localization = 'en_US.UTF-8')                  ,     1, 0,        100),
+        "Dólar 4"                             : (     6,        14,    4, False, cs["números"] + '.+-'        , mascara_dinheiro(4, localization = 'en_US.UTF-8')                  ,     1, 0,        100),
+        "Dólar 5"                             : (     6,        14,    5, False, cs["números"] + '.+-'        , mascara_dinheiro(5, localization = 'en_US.UTF-8')                  ,     1, 0,        100),
+        "Dólar Positivo"                      : (     6,        14,    0, False, cs["números"] + '.'          , mascara_dinheiro(localization = 'en_US.UTF-8', negativo = False)   ,     1, 0,        100),
+        "Dólar 1 Positivo"                    : (     6,        14,    1, False, cs["números"] + '.'          , mascara_dinheiro(1, localization = 'en_US.UTF-8', negativo = False),     1, 0,        100),
+        "Dólar 2 Positivo"                    : (     6,        14,    2, False, cs["números"] + '.'          , mascara_dinheiro(2, localization = 'en_US.UTF-8', negativo = False),     1, 0,        100),
+        "Dólar 3 Positivo"                    : (     6,        14,    3, False, cs["números"] + '.'          , mascara_dinheiro(3, localization = 'en_US.UTF-8', negativo = False),     1, 0,        100),
+        "Dólar 4 Positivo"                    : (     6,        14,    4, False, cs["números"] + '.'          , mascara_dinheiro(4, localization = 'en_US.UTF-8', negativo = False),     1, 0,        100),
+        "Dólar 5 Positivo"                    : (     6,        14,    5, False, cs["números"] + '.'          , mascara_dinheiro(5, localization = 'en_US.UTF-8', negativo = False),     1, 0,        100),
+    }
+except Exception:
+    dolares = {
+        "Dólar"                               : (     6,        14,    0, False, cs["números"] + '.+-'        , '$0.00,;$-0.00,;$0.00'                                             ,     1, 0,        100),
+        "Dólar 1"                             : (     6,        14,    1, False, cs["números"] + '.+-'        , '$0.0,;$-0.0,;$0.0'                                                ,     1, 0,        100),
+        "Dólar 2"                             : (     6,        14,    2, False, cs["números"] + '.+-'        , '$0.00,;$-0.00,;$0.00'                                             ,     1, 0,        100),
+        "Dólar 3"                             : (     6,        14,    3, False, cs["números"] + '.+-'        , '$0.000,;$-0.000,;$0.000'                                          ,     1, 0,        100),
+        "Dólar 4"                             : (     6,        14,    4, False, cs["números"] + '.+-'        , '$0.0000,;$-0.0000,;$0.0000'                                       ,     1, 0,        100),
+        "Dólar 5"                             : (     6,        14,    5, False, cs["números"] + '.+-'        , '$0.00000,;$-0.00000,;$0.00000'                                    ,     1, 0,        100),
+        "Dólar Positivo"                      : (     6,        14,    0, False, cs["números"] + '.'          , '$0.00,;$0.00,;$0.00'                                              ,     1, 0,        100),
+        "Dólar 1 Positivo"                    : (     6,        14,    1, False, cs["números"] + '.'          , '$0.0,;$0.0,;$0.0'                                                 ,     1, 0,        100),
+        "Dólar 2 Positivo"                    : (     6,        14,    2, False, cs["números"] + '.'          , '$0.00,;$0.00,;$0.00'                                              ,     1, 0,        100),
+        "Dólar 3 Positivo"                    : (     6,        14,    3, False, cs["números"] + '.'          , '$0.000,;$0.000,;$0.000'                                           ,     1, 0,        100),
+        "Dólar 4 Positivo"                    : (     6,        14,    4, False, cs["números"] + '.'          , '$0.0000,;$0.0000,;$0.0000'                                        ,     1, 0,        100),
+        "Dólar 5 Positivo"                    : (     6,        14,    5, False, cs["números"] + '.'          , '$0.00000,;$0.00000,;$0.00000'                                     ,     1, 0,        100),
+    }
+for nome, config in dolares.items():
+    tipos[nome] = config
+##########################################################################################################################
+
+def formatar(dados, tipo_pole):
+    #print 'formatar', dados, tipo_pole
+    tipo, tamanho, casas, cxopc, caracteres, mascara, padrao, alteravel, alinhamento = tipos[tipo_pole]
+    dados = convert_and_format(dados, python_tipo[tipo], casas)[1]
+    #print "tipo:", tipo, python_tipo[tipo]
+    #print "tamanho:", tamanho
+    #print "casas:", casas
+    #print "cxopc:", cxopc
+    #print "caracteres:", caracteres
+    #print "mascara:", mascara
+    #print "padrao:", padrao
+    #print "alteravel:", alteravel
+    #print "alinhamento:", alinhamento
+    if (len(mascara) > 0 and mascara.count(';') == 2
+                        and "capital"   not in mascara
+                        and "normalize" not in mascara
+                        and "upper"     not in mascara
+                        and "lower"     not in mascara):
+        p, n, z = mascara.split(';')
+        print 'p, n, z', p, n, z
+        local = locale.localeconv()
+        decimal = local['mon_decimal_point']
+        # Retirar caracteres não numéricos, não decimal e não -
+        numero = re.sub('[^0-9' + decimal + '-]', '', dados).lstrip('0')
+        # Se não tem número retorna o zero
+        if numero == '':
+            if z == '#':
+                return ''
+            return z
+        # Negativo se o primeiro caractere for -
+        negativo = numero[0] == '-'
+        # Escolher a máscara positiva ou negativa de acordo com o número
+        mascara = n if negativo else p
+        # Retirar todos os -
+        numero = numero.replace('-', '')
+        # Deixar apenas 1 ponto decimal
+        n = numero.count(decimal)
+        if n > 1:
+            numero = numero[::-1].replace(decimal, '', n -1)[::-1]
+        # Se não tem número retorna o zero
+        if numero == '' or numero == decimal:
+            if z == '#':
+                return ''
+            return z.replace('.', decimal)
+        # Verificar se tem , na máscara que siginifica fazer agrupamento
+        agrupado = ',' in mascara
+        # Retirar as , da máscara em como tratar os escapes '.', '0', '#' e ',' para voltá-los no fim
+        mascara = mascara.replace("'.'", "\x00").replace("'0'", "\x01").replace("'#'", "\x02").replace("','", '\x03').replace(',', '')
+        # Verificar se tem . na máscara que siginifica ponto decimal
+        if '.' in mascara:
+            # Separa a parte inteira da real no primeiro ponto
+            masc_int, masc_real = mascara.split('.', 1)
+            # Tirar pontos extras na parte real
+            masc_real.replace('.', '')
+            # Calcular o número de casas decimais contando 0 e # da parte real
+            casas = masc_real.count('0') + masc_real.count('#')
+            # Formatar o número de acordo com o padrão local
+            numero = cf(numero, float, casas)[1]
+        else:
+            # Caso não tenha parte real, a inteira fica com a máscara toda
+            masc_int = mascara
+            masc_real = '' # parte real vazia
+            casas = 0 # sem casas decimais
+            # Formatar o número de acordo com o padrão local
+            numero = cf(numero, long)[1]
+        # Retirar o agrupamento se não pedido pela máscara
+        group = local['mon_thousands_sep']
+        if not agrupado:
+            numero = numero.replace(group, '')
+        # Separa o número em parte inteira e parte real pelo ponto decimal
+        if casas:
+            num_int, num_real = numero.split(decimal)
+        else:
+            num_int = numero
+            num_real = ''
+        # Complementar a parte inteira do número com zeros até o número de posicões da máscara
+        num_int = '0' + '0' * (masc_int.count('0') + masc_int.count('#') - len(num_int.replace(group, ''))) + num_int
+        # Compor a parte inteira do resultado subustituir 0 e # da parte inteira da máscara
+        # pelo número correspondente no número formatado, copiando a parte da máscara que
+        # não for 0 nem #, da direita para a esquerda
+        i = -1
+        dados = ''
+        j = len(masc_int)
+        while j > 0:
+            j -= 1
+            c = masc_int[j]
+            if c == '0':
+                dados += num_int[i]
+                i -= 1
+                if num_int[i] == group:
+                    dados += num_int[i]
+                    i -= 1
+            elif c == '#':
+                if num_int[i] != '0':
+                    dados += num_int[i]
+                elif sum(map(lambda x: int(x), num_int[0:i])) != 0:
+                    dados += num_int[i]
+                i -= 1
+                if num_int[i] == group:
+                    dados += num_int[i]
+                    i -= 1
+            else:
+                dados += c
+            if c in ('0', '#') and '#' not in masc_int[:j] and '0' not in masc_int[:j]:
+                dados += num_int[1:i + 1][::-1]
+        # Termina de compor a parte inteira de com os dígitos restantes e inverte
+        # os dígitos/carateres formados acima
+        dados = (num_int[1:] if i == -1 else '') + dados[::-1]
+        # No caso de ter casas decimais, faz paraticamente o mesmo tratamento acima,
+        # com a ressalva de obrigatoriedade de zeros à esquerda
+        if casas:
+            dados2 = ''
+            i = -1
+            obrigatorio = False
+            for c in masc_real[::-1]:
+                if c == '0':
+                    obrigatorio = True
+                    dados2 += num_real[i]
+                    i -= 1
+                elif c == '#':
+                    if num_real[i] != '0' or obrigatorio:
+                        obrigatorio = True
+                        dados2 += num_real[i]
+                    i -= 1
+                else:
+                    dados2 += c
+            dados += decimal + dados2[::-1]
+        # Termina fazendo com que voltem os caracteres escapados anteriormente
+        dados = dados.replace('\x00', '.').replace('\x01', '0').replace('\x02', '#').replace('\x03', ',')
+    # Tratamento de string
+    else:
+        if type(dados) == str:
+            dados = dados.decode('utf-8')
+        if "normalize" in mascara:
+            dados = dados.replace(u'Æ', u'AE').replace(u'æ', u'ae').replace(u'ª', u'a.').replace(u'º', u'.')
+            dados = unicodedata.normalize('NFKD', dados).encode('ascii','ignore')
+        if "upper" in mascara:
+            dados = dados.upper()
+        elif "lower" in mascara:
+            dados = dados.lower()
+        elif "capital" in mascara:
+            i = 0
+            temp = dados.lower()
+            dados = ''
+            while i < len(temp):
+                a = i
+                while i < len(temp) and temp[i] <= ' ':
+                    i += 1
+                dados += temp[a:i]
+                if i + 1 < len(temp) and temp[i + 1] <= ' ':
+                    dados += temp[i]
+                elif i + 2 < len(temp) and temp[i + 2] <= ' ':
+                    dados += temp[i:i + 2]
+                    i += 1
+                else:
+                    dados += temp[i].upper()
+                    i += 1
+                    a = i
+                    while i < len(temp) and temp[i] > ' ':
+                        i += 1
+                    dados += temp[a:i + 1]
+                i += 1
+    return dados
+
+def fetchdict(cur, one = False):
+    columns_temp = [c[0] for c in cur.description]
+    many = dict([(c, 0) for c in columns_temp if columns_temp.count(c) > 1])
+    columns = []
+    for c in columns_temp:
+        if c in many:
+            columns.append(c + '_' + str(many[c]))
+            many[c] += 1
+        else:
+            columns.append(c)
+    if one:
+        try:
+            return OrderedDict(zip(columns, cur.fetchone()))
+        except TypeError:
+            return None
+    try:
+        return [OrderedDict(zip(columns, reg)) for reg in cur]
+    except TypeError:
+        return []

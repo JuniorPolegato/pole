@@ -24,18 +24,18 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     #cursor.execute("commit")
     
     #Busca Dados da Nota
-    sql=("SELECT nt.COD_NOTA_FISCAL, nt.COD_INTERNO, nt.SEQUENCIA, nt.NUM_FORMULARIO, nt.TIPO, nt.DATA_DE_PROCESSAMENTO, TO_CHAR(nt.DATA_DE_EMISSAO,'DD/MM/YYYY'), TO_CHAR(nt.DATA_SAIDA_ENTRADA,'DD/MM/YYYY'), "
-                 "TO_CHAR(nt.DATA_DE_ENTREGA,'DD/MM/YYYY'), nt.NATUREZA_OPERACAO, nt.CFOP, nt.INSC_EST_DO_SUBST_TRIBUTARIO, nt.PESSOA, nt.COD_ENTIDADE, nt.NOME_RAZAO_SOCIAL, nt.CNPJ, nt.COD_ENDERECO, "
-                 "nt.ENDERECO, nt.BAIRRO, nt.CEP, nt.CIDADE, nt.TELEFONE__FAX, nt.UF, nt.INSCR_ESTADUAL, nt.QUANTIDADE_ITENS, nt.BASE_ICMS, nt.ICMS, nt.BASE_SUBSTITUICAO, nt.SUBSTITUICAO, "
-                 "nt.TOTAL_PRODUTOS, nt.FRETE, nt.SEGURO, nt.DESPESAS_ACESSORIAS, nt.BASE_IPI, nt.IPI, nt.TOTAL_GERAL, nt.COD_TRANSPORTADORA, nt.FRETE_POR_CONTA, nt.PLACA, nt.UF_PLACA, "
-                 "nt.CNPJ_TRANSP, nt.ENDERECO_TRANSP, nt.CIDADE_TRANSP, nt.UF_TRANSP, nt.INSCR_ESTADUAL_TRANSP, nt.QUANTIDADE_ESPECIES, nt.ESPECIE, nt.MARCA, NUMERO, nt.PESO_BRUTO, "
-                 "nt.PESO_LIQUIDO, nt.NUM_PEDIDO, nt.USUARIO, nt.COND_PAGAMENTO, nt.CARTA_CORRECAO, nt.IMPRESSO, nt.OBSERVACAO, nt.STATUS, nt.LIVRO_FISCAL, nt.REGIAO_DA_LOJA, nt.REGIAO_DO_DESTINATARIO, "
-                 "nt.RAZAO_SOCIAL_TRANSPORTADORA, nt.COD_ENDERECO_ENTREGA, nt.ENDERECO_ENTREGA, nt.BAIRRO_ENTREGA, nt.CIDADE_ENTREGA, nt.UF_ENTREGA, nt.CEP_ENTREGA, nt.TELEFONE_ENTREGA, "
-                 "nt.FATURAMENTO_A_VISTA, nt.PAGO,  nt.NUM_NOTA, nt.COD_END_TRANSP, nt.BALCAO, nt.ANO, nt.MES, nt.DIA, nt.VALOR_FRETE, nt.NUM_COMANDA, nt.MODELO, nt.SERIE, n.CHAVE_ACESSO, "
-                 "n.PROTOCOLO_AUTORIZACAO || ' - ' || TO_CHAR(n.DATA_AUTORIZACAO, 'DD/MM/YYYY HH24:MI'), (select f.login from administrador.funcionario f where f.cod_entidade = nt.usuario) "#, "
-                 #"n.denegado "
-                 "from administrador.nota_fiscal nt, administrador.nfe n "
-                 "where n.COD_NOTA_FISCAL = " + cod_nota_fiscal + " and nt.COD_NOTA_FISCAL = " + cod_nota_fiscal)
+    sql=("SELECT nt.COD_NOTA_FISCAL, nt.COD_INTERNO, nt.SEQUENCIA, nt.NUM_FORMULARIO, nt.TIPO, nt.DATA_DE_PROCESSAMENTO, TO_CHAR(nt.DATA_DE_EMISSAO,'DD/MM/YYYY'), TO_CHAR(nt.DATA_SAIDA_ENTRADA,'DD/MM/YYYY'),"
+                 " TO_CHAR(nt.DATA_DE_ENTREGA,'DD/MM/YYYY'), nt.NATUREZA_OPERACAO, nt.CFOP, nt.INSC_EST_DO_SUBST_TRIBUTARIO, nt.PESSOA, nt.COD_ENTIDADE, nt.NOME_RAZAO_SOCIAL, nt.CNPJ, nt.COD_ENDERECO,"
+                 " nt.ENDERECO, nt.BAIRRO, nt.CEP, nt.CIDADE, nt.TELEFONE__FAX, nt.UF, nt.INSCR_ESTADUAL, nt.QUANTIDADE_ITENS, nt.BASE_ICMS, nt.ICMS, nt.BASE_SUBSTITUICAO, nt.SUBSTITUICAO,"
+                 " nt.TOTAL_PRODUTOS, nt.FRETE, nt.SEGURO, nt.DESPESAS_ACESSORIAS, nt.BASE_IPI, nt.IPI, nt.TOTAL_GERAL, nt.COD_TRANSPORTADORA, nt.FRETE_POR_CONTA, nt.PLACA, nt.UF_PLACA,"
+                 " nt.CNPJ_TRANSP, nt.ENDERECO_TRANSP, nt.CIDADE_TRANSP, nt.UF_TRANSP, nt.INSCR_ESTADUAL_TRANSP, nt.QUANTIDADE_ESPECIES, nt.ESPECIE, nt.MARCA, NUMERO, nt.PESO_BRUTO,"
+                 " nt.PESO_LIQUIDO, nt.NUM_PEDIDO, nt.USUARIO, nt.COND_PAGAMENTO, nt.CARTA_CORRECAO, nt.IMPRESSO, nt.OBSERVACAO, nt.STATUS, nt.LIVRO_FISCAL, nt.REGIAO_DA_LOJA, nt.REGIAO_DO_DESTINATARIO,"
+                 " nt.RAZAO_SOCIAL_TRANSPORTADORA, nt.COD_ENDERECO_ENTREGA, nt.ENDERECO_ENTREGA, nt.BAIRRO_ENTREGA, nt.CIDADE_ENTREGA, nt.UF_ENTREGA, nt.CEP_ENTREGA, nt.TELEFONE_ENTREGA,"
+                 " nt.FATURAMENTO_A_VISTA, nt.PAGO,  nt.NUM_NOTA, nt.COD_END_TRANSP, nt.BALCAO, nt.ANO, nt.MES, nt.DIA, nt.VALOR_FRETE, nt.NUM_COMANDA, nt.MODELO, nt.SERIE, n.CHAVE_ACESSO,"
+                 " n.PROTOCOLO_AUTORIZACAO || ' - ' || TO_CHAR(n.DATA_AUTORIZACAO, 'DD/MM/YYYY HH24:MI'), (select f.login from administrador.funcionario f where f.cod_entidade = nt.usuario),"
+                 " n.denegado"
+                 " from administrador.nota_fiscal nt, administrador.nfe n "
+                 " where n.COD_NOTA_FISCAL = " + cod_nota_fiscal + " and nt.COD_NOTA_FISCAL = " + cod_nota_fiscal)
     #print sql
     cursor.execute(sql)
     registros = cursor.fetchone()
@@ -46,9 +46,9 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     chave_de_acesso        = transforma_string(registros[81])
     protocolo              = transforma_string(registros[82])
     natureza_operacao      = transforma_string(registros[9])
-    ie_okubo               = "582.017.263.112"
-    ie_sub_okubo           = "&nbsp;"
-    cnpj_okubo             = "55.965.149/0001-05"
+    ie_empresa               = "552.117.233.111"
+    ie_sub_empresa           = "&nbsp;"
+    cnpj_empresa             = "55.555.111/0001-01"
     cod_entidade           = PoleUtil.formatar_inteiro(registros[13])
     razao_social           = transforma_string(registros[14])
     if len(PoleUtil.somente_digitos(registros[15])) > 11:
@@ -96,11 +96,11 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     peso_liquido           = PoleUtil.formatar_real(registros[50], 3)
     observacao             = transforma_string(registros[56])
     vendedor               = transforma_string(registros[83])
-    denegado               = (registros[83] == 'S')
+    denegado               = (registros[84] == 'S')
 
-    documento = PDF('NF-e ' + numero_nfe + ' - Série 001 - Okubo Mercantil', diretorio + '/' + chave_de_acesso + '.pdf')
+    documento = PDF('NF-e ' + numero_nfe + ' - Série 001 - Nome da Empresa', diretorio + '/' + chave_de_acesso + '.pdf')
     documento.celula(19 * cm, 0.1 * cm, None, [Paragraph('Ped.: ' + locale.format('%i', int(cod_nota_fiscal), True, True), normal_direita)], False, posicao=(1 * cm, 0.6 * cm))
-    documento.celula(15 * cm, 0.4 * cm, 'RECEBEMOS DE <b>OKUBO MERCANTIL - PRODUTOS PARA FIXAÇÃO, ELEVAÇÃO E COBERTURA LTDA</b> OS PRODUTOS CONSTANTES DA NOTA FISCAL INDICADA AO LADO', '')
+    documento.celula(15 * cm, 0.4 * cm, 'RECEBEMOS DE <b>Nome da Empresa - Restante da razão social LTDA</b> OS PRODUTOS CONSTANTES DA NOTA FISCAL INDICADA AO LADO', '')
     documento.celula( 5 * cm, .8 * cm, 'DATA DE RECEBIMENTO', '')
     documento.celula(10 * cm, .8 * cm, 'IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR', '&nbsp;')
     documento.celula( 4 * cm, 1.2 * cm, None, [Paragraph('<b>NF-e<br/>Nº '+numero_nfe+'<br/>Série:'+serie_nfe+'</b>', normal_centro)])
@@ -171,7 +171,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
                 PoleUtil.formatar_real(str(linha[15]).replace('.', ','), 2),
             ]
         )
-    alt_comp = documento.altura(  5 * cm,   3 * cm, None, [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido Okubo: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)])
+    alt_comp = documento.altura(  14 * cm,   3 * cm, None, [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)])
     a3 = 15 * cm - alt_comp
     tabela, itens, altura = documento.tabela(5.4 * cm, a3, dados_tabela, colWidths, style=ts)
     itens_extras = itens
@@ -183,7 +183,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         paginas += 1
 
     # Dados Empresa
-    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I,Paragraph('<b>OKUBO MERCANTIL</b>', normal_centro),Paragraph('<b>PRODUTOS PARA FIXAÇÃO, ELEVAÇÃO E COBERTURA LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.okubomercantil.com.br', pequena_centro)])
+    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
     a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
     a2 = documento.altura( 3.5 * cm, 1 * mm, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
     a3 = documento.altura( 7.5 * cm, 1 * mm, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),barcode,Paragraph('<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
@@ -193,7 +193,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         a = a2
     if a < a3:
         a = a3
-    documento.celula( 8 * cm, a, None, [I,Paragraph('<b>OKUBO MERCANTIL</b>', normal_centro),Paragraph('<b>PRODUTOS PARA FIXAÇÃO, ELEVAÇÃO E COBERTURA LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.okubomercantil.com.br', pequena_centro)])
+    documento.celula( 8 * cm, a, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
     documento.celula( 3.5 * cm, a, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
     documento.celula( 7.5 * cm, a, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),Paragraph('<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e<br/>www.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
@@ -213,9 +213,9 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     #documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph('00000000000000000000000000000000000', normal_esquerda)])
 
     # Inscrição estadual
-    documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_okubo)
-    documento.celula( 4.5 * cm, 1 * mm, None, [Paragraph('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda),Paragraph(ie_sub_okubo,normal_direita)])
-    documento.celula( 3.5 * cm, 1 * mm, 'CNPJ', cnpj_okubo)
+    documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_empresa)
+    documento.celula( 4.5 * cm, 1 * mm, None, [Paragraph('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda),Paragraph(ie_sub_empresa,normal_direita)])
+    documento.celula( 3.5 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
     documento.celula( 7.5 * cm, 1 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph(protocolo, normal_esquerda)])
 
     # DESTINATARIO REMETENTE
@@ -428,9 +428,9 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
 
     #DADOS ADICIONAIS
     documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('DADOS ADICIONAIS', pequena_esquerda)], borda = False, posicao=(1 * cm, 28.4 * cm - alt_comp))
-    documento.celula( 14 * cm,      alt_comp, None,      [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido Okubo: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)], posicao=(1 * cm, 28.7 * cm - alt_comp))
+    documento.celula( 14 * cm,      alt_comp, None,      [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)], posicao=(1 * cm, 28.7 * cm - alt_comp))
     if denegado:
-        documento.celula(  5 * cm,       alt_comp, None, [Paragraph('RESERVADO AO FISCO', pequena_esquerda), Paragraph('USO DENEGADO<br/>&nbsp;<br/>NFe SEM VALOR', grande_centro)],posicao=(15 * cm, 28.7 * cm - alt_comp))
+        documento.celula(  5 * cm,       alt_comp, None, [Paragraph('RESERVADO AO FISCO', pequena_esquerda), Paragraph('USO DENEGADO', extra_grande_centro), Paragraph('&nbsp;<br/>NFe SEM VALOR', grande_centro)], posicao=(15 * cm, 28.7 * cm - alt_comp))
     else:
         documento.celula(  5 * cm,       alt_comp, None, [Paragraph('RESERVADO AO FISCO', pequena_esquerda)],posicao=(15 * cm, 28.7 * cm - alt_comp))
 
@@ -449,7 +449,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         documento.celula(19 * cm, 0.4 * cm, '················································································································································································································································································································································································································································','', borda = False)
 
         # Dados Empresa
-        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I,Paragraph('<b>OKUBO MERCANTIL</b>', normal_centro),Paragraph('<b>PRODUTOS PARA FIXAÇÃO, ELEVAÇÃO E COBERTURA LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.okubomercantil.com.br', pequena_centro)])
+        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
         a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
         a2 = documento.altura( 3.5 * cm, 1 * mm, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
         a3 = documento.altura( 7.5 * cm, 1 * mm, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),barcode,Paragraph('<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
@@ -459,7 +459,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
             a = a2
         if a < a3:
             a = a3
-        documento.celula( 8 * cm, a, None, [I,Paragraph('<b>OKUBO MERCANTIL</b>', normal_centro),Paragraph('<b>PRODUTOS PARA FIXAÇÃO, ELEVAÇÃO E COBERTURA LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.okubomercantil.com.br', pequena_centro)])
+        documento.celula( 8 * cm, a, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
         documento.celula( 3.5 * cm, a, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
         documento.celula( 7.5 * cm, a, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),Paragraph('<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e<br/>www.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
@@ -479,9 +479,9 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         #documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph('00000000000000000000000000000000000', normal_esquerda)])
 
         # Inscrição estadual
-        documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_okubo)
-        documento.celula( 4.5 * cm, 1 * mm, None, [Paragraph('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda),Paragraph(ie_sub_okubo,normal_direita)])
-        documento.celula( 3.5 * cm, 1 * mm, 'CNPJ', cnpj_okubo)
+        documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_empresa)
+        documento.celula( 4.5 * cm, 1 * mm, None, [Paragraph('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda),Paragraph(ie_sub_empresa,normal_direita)])
+        documento.celula( 3.5 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
         documento.celula( 7.5 * cm, 1 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph(protocolo, normal_esquerda)])
 
         # DADOS DO PRODUTO/SERVIÇO
@@ -544,6 +544,3 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         itens += i
         
     documento.salvar()
-
-if __name__ == '__main__':
-    danfe(229178, '/home/junior/NFe/cnpjs/55965149000105/logo.jpg', '/home/junior/NFe/cnpjs/55965149000105/producao/danfe')
