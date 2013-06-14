@@ -46,7 +46,6 @@ class LX300(object):
 
     def carriage_return(self):
         self.append(LX300._CR)
-        self._lines_counter += 1
 
     def line_feed(self, lines=1):
         self.append(LX300._LF * lines)
@@ -99,7 +98,15 @@ class ImpressoLX300(LX300):
         self.cancel_condensed_mode()
         self.append(texto, *args)
 
-    def picote(self):
+    def eof(self):
         self.carriage_return()
-        picote = self.lines % self.linhas_folha - self.linhas_avanco
+
+        if self.lines < self.linhas_folha:
+            picote = abs(self.linhas_folha - self.lines - self.linhas_avanco)
+        else:
+            picote = abs(self.linhas_folha - self.lines % self.linhas_folha - self.linhas_avanco)
+
         self.line_feed(picote)
+
+    def avanca_papel(self):
+        self.return_and_feed(self.linhas_avanco + 1)
