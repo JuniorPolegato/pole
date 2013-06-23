@@ -21,10 +21,14 @@ import glib
 from gtk import gdk
 import datetime
 import PoleUtil
+from PoleUtil import formatar
 import PoleLog
 import unicodedata
 import sys
 import os
+import re
+from string import strip
+
 cf = PoleUtil.convert_and_format
 
 # Translation
@@ -1311,6 +1315,36 @@ def try_function(f):
                 message(obj.get_toplevel(), str(error).strip() + _('\n\nFunction: ') + str(f).split()[1], gtk.MESSAGE_ERROR, title = error_type)
             return None
     return action
+
+
+def read_text(textview):
+    buffer = textview.get_buffer()
+    text = buffer.get_text(*buffer.get_bounds())
+    formated = formatar(strip(text), 'Nome Mai')
+    without_space = re.sub('\s', ' ', formated)
+    return without_space
+
+
+def write_text(text, textview):
+    formated = formatar(strip(text), 'Nome Mai')
+    without_space = re.sub('\s', ' ', formated)
+    buffer = textview.get_buffer()
+    buffer.set_text(without_space)
+
+
+def set_active_text(combo, text, column=0):
+    model = combo.get_model()
+    for index, line in enumerate(model):
+        if line[column] == text:
+            combo.set_active(index)
+            return
+
+
+def get_active_text(combo, column=0):
+    index = combo.get_active()
+    model = combo.get_model()
+    return model[index][column]
+
 
 if __name__ == '__main__':
     teste_ui = """<?xml version="1.0"?>
