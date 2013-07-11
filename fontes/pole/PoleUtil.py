@@ -82,14 +82,15 @@ def digits(string, zero_when_empty = True):
                                                     \a caracters
                                                     fornecidos.
     """
-    res = re.sub(r'[ -/:-ÿ]', r'', str(string))
-    if not len(res) and zero_when_empty:
+    res = re.sub('[^0-9]', '', str(string))
+    if not res and zero_when_empty:
         return '0'
     return res
 
 somente_digitos = digits
 
-def somente_digitos_e_decimal(caracteres, zero_se_vazio_ou_nulo = True):
+def somente_digitos_e_decimal(caracteres,
+                            zero_se_vazio_ou_nulo = True, casas = None):
     """\brief Extrai apenas os dígitos e o primeiro separador de decimal
     de uma lista de \a caracteres.
 
@@ -115,20 +116,24 @@ def somente_digitos_e_decimal(caracteres, zero_se_vazio_ou_nulo = True):
                                                     \a caracters
                                                     fornecidos.
     """
-    if isinstance(caracteres, float):
+    if isinstance(caracteres, (float, int)):
         return locale.str(caracteres)
-    if not caracteres or not len(str(caracteres)):
-        if zero_se_vazio_ou_nulo:
-            return '0' + locale.localeconv()['decimal_point'] + '0'
-        return caracteres
+    if not isinstance(caracteres, (str, unicode, type(None))):
+        caracteres = str(caracteres)
+    if caracteres:
+        caracteres = re.sub('[^0-9%s]' % decimal, '', caracteres)
     decimal = locale.localeconv()['decimal_point']
-    valor = str(caracteres).split(decimal, 1)
-    valor[0] = somente_digitos(valor[0])
-    if len(valor) > 1:
-        valor[1] = somente_digitos(valor[1])
-    else:
-        valor.append('0')
-    return valor[0] + decimal + valor[1]
+    if casas is None:
+        casas = locale.localeconv()['frac_digits']
+    if not caracteres:
+        if zero_se_vazio_ou_nulo:
+            return '0' + decimal + '0' * casas
+        return caracteres
+    caracteres = [re.sub('[^0-9]', '', t) for t in
+                                           caracteres.split(decimal, 1)]
+    caracteres.append('') # sentinel
+    return "%s%s%s" % (caracteres[0] or '0', decimal,
+                                  (caracteres[1] + '0' * casas)[:casas])
 
 def inteiro(caracteres, arredondamento = 0,
                                           zero_se_vazio_ou_nulo = True):
@@ -1768,7 +1773,7 @@ def formatar(dados, tipo_pole):
                         and "upper"     not in mascara
                         and "lower"     not in mascara):
         p, n, z = mascara.split(';')
-        print 'p, n, z', p, n, z
+        #print 'p, n, z', p, n, z
         local = locale.localeconv()
         decimal = local['mon_decimal_point']
         # Retirar caracteres não numéricos, não decimal e não -
