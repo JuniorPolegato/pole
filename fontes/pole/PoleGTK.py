@@ -28,6 +28,9 @@ import sys
 import os
 import re
 from string import strip
+import logging
+
+logger = logging.getLogger('pole')
 
 cf = PoleUtil.convert_and_format
 
@@ -570,11 +573,10 @@ class Editor(gtk.Entry, gtk.Buildable):
         #print text
         size = len(text)
         if self.__int or self.__num:
-            text = ''.join([c for c in text if c.isdigit()])
+            text = re.sub('[^0-9]', '', text)
         elif self.__float:
-            text = ''.join([c for c in text if c.isdigit() or c == PoleUtil.locale.localeconv()['decimal_point']])
-            text = text.split(PoleUtil.locale.localeconv()['decimal_point'])
-            text = PoleUtil.locale.localeconv()['decimal_point'].join(text[:2]) + ''.join(text[2:])
+            decimal = PoleUtil.locale.localeconv()['decimal_point']
+            text = decimal.join(re.sub('[^0-9]', '', t) for t in text.split(decimal, 1))
         else:
             if self.__normalize:
                 text = unicodedata.normalize('NFKD', text).encode('ascii','ignore')
@@ -1317,19 +1319,25 @@ def try_function(f):
     return action
 
 
-def read_text(textview):
+def read_text(textview, trimspace=True):
     buffer = textview.get_buffer()
     text = buffer.get_text(*buffer.get_bounds())
+
     formated = formatar(strip(text), 'Nome Mai')
-    without_space = re.sub('\s', ' ', formated)
-    return without_space
+
+    if trimspace:
+        return re.sub('\s', ' ', formated)
+
+    return formated
 
 
-def write_text(text, textview):
+def write_text(text, textview, trimspace=True):
     formated = formatar(strip(text), 'Nome Mai')
-    without_space = re.sub('\s', ' ', formated)
+    if trimspace:
+        formated = re.sub('\s', ' ', formated)
+
     buffer = textview.get_buffer()
-    buffer.set_text(without_space)
+    buffer.set_text(formated)
 
 
 def set_active_text(combo, text, column=0):
@@ -1344,6 +1352,29 @@ def get_active_text(combo, column=0):
     index = combo.get_active()
     model = combo.get_model()
     return model[index][column]
+
+
+def load_store(combo, cursor):
+        model = combo.get_model()
+        model.clear()
+
+        for iter in cursor:
+            model.append(iter)
+
+        combo.set_active(0)
+
+
+def load_grid(grid, cursor, clean=True, lines=100):
+    if clean:
+            grid.clear()
+
+    records = True
+    while records:
+        records = cursor.fetchmany(lines)
+        grid.add_data(records)
+
+        while gtk.events_pending():
+            gtk.main_iteration()
 
 
 if __name__ == '__main__':
