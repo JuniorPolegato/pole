@@ -20,7 +20,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     # conexao Oracle
     connection = cx_Oracle.connect("usuario/senha@banco")
     cursor = connection.cursor()
-    #cursor.execute("insert into administrador.nfe (cod_nota_fiscal, chave_acesso, data_autorizacao, protocolo_autorizacao) values (186567, '35100855965149000105550010000135834230972122', '10/08/2010 11:21:47', '135100445370768')")
+    #cursor.execute("insert into administrador.nfe (cod_nota_fiscal, chave_acesso, data_autorizacao, protocolo_autorizacao) values (186567, '35100855666777000105550010000135834230972122', '10/08/2010 11:21:47', '135100445370768')")
     #cursor.execute("commit")
     
     #Busca Dados da Nota
