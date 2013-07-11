@@ -104,7 +104,8 @@ class ImpressoLX300(LX300):
         if self.lines < self.linhas_folha:
             picote = abs(self.linhas_folha - self.lines - self.linhas_avanco)
         else:
-            picote = abs(self.linhas_folha - self.lines % self.linhas_folha - self.linhas_avanco)
+            picote = abs(self.linhas_folha -
+                         (self.lines + self.linhas_avanco) % self.linhas_folha)
 
         self.line_feed(picote)
 
