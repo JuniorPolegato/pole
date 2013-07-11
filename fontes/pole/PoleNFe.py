@@ -54,7 +54,7 @@ UFS_IBGE = {'AC': '12', 'CE': '23', 'MG': '31', 'PE': '26', 'RO': '11', 'SP': '3
             'AM': '13', 'ES': '32', 'MT': '51', 'PR': '41', 'RS': '43',
             'AP': '16', 'GO': '52', 'PA': '15', 'RJ': '33', 'SC': '42', 
             'BA': '29', 'MA': '21', 'PB': '25', 'RN': '24', 'SE': '28',
-            'AN': '90'
+            'AN': '91'
         }
 
 UFS_SIGLAS = {'AC': 'Acre',               'PA': 'Pará',
@@ -72,6 +72,18 @@ UFS_SIGLAS = {'AC': 'Acre',               'PA': 'Pará',
               'MT': 'Mato Grosso',        'SP': 'São Paulo',
                                           'TO': 'Tocantins'
             }
+
+EVENTOS = { # 'Envento': ('Cód. Evento', 'xsd', evento maiúsculo, 'xsd de envio')
+    'Carta de Correcao': ('110110', 'CCe', False, None),
+    'Cancelamento': ('110111', 'eventoCancNFe', False, None),
+    'Confirmacao da Operacao': ('210200', 'confRecebto', True, 'envConfRecebto'),
+    'Ciencia da Operacao': ('210210', 'confRecebto', True, 'envConfRecebto'),
+    'Desconhecimento da Operacao': ('210220', 'confRecebto', True, 'envConfRecebto'),
+    'Operacao nao Realizada': ('210240', 'confRecebto', True, 'envConfRecebto')}
+
+TODAS = 0
+SEM_CONFIRMACAO_MANIFESTACAO = 1
+SEM_MANIFESTACAO = 2
 
 # Classe para prover camada de transporte com conexão HTTPS/SSL
 # Não suportada nativamente pelo Suds
@@ -166,6 +178,10 @@ class Webservice(object):
        pacote: string com nome do diretório que contém o "Package Language", padrão 'PL_006e'
        raiz: diretório que vai conter a estruturad de diretórios e arquivos para o Webservice, sendo padrão ${HOME}/NFe
        ${HOME}/NFe
+       |---> certificadoras
+       |     |---> certificado1.crt
+       |     |---> certificado2.crt
+       |     \---> ...
        |---> cnpjs
        |     |---> cnpj_ou_identificador_1
        |     |     |---> certificado_digital
@@ -210,16 +226,14 @@ class Webservice(object):
              |     \---> tiposBasico_v1.03.xsd
              \---> ...
 '''
-    # ambiemte pode ser 1 (PRODUCAO) ou 2 (HOMOLOGACAO)
-    # 
-    # 
+
     def __init__(self, cnpj, ambiente = PRODUCAO, uf = 'SP', sefaz = None, raiz = None, pacote = 'PL'):
         if uf not in UFS_IBGE:
             raise ValueError('UF ' + str(uf) + ' inválida!')
         if sefaz is None:
-            if uf in ('ES', 'MA', 'PA', 'PI', 'RN'):
+            if uf in ('ES', 'MA', 'PA', 'PI'):
                 sefaz = 'SVAN'
-            elif uf in ('AC', 'AL', 'AM', 'AP', 'DF', 'MS', 'PB', 'RJ', 'RO', 'RR', 'SC', 'SE', 'TO'):
+            elif uf in ('AC', 'AL', 'AM', 'AP', 'DF', 'MS', 'PB', 'RJ', 'RN', 'RO', 'RR', 'SC', 'SE', 'TO'):
                 sefaz = 'SVRS'
             else:
                 sefaz = uf
@@ -245,9 +259,9 @@ class Webservice(object):
         cabecalho.versaoDados = versao_dados
         return cabecalho
 
-    def servico(self, nome_wsdl, xml):
+    def servico(self, nome_wsdl, xml, nome_xsd = None):
         # Validar xml para envio
-        if not self.validar(xml):
+        if not self.validar(xml, nome_xsd):
             erros = "Erro(s) no XML: "
             for erro in self.erros:
                 erros += erro['type_name'] + ': ' + erro['message']
@@ -364,9 +378,8 @@ class Webservice(object):
         return self.servico('NfeInutilizacao2', inutilizacao)
 
     def enviar_envento(self, descr_evento, chave_nfe, data_hora_evento, qtd_mesmo_evento, xml_adicional):
-        tpEvento = {'Carta de Correcao': '110110', 'Cancelamento': '110111'}
-        xsd = {'Carta de Correcao': 'CCe', 'Cancelamento': 'eventoCancNFe'}
         dh = cf(data_hora_evento, datetime.datetime)[0]
+        cod_evento, xsd_evento, ev_maiusculo, xsd_envio = EVENTOS[descr_evento]
         #tz = time.altzone if time.daylight else time.timezone
         #tz = '%c%02i:%02i' % ('-' if tz > 0 else '+', tz/3600, tz/60%60)
         #dh = dh.strftime('%Y-%m-%dT%H:%M:%S') + tz
@@ -374,23 +387,24 @@ class Webservice(object):
         dh = tz.localize(dh).strftime('%Y-%m-%dT%H:%M:%S%z')
         dh = dh[:-2] + ':' + dh[-2:]
         evento = PoleXML.XML()
-        evento.evento['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        evento.evento['versao'] = '1.00'
-        evento.evento.infEvento['Id'] = 'ID' + tpEvento[descr_evento] + chave_nfe + "%02i" % qtd_mesmo_evento
-        evento.evento.infEvento.cOrgao = UFS_IBGE[self.__uf]
-        evento.evento.infEvento.tpAmb = self.__ambiente
-        evento.evento.infEvento.CNPJ = self.__cnpj
-        evento.evento.infEvento.chNFe = chave_nfe
-        evento.evento.infEvento.dhEvento = dh
-        evento.evento.infEvento.tpEvento = tpEvento[descr_evento]
-        evento.evento.infEvento.nSeqEvento = qtd_mesmo_evento
-        evento.evento.infEvento.verEvento = '1.00'
-        evento.evento.infEvento.detEvento['versao'] = '1.00'
-        evento.evento.infEvento.detEvento.descEvento = descr_evento
-        evento.evento.infEvento.detEvento += xml_adicional
-        self.assinar(evento, evento.evento.infEvento)
+        ev = evento.Evento if ev_maiusculo else evento.evento
+        ev['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        ev['versao'] = '1.00'
+        ev.infEvento['Id'] = 'ID' + cod_evento + chave_nfe + "%02i" % qtd_mesmo_evento
+        ev.infEvento.cOrgao = UFS_IBGE[self.__uf]
+        ev.infEvento.tpAmb = self.__ambiente
+        ev.infEvento.CNPJ = self.__cnpj
+        ev.infEvento.chNFe = chave_nfe
+        ev.infEvento.dhEvento = dh
+        ev.infEvento.tpEvento = cod_evento
+        ev.infEvento.nSeqEvento = qtd_mesmo_evento
+        ev.infEvento.verEvento = '1.00'
+        ev.infEvento.detEvento['versao'] = '1.00'
+        ev.infEvento.detEvento.descEvento = descr_evento
+        ev.infEvento.detEvento += xml_adicional
+        self.assinar(evento, ev.infEvento)
         # Validar xml da evento
-        if not self.validar(evento, xsd[descr_evento]):
+        if not self.validar(evento, xsd_evento):
             erros = "Erro(s) no XML: "
             for erro in self.erros:
                 erros += erro['type_name'] + ': ' + erro['message']
@@ -400,14 +414,16 @@ class Webservice(object):
         envio.envEvento['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         envio.envEvento['versao'] = '1.00'
         envio.envEvento.idLote = str(int(time.time() * 100000)) # microsegundo/10 do envio - 15 dígitos no máximo
-        envio.envEvento.evento = evento.evento
-        recibo = self.servico('RecepcaoEvento', envio)
-        print repr(recibo)
+        envio.envEvento.evento = ev(1)
+        recibo = self.servico('RecepcaoEvento', envio, xsd_envio)
         retorno = PoleXML.XML()
         retorno.procEventoNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         retorno.procEventoNFe['versao'] = '1.00'
-        retorno.procEventoNFe.evento = evento.evento
-        retorno.procEventoNFe.retEvento = recibo.retEnvEvento.retEvento
+        retorno.procEventoNFe.evento = ev(1)
+        if recibo.retEnvEvento('retEvento'):
+            retorno.procEventoNFe.retEvento = recibo.retEnvEvento.retEvento
+        else:
+            retorno.procEventoNFe.retEnvEvento = recibo.retEnvEvento
         return retorno
 
     def enviar_carta_correcao(self, qtd_carta_correcao, correcao, chave_nfe, data_hora_evento):
@@ -490,7 +506,8 @@ class Webservice(object):
                     print 'Consultando novamente...'
             tentativa += 1
         # Retorna o resultado da consulta do recibo
-        print 'Tentativa ' + str(tentativa - 1) + ': ' + str(retorno.retConsReciNFe.protNFe.infProt.cStat) + ' - ' + str(retorno.retConsReciNFe.protNFe.infProt.xMotivo)
+        if aviso_processamento:
+            print 'Tentativa ' + str(tentativa - 1) + ': ' + str(retorno.retConsReciNFe.protNFe.infProt.cStat) + ' - ' + str(retorno.retConsReciNFe.protNFe.infProt.xMotivo)
         return retorno
 
     def validar(self, xml, nome_xsd = None):
@@ -519,13 +536,53 @@ class Webservice(object):
         else:
             nome = nome_xsd
         # Caminho do arquivo XSD
-        print nome_xsd, self.__raiz , '/xsd/' , self.__pacote , '/' , nome , '_v' , versao , '.xsd'
+        #print nome_xsd, self.__raiz , '/xsd/' , self.__pacote , '/' , nome , '_v' , versao , '.xsd'
         arquivo_xsd = self.__raiz + '/xsd/' + self.__pacote + '/' + nome + '_v' + versao + '.xsd'
         # Verifica a validade do xml
         self.erros = PoleXML.validar(xml, arquivo_xsd)
         return len(self.erros) == 0
 
-    def assinar(self, xml, filho_id, filho_assinatura = None, atributo_id = 'Id'):
-        if filho_assinatura is None:
-            filho_assinatura = filho_id._XML__pai
-        PoleXML.assinar(xml, filho_assinatura, filho_id, atributo_id, self.__chave, self.__certificado)
+    def assinar(self, filho_id):
+        return PoleXML.assinar(filho_id, 'Id', self.__chave, self.__certificado)
+
+    def verificar_assinatura(self, filho_id):
+        return PoleXML.verificar_assinatura(filho_id, 'Id', raiz + '/certificadoras/v1_v2_v3.crt')
+
+    def download_nfe(self, chave): # usar uf = 'AN' (ambiente nacional)
+        requisicao = PoleXML.XML()
+        requisicao.downloadNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        requisicao.downloadNFe['versao'] = '1.00'
+        requisicao.downloadNFe.tpAmb = self.__ambiente
+        requisicao.downloadNFe.xServ = 'DOWNLOAD NFE'
+        requisicao.downloadNFe.CNPJ = self.__cnpj
+        requisicao.downloadNFe.chNFe = chave
+        return self.servico('NfeDownloadNF', requisicao)
+
+    def manifestar(self, manifestacao, chave_nfe, justificativa = None):
+        manifesto = PoleXML.XML()
+        if justificativa:
+            manifesto.xJust = justificativa
+        return self.enviar_envento(manifestacao, chave_nfe,
+                                   datetime.datetime.now(), 1, manifesto)
+
+    def consultar_nfes_destinadas(self, consultar = TODAS,
+                              sem_cnpj_base = False, ultimo_nsu = 0):
+        consulta = PoleXML.XML()
+        consulta.consNFeDest['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        consulta.consNFeDest['versao'] = '1.01'
+        consulta.consNFeDest.tpAmb = self.__ambiente
+        consulta.consNFeDest.xServ = 'CONSULTAR NFE DEST'
+        consulta.consNFeDest.CNPJ = self.__cnpj
+        consulta.consNFeDest.indNFe = consultar
+        consulta.consNFeDest.indEmi = +sem_cnpj_base
+        consulta.consNFeDest.ultNSU = ultimo_nsu
+        retorno = self.servico('NfeConsultaDest', consulta)
+        #print '=' * 100
+        #print repr(retorno)
+        while retorno.retConsNFeDest.cStat == '138' and retorno.retConsNFeDest.indCont == '1':
+            consulta.consNFeDest.ultNSU = retorno.consNFeDest.ultNSU
+            retorno += self.servico('NfeConsultaDest', consulta)
+            #print '-' * 100
+            #print repr(retorno)
+        #print '=' * 100
+        return retorno
