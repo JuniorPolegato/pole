@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><definitions xmlns="http://schemas.xmlsoap.org/wsdl/" name="RecepcaoEvento" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:nfe="http://www.portalfiscal.inf.br/nfe">
+    <types>
+        <xsd:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento">
+            <xsd:element name="nfeDadosMsg">
+                <xsd:complexType mixed="true">
+                    <xsd:sequence>
+                        <xsd:any/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="nfeRecepcaoEventoResult">
+                <xsd:complexType mixed="true">
+                    <xsd:sequence>
+                        <xsd:any/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="nfeCabecMsg" type="tns:nfeCabecMsg"/>
+            <xsd:complexType name="nfeCabecMsg">
+                <xsd:sequence>
+                    <xsd:element minOccurs="0" maxOccurs="1" name="cUF" type="xs:string"/>
+                    <xsd:element minOccurs="0" maxOccurs="1" name="versaoDados" type="xs:string"/>
+                </xsd:sequence>
+                <xsd:anyAttribute/>
+            </xsd:complexType>
+        </xsd:schema>
+    </types>
+    <message name="NfeRecepcaoEventoRequest">
+        <part name="nfeDadosMsg" element="tns:nfeDadosMsg"/>
+        <part name="nfeCabecMsg" element="tns:nfeCabecMsg"/>
+    </message>
+    <message name="NfeRecepcaoEventoResponse">
+        <part name="nfeRecepcaoEventoResult" element="tns:nfeRecepcaoEventoResult"/>
+        <part name="nfeCabecMsg" element="tns:nfeCabecMsg"/>
+    </message>
+    <portType name="RecepcaoEventoSoap">
+        <operation name="nfeRecepcaoEvento">
+            <input message="tns:NfeRecepcaoEventoRequest"/>
+            <output message="tns:NfeRecepcaoEventoResponse"/>
+        </operation>
+    </portType>
+    <binding name="RecepcaoEventoSoap12" type="tns:RecepcaoEventoSoap">
+        <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" style="document"/>
+        <operation name="nfeRecepcaoEvento">
+            <soap12:operation soapAction="http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento/nfeRecepcaoEvento" style="document"/>
+            <input>
+                <soap12:body use="literal" parts="nfeDadosMsg"/>
+                <soap12:header message="tns:NfeRecepcaoEventoRequest" part="nfeCabecMsg" use="literal"/>
+            </input>
+            <output>
+                <soap12:body use="literal" parts="nfeRecepcaoEventoResult"/>
+                <soap12:header message="tns:NfeRecepcaoEventoResponse" part="nfeCabecMsg" use="literal"/>
+            </output>
+        </operation>
+    </binding>
+    <service name="RecepcaoEvento">
+        <port name="recepcaoEventoSoap12" binding="tns:RecepcaoEventoSoap12">
+            <soap12:address location="https://nfe.fazenda.ms.gov.br/producao/services2/RecepcaoEvento"/>
+        </port>
+    </service>
+</definitions>
