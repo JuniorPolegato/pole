@@ -29,6 +29,7 @@ import os
 import re
 from string import strip
 import logging
+import traceback
 
 logger = logging.getLogger('pole')
 
@@ -48,14 +49,75 @@ def message(widget, text, message_type = gtk.MESSAGE_INFO, title = None):
         buttons = gtk.BUTTONS_YES_NO
     else:
         buttons = gtk.BUTTONS_CLOSE
-    dialog = gtk.MessageDialog(widget.get_toplevel(), message_format = text,
-                               type = message_type, buttons = buttons)
+    flags = flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+    dialog = gtk.MessageDialog(widget.get_toplevel(), flags,
+                                            message_type, buttons, text)
     if title is None:
         title = message_titles[message_type]
     dialog.set_title(title)
     result = dialog.run()
     dialog.destroy()
     return result
+
+def info(widget, text, title = None):
+    return message(widget, text, gtk.MESSAGE_INFO, title)
+
+def error(widget, text, title = None):
+    return message(widget, text, gtk.MESSAGE_ERROR, title)
+
+def warning(widget, text, title = None):
+    return message(widget, text, gtk.MESSAGE_WARNING, title)
+
+def question(widget, text, title = None):
+    return message(widget, text, gtk.MESSAGE_QUESTION, title)
+
+def error_detail(widget, text, detail, title='Erro'):
+    # Get toplevel window
+    if isinstance(widget, gtk.Widget):
+        window = widget.get_toplevel()
+    else:
+        window = None
+    # Create Message dialog with hidden details
+    flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+    dialog = gtk.MessageDialog(window, flags, gtk.MESSAGE_ERROR,
+                                     gtk.BUTTONS_CLOSE, text)
+    dialog.format_secondary_text(' ')
+    dialog.set_title(title)
+    vbox = dialog.get_message_area()
+    l1 = vbox.children()[0]
+    l1.set_line_wrap(False)
+    expander = gtk.Expander(_('Details'))
+    scroll = gtk.ScrolledWindow()
+    text_buffer = gtk.TextBuffer()
+    text_view = gtk.TextView(text_buffer)
+    scroll.set_shadow_type(gtk.SHADOW_IN)
+    scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+    text_buffer.set_text(detail)
+    text_view.set_editable(False)
+    text_view.set_size_request(-1, 300)
+    vbox.pack_start(expander, False, False)
+    expander.add(scroll)
+    scroll.add(text_view)
+    expander.show_all()
+    result = dialog.run()
+    dialog.destroy()
+    return result
+
+def show_exception(project, args):
+    # Exception message
+    exc_message = traceback.format_exc().strip().splitlines()
+    pri_text = exc_message[-1][:80] + '…' * (len(exc_message[-1]) > 80)
+    title = pri_text.split(':', 1)[0]
+    #sec_text = '\n'.join(m[:100] + '…' * (len(m) > 100)
+    #                                       for m in exc_message[-3:-1])
+    # Get toplevel window
+    if len(args) > 1 and isinstance(args[1], gtk.Widget):
+        obj = args[1]
+    else:
+        for obj in project.interface.get_objects():
+            if isinstance(obj, gtk.Widget):
+                break
+    return error_detail(obj, pri_text, '\n'.join(exc_message), title)
 
 def load_images_as_icon(path = '.'):
     for file in os.listdir(path):
@@ -538,8 +600,6 @@ class Editor(gtk.Entry, gtk.Buildable):
                 try:
                     self.__decimals = int([x[5:] for x in configs if x[:5] == "float"][0])
                 except Exception:
-                    #import traceback
-                    #traceback.print_exc()
                     self.__decimals = PoleUtil.locale.localeconv()['frac_digits']
             else:
                 self.__decimals = 0
@@ -1293,7 +1353,7 @@ class Project(object):
             return widget
         else:
             object.__getattribute__(self,
-                                       "consulteds_attributes")[attribute] = None
+                              "consulteds_attributes")[attribute] = None
         return object.__getattribute__(self, attribute)
 
 def try_function(f):
@@ -1303,41 +1363,33 @@ def try_function(f):
             return result
         except Exception as error:
             PoleLog.log_except()
-            try:
-                error_type = str(type(error)).split("'")[1].split('.')[-1]
-            except:
-                error_type = str(type(error))
-            if len(args) > 1 and isinstance(args[1], gtk.Widget):
-                obj = args[1]
-            else:
-                for obj in project.interface.get_objects():
-                    if isinstance(obj, gtk.Widget):
-                        break
-            if isinstance(obj, gtk.Widget):
-                message(obj.get_toplevel(), str(error).strip() + _('\n\nFunction: ') + str(f).split()[1], gtk.MESSAGE_ERROR, title = error_type)
+            show_exception(project, args)
             return None
     return action
 
 
-def read_text(textview, trimspace=True):
+def read_text(textview, format=True, trimspace=True):
     buffer = textview.get_buffer()
-    text = buffer.get_text(*buffer.get_bounds())
+    text = strip(buffer.get_text(*buffer.get_bounds()))
 
-    formated = formatar(strip(text), 'Nome Mai')
+    if format:
+        text = formatar(text, 'Nome Mai')
 
     if trimspace:
-        return re.sub('\s', ' ', formated)
+        return re.sub('\s', ' ', text)
 
-    return formated
+    return text
 
 
-def write_text(text, textview, trimspace=True):
-    formated = formatar(strip(text), 'Nome Mai')
+def write_text(text, textview, format=True, trimspace=True):
+    if format:
+        text = formatar(text, 'Nome Mai')
+
     if trimspace:
-        formated = re.sub('\s', ' ', formated)
+        text = re.sub('\s', ' ', text)
 
     buffer = textview.get_buffer()
-    buffer.set_text(formated)
+    buffer.set_text(strip(text))
 
 
 def set_active_text(combo, text, column=0):
@@ -1538,6 +1590,18 @@ if __name__ == '__main__':
 
     # Função chamada pelo evento de clicar o botão
     def click(*args):
+        try:
+            print error(args[0], 'Teste de erro')
+            print info(args[0], 'Teste de erro')
+            print warning(args[0], 'Teste de erro')
+            print question(args[0], 'Teste de erro?')
+            print error('', 'Teste de erro')
+        except Exception:
+            class X(object):
+                def __init__(self):
+                    self.interface = ui
+            x = X()
+            show_exception(x, args)
         #print args
         # dados: matriz de dados
         # Pode vir de um select ou um arquivo
