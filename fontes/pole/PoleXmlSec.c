@@ -416,7 +416,7 @@ PoleXmlSec_sign(PyObject *self, PyObject *args)
 
     /* Shutdown crypto library */
     /* Se executar essa linha dá erro na conexão HTTPS */
-    xmlSecCryptoAppShutdown();
+    // xmlSecCryptoAppShutdown();
 
     /* Shutdown libxslt/libxml/libxmlsec1 */
 #ifndef XMLSEC_NO_XSLT

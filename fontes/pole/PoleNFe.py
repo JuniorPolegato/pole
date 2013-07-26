@@ -52,7 +52,7 @@ HOMOLOGACAO = 2
 UFS_IBGE = {'AC': '12', 'CE': '23', 'MG': '31', 'PE': '26', 'RO': '11', 'SP': '35',
             'AL': '27', 'DF': '53', 'MS': '50', 'PI': '22', 'RR': '14', 'TO': '17',
             'AM': '13', 'ES': '32', 'MT': '51', 'PR': '41', 'RS': '43',
-            'AP': '16', 'GO': '52', 'PA': '15', 'RJ': '33', 'SC': '42', 
+            'AP': '16', 'GO': '52', 'PA': '15', 'RJ': '33', 'SC': '42',
             'BA': '29', 'MA': '21', 'PB': '25', 'RN': '24', 'SE': '28',
             'AN': '91'
         }
@@ -85,40 +85,106 @@ TODAS = 0
 SEM_CONFIRMACAO_MANIFESTACAO = 1
 SEM_MANIFESTACAO = 2
 
-# Classe para prover camada de transporte com conexão HTTPS/SSL
-# Não suportada nativamente pelo Suds
-# Inspirado em http://www.threepillarglobal.com/soap_client_auth
 import socket
 import httplib
 import urllib2
 import ssl
+
+def print_req(req):
+    print req.__dict__
+    #print 'req.add_data(data):', req.add_data(data)
+    print 'req.get_method():', req.get_method()
+    print 'req.has_data():', req.has_data()
+    print 'req.get_data():', req.get_data()
+    #print 'req.add_header(key, val):', req.add_header(key, val)
+    #print 'req.add_unredirected_header(key, header):', req.add_unredirected_header(key, header)
+    #print 'req.has_header(header):', req.has_header(header)
+    print 'req.get_full_url():', req.get_full_url()
+    print 'req.get_type():', req.get_type()
+    print 'req.get_host():', req.get_host()
+    print 'req.get_selector():', req.get_selector()
+    #print 'req.get_header(header_name, default=None):', req.get_header(header_name, default=None)
+    print 'req.header_items():', req.header_items()
+    #print 'req.set_proxy(host, type):', req.set_proxy(host, type)
+    print 'req.get_origin_req_host():', req.get_origin_req_host()
+    print 'req.is_unverifiable():', req.is_unverifiable()
+
+def test_ssl_connection():
+    import socket
+    import ssl
+    import pprint
+
+    cnpj = '11222333000101'
+    key_file = '/home/junior/NFe/cnpjs/%s/certificado_digital/chave.pem' % cnpj
+    cert_file = '/home/junior/NFe/cnpjs/%s/certificado_digital/certificado.pem' % cnpj
+    ca_file = '/home/junior/NFe/certificadoras/certificadoras.crt'
+    host = 'homologacao.nfe.fazenda.sp.gov.br'
+    uri = '/nfeweb/services/nferecepcao2.asmx?wsdl'
+    port = 443
+    timeout = 90
+    source_address = None
+
+    s = socket.create_connection((host, port), timeout, source_address)
+    ssl_sock = ssl.wrap_socket(s, key_file, cert_file, ssl_version=ssl.PROTOCOL_SSLv3)#, ca_certs=ca_file, cert_reqs=ssl.CERT_REQUIRED)
+
+    print repr(ssl_sock.getpeername())
+    print ssl_sock.cipher()
+    print pprint.pformat(ssl_sock.getpeercert())
+
+    # Set a simple HTTP request
+    ssl_sock.write("GET %s HTTP/1.0\r\nHost: %s\r\n\r\n" % (uri, host))
+
+    # Read chunks of data.
+    data = ''
+    chunk = ssl_sock.read()
+    while chunk:
+      data += chunk
+      chunk = ssl_sock.read()
+    print data
+
+    # note that closing the SSLSocket will also close the underlying socket
+    ssl_sock.close()
+
+    raw_input('-' * 100)
+
+# Classes para prover camada de transporte com conexão HTTPS/SSL
+# Não suportada nativamente pelo Suds
+# Inspirado em http://www.threepillarglobal.com/soap_client_auth
 class HTTPSConnection(httplib.HTTPConnection):
     default_port = 443
     def __init__(self, host, port=None, key_file=None, cert_file=None,
                  strict=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
-                 source_address=None):
+                 source_address=None, ca_certs=None):
         httplib.HTTPConnection.__init__(self, host, port, strict, timeout, source_address)
         self.key_file = key_file
         self.cert_file = cert_file
+        self.ca_certs = ca_certs
     def connect(self):
         sock = socket.create_connection((self.host, self.port), self.timeout, self.source_address)
         if self._tunnel_host:
             self.sock = sock
             self._tunnel()
-        self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file, ssl_version=ssl.PROTOCOL_SSLv3)
+        self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file,
+               ssl_version=ssl.PROTOCOL_SSLv3, ca_certs = self.ca_certs,
+               cert_reqs = ssl.CERT_REQUIRED)
 class https_ssl(urllib2.HTTPSHandler):
-    def __init__(self, key_file, cert_file):
+    def __init__(self, key_file, cert_file, ca_file):
         urllib2.HTTPSHandler.__init__(self)
         self.key_file = key_file
         self.cert_file = cert_file
+        self.ca_file = ca_file
         self.protocol = 2
     def https_open(self, req):
+        #print_req(req)
         return self.do_open(self.conexao, req)
     def conexao(self, host, timeout = None):
         # Na versão do httplib do servidor o HTTPSConnection funciona Ok,
         # e este que criei não, então tem que usar "httplib.HTTPSConnection"
-        # para rodar no servidor
-        return HTTPSConnection(host, timeout = timeout, key_file = self.key_file, cert_file = self.cert_file)
+        # para rodar no servidor com versões antigas.
+        # Na versão atual de 16 Jul 2013, "httplib.HTTPSConnection" funciona.
+        # Para maior segurança, utilizar HTTPSConnection acima por fazer uso
+        # de autoridade certificadora.
+        return HTTPSConnection(host, timeout = timeout, key_file = self.key_file, cert_file = self.cert_file, ca_certs = self.ca_file)
 
 # Sobrescrita a função "str" de Element (E) para não endentar nem quebrar linha
 # Pelo menos o servidor de SP não aceita caracteres entre as marcas, erro 588
@@ -252,6 +318,7 @@ class Webservice(object):
         # Caminho do certificado digital
         self.__chave = self.__raiz + '/cnpjs/' + self.__cnpj + '/certificado_digital/chave.pem'
         self.__certificado = self.__raiz + '/cnpjs/' + self.__cnpj + '/certificado_digital/certificado.pem'
+        self.__certificadoras = self.__raiz + '/certificadoras/certificadoras.crt'
 
     def __cabecalho(self, cliente, versao_dados):
         cabecalho = cliente.factory.create('nfeCabecMsg')
@@ -268,7 +335,7 @@ class Webservice(object):
             raise ValueError(erros)
         # Criar meio de transporte criptografado
         transporte = suds.transport.http.HttpTransport()
-        transporte.urlopener = urllib2.build_opener(https_ssl(key_file = self.__chave, cert_file = self.__certificado))
+        transporte.urlopener = urllib2.build_opener(https_ssl(key_file = self.__chave, cert_file = self.__certificado, ca_file = self.__certificadoras))
         # Carrega o wsdl da estrutura de arquivos <raiz>/wsdl/<uf>/<nome_wsdl>.wsdl
         arquivo_wsdl = 'file://' + self.__raiz + '/wsdl/' + self.__sefaz + '/' + self.__str_ambiente + '/' + str(nome_wsdl) + '.wsdl'
         wsdl = suds.client.Client(arquivo_wsdl, transport = transporte)
@@ -281,7 +348,7 @@ class Webservice(object):
         # Configura o cabeçalho e retorno em XML - Na versão do servidor não tem o parâmetro prettyxml, então tem que comentá-lo para rodar lá
         wsdl.set_options(soapheaders = self.__cabecalho(wsdl, xml('', 1)['versao']), retxml = True, prettyxml = True)
         # Executa a função e coleta o resultado em XML
-        resultado = funcao(suds.sax.parser.Parser().parse(string = PoleXML.exportar(xml, -1)).root())
+        resultado = funcao(suds.sax.parser.Parser().parse(string = PoleXML.serializar(xml)).root())
         #resultado = funcao(PoleXML.exportar(xml, -1))
         #print repr(PoleXML.importar(resultado))
         # Voltando o ambiente do SOAP
@@ -297,7 +364,7 @@ class Webservice(object):
         consulta.consStatServ.cUF = UFS_IBGE[self.__uf]
         consulta.consStatServ.xServ = 'STATUS'
         return self.servico('NfeStatusServico2', consulta)
-    
+
     def consultar_chave(self, chave):
         consulta = PoleXML.XML()
         consulta.consSitNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
@@ -306,7 +373,7 @@ class Webservice(object):
         consulta.consSitNFe.xServ = 'CONSULTAR'
         consulta.consSitNFe.chNFe = chave
         return self.servico('NfeConsulta2', consulta)
-    
+
     def consultar_num_nota(self, num_nota):
         for ano in range(datetime.date.today().year % 100, 5, -1):
             chave = str(UFS_IBGE[self.__uf]) + '%02d' % ano + '09' + self.__cnpj + '55001' + '%09d' % num_nota + '7825541981'
@@ -402,7 +469,7 @@ class Webservice(object):
         ev.infEvento.detEvento['versao'] = '1.00'
         ev.infEvento.detEvento.descEvento = descr_evento
         ev.infEvento.detEvento += xml_adicional
-        self.assinar(evento, ev.infEvento)
+        self.assinar(ev.infEvento)
         # Validar xml da evento
         if not self.validar(evento, xsd_evento):
             erros = "Erro(s) no XML: "
@@ -442,13 +509,13 @@ class Webservice(object):
         if not isinstance(xml, PoleXML.XML):
             raise TypeError('A NFe em XML precisa ser passada como string XML, string com o nome do arquivo com o XML ou instância de PoleXML.XML!')
         # Assina a NFe
-        self.assinar(xml, xml.NFe.infNFe)
+        self.assinar(xml.NFe.infNFe)
         # Cria envelope de lote para a NFe
         lote_nfe = PoleXML.XML()
         lote_nfe.enviNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         lote_nfe.enviNFe['versao'] = '2.00'
         lote_nfe.enviNFe.idLote = datetime.datetime.now().strftime('%y%m%d%H%M%S%f')[:15]
-        lote_nfe.enviNFe = xml
+        lote_nfe.enviNFe += xml
         # Envia a NFe
         return self.servico('NfeRecepcao2', lote_nfe)
 
@@ -537,7 +604,7 @@ class Webservice(object):
             nome = nome_xsd
         # Caminho do arquivo XSD
         #print nome_xsd, self.__raiz , '/xsd/' , self.__pacote , '/' , nome , '_v' , versao , '.xsd'
-        arquivo_xsd = self.__raiz + '/xsd/' + self.__pacote + '/' + nome + '_v' + versao + '.xsd'
+        arquivo_xsd = os.path.join(self.__raiz, 'xsd', self.__pacote, nome + '_v' + versao + '.xsd')
         # Verifica a validade do xml
         self.erros = PoleXML.validar(xml, arquivo_xsd)
         return len(self.erros) == 0

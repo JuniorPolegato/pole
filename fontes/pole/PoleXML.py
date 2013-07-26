@@ -87,7 +87,6 @@ class XML(object):
         if filho not in self.__filhos and i == 1:
             self.__filhos.append(filho)
             no = XML(filho, self)
-            no.__nome = filho
             self.__xmls.append(no)
         else:
             no = self.__posicionar(filho, i)
