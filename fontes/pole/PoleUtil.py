@@ -120,9 +120,9 @@ def somente_digitos_e_decimal(caracteres,
         return locale.str(caracteres)
     if not isinstance(caracteres, (str, unicode, type(None))):
         caracteres = str(caracteres)
+    decimal = locale.localeconv()['decimal_point']
     if caracteres:
         caracteres = re.sub('[^0-9%s]' % decimal, '', caracteres)
-    decimal = locale.localeconv()['decimal_point']
     if casas is None:
         casas = locale.localeconv()['frac_digits']
     if not caracteres:
@@ -669,13 +669,12 @@ def validar_ie(ie, uf):
         dv = modulo_11(digitos_ie[:-1])
         ie_esperada = digitos_ie[:-1] + dv
     elif uf == 'AP':
-        if int(digitos_ie[:-1]) <= '03017000':
+        if int(digitos_ie[:-1]) <= 3017000:
             dv = modulo_11(digitos_ie[:8], soma = 5)
-        elif int(digitos_ie[:-1]) <= '03019022':
+        elif int(digitos_ie[:-1]) <= 3019022:
             dv = modulo_11(digitos_ie[:-1], soma = 9, resto = ('0', '1'))
         else:
             dv = modulo_11(digitos_ie[:-1])
-        dv = '2'
         ie_esperada = digitos_ie[:-1] + dv
     elif uf == 'BA':
         if digitos_ie[1] in ('0', '1', '2', '3', '4', '5', '8'):
@@ -1103,7 +1102,7 @@ DATE_TIME = 2
 MONTH = 3
 HOURS = 4
 DAYS_HOURS = 5
-try: # Try to identify date and time formats via nl_langinfo 
+try: # Try to identify date and time formats via nl_langinfo
     TIME_FORMAT = locale.nl_langinfo(locale.T_FMT)
     DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', locale.nl_langinfo(locale.D_FMT))
 except Exception: # If fail, like on Windows, try to discovery via strftime("%x")
