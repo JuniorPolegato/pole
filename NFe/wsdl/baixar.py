@@ -114,7 +114,8 @@ wsdls = {
             'NfeInutilizacao2': 'https://homologacao.nfe.sefazvirtual.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao2.asmx',
             'NfeConsulta2': 'https://homologacao.nfe.sefazvirtual.rs.gov.br/ws/NfeConsulta/NfeConsulta2.asmx',
             'NfeStatusServico2': 'https://homologacao.nfe.sefazvirtual.rs.gov.br/ws/NfeStatusServico/NfeStatusServico2.asmx',
-            'RecepcaoEvento': 'https://homologacao.nfe.sefazvirtual.rs.gov.br/ws/recepcaoevento/recepcaoevento.asmx'},
+            'RecepcaoEvento': 'https://homologacao.nfe.sefazvirtual.rs.gov.br/ws/recepcaoevento/recepcaoevento.asmx',
+            'NfeAutorizacao': 'https://nfe.sefazvirtual.rs.gov.br/ws/NfeAutorizacao/NfeAutorizacao.asmx'},
         'SCAN': {
             'NfeRecepcao2': 'https://hom.nfe.fazenda.gov.br/SCAN/NfeRecepcao2/NfeRecepcao2.asmx',
             'NfeRetRecepcao2': 'https://hom.nfe.fazenda.gov.br/SCAN/NfeRetRecepcao2/NfeRetRecepcao2.asmx',
@@ -241,7 +242,8 @@ wsdls = {
             'NfeInutilizacao2': 'https://nfe.sefazvirtual.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao2.asmx',
             'NfeConsulta2': 'https://nfe.sefazvirtual.rs.gov.br/ws/NfeConsulta/NfeConsulta2.asmx',
             'NfeStatusServico2': 'https://nfe.sefazvirtual.rs.gov.br/ws/NfeStatusServico/NfeStatusServico2.asmx',
-            'RecepcaoEvento': 'https://nfe.sefazvirtual.rs.gov.br/ws/recepcaoevento/recepcaoevento.asmx'},
+            'RecepcaoEvento': 'https://nfe.sefazvirtual.rs.gov.br/ws/recepcaoevento/recepcaoevento.asmx',
+            'NfeAutorizacao': 'https://nfe.sefazvirtual.rs.gov.br/ws/NfeAutorizacao/NfeAutorizacao.asmx'},
         'SCAN': {
             'NfeRecepcao2': 'https://www.scan.fazenda.gov.br/NfeRecepcao2/NfeRecepcao2.asmx',
             'NfeRetRecepcao2': 'https://www.scan.fazenda.gov.br/NfeRetRecepcao2/NfeRetRecepcao2.asmx',
@@ -287,7 +289,6 @@ def criar_diretorios(sefaz, mostra_erro = False):
 for ambiente, wss in wsdls.items():
     print ambiente
     for sefaz, servicos in wss.items():
-        #if sefaz not in ('PR', 'GO'): continue
         print ' ', sefaz
         criar_diretorios(sefaz)
         for servico, url in servicos.items():
