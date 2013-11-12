@@ -35,6 +35,11 @@ language, encode = (locale.setlocale(locale.LC_ALL, '') + '..').split('.')[:2]
 # Importing e configuration internationalization module gettex
 import os.path
 import gettext
+import hashlib
+from decimal import Decimal, ROUND_DOWN
+import PoleLog
+import string
+
 
 def load_pole_translations(DIR):
     gettext.bindtextdomain(APP, DIR)
@@ -43,7 +48,7 @@ def load_pole_translations(DIR):
 _ = gettext.gettext
 
 DIR = '/usr/share/locale'
-for locale_folder in ('../pole/po/locale', 'pole/po/locale', 'po/locale', 'locale', '../po/locale', '../locale', '/usr/share/locale', '/usr/local/share/locale', '/usr/local/'):
+for locale_folder in ('../../pole/po/locale', '../pole/po/locale', 'pole/po/locale', 'po/locale', 'locale', '../po/locale', '../locale', '/usr/share/locale', '/usr/local/share/locale', '/usr/local/'):
     if os.path.exists(locale_folder + '/' + language + '/LC_MESSAGES/' + APP + '.mo'):
         DIR = locale_folder
         load_pole_translations(DIR)
@@ -57,7 +62,7 @@ import unicodedata
 import mimetypes
 import base64
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 def digits(string, zero_when_empty = True):
     """\brief Extrai apenas os dígitos de uma lista de \a caracteres.
@@ -1936,3 +1941,52 @@ def fetchdict(cur, one = False):
         return [OrderedDict(zip(columns, reg)) for reg in cur]
     except TypeError:
         return []
+
+
+def fetchtuple(cur):
+    columns = [c[0].lower() for c in cur.description]
+    Row = namedtuple('row', columns)
+    try:
+        return [Row._make(row) for row in cur]
+    except TypeError:
+        return []
+
+
+def fetchtupleone(cur):
+    columns = [c[0].lower() for c in cur.description]
+    Row = namedtuple('row', columns)
+
+    try:
+        return Row._make(cur.fetchone())
+    except TypeError:
+        return None
+
+
+def make_pwd_hash(pwd):
+    phash = hashlib.md5()
+    phash.update(pwd)
+    return phash.hexdigest()
+
+
+def sql_like(texto):
+    return '%{}%'.format('%'.join(texto.split()))
+
+
+def truncate(value):
+    return float(Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_DOWN))
+
+
+def get_name_of_month(today, date):
+    current_month = datetime.datetime(today.year, today.month, 1)
+    name = ''
+
+    if date < current_month:
+        name = (datetime.datetime.strftime(date, '%Y_') +
+                string.capitalize(datetime.datetime.strftime(date, '%B')))
+
+    return name
+
+
+def get_danfe_path(rootdir, access_key, today, emit_date):
+    subfolder = get_name_of_month(today, emit_date)
+    return os.path.join(rootdir, subfolder, 'PDF', access_key + '.pdf')

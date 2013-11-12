@@ -366,13 +366,19 @@ class Webservice(object):
         return self.servico('NfeStatusServico2', consulta)
 
     def consultar_chave(self, chave):
+        if chave[:2] == UFS_IBGE[self.__uf]:
+            ws_consulta = self
+        else:
+            uf_consulta = dict([x[::-1] for x in UFS_IBGE.items()])[chave[:2]]
+            ws_consulta = Webservice(self.__cnpj, self.__ambiente,
+                     uf_consulta, uf_consulta, self.__raiz, self.__pacote)
         consulta = PoleXML.XML()
         consulta.consSitNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         consulta.consSitNFe['versao'] = '2.01'
         consulta.consSitNFe.tpAmb = self.__ambiente
         consulta.consSitNFe.xServ = 'CONSULTAR'
         consulta.consSitNFe.chNFe = chave
-        return self.servico('NfeConsulta2', consulta)
+        return ws_consulta.servico('NfeConsulta2', consulta)
 
     def consultar_num_nota(self, num_nota):
         for ano in range(datetime.date.today().year % 100, 5, -1):

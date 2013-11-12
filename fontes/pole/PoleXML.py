@@ -227,6 +227,7 @@ class XML(object):
                 raise IndexError('Não encontrado o ' + str(qual) + 'º filho "' + filho + '" dentre o(s) ' + str(len(self.__filhos)) + ' filho(s) que o nó "' + self.__nome + '" possui.')
             return self.__xmls[qual - 1]
         contador = qual
+        n = 0
         for n, f in enumerate(self.__filhos):
             #~ print f, filho, f == filho, qual
             if f == filho:

@@ -11,6 +11,7 @@ Copyright © 2011 - Claudio Polegato Junior <junior@juniorpolegato.com.br>
 Todos os direitos reservados
 """
 import os
+import errno
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -32,6 +33,15 @@ def setup_logging(app):
 
     log_dir = os.path.expanduser('~')
     log_file = os.path.join(log_dir, '.erp', app + '.log')
+
+    try:
+        if not os.path.isdir(log_dir):
+            os.makedirs(log_dir)
+    except IOError as e:
+        if e.errno == errno.EEXIST:
+            return
+        raise
+
     try:
         fh = RotatingFileHandler(log_file, maxBytes=_MAX_LOG_SIZE,
                                  backupCount=_MAX_LOG_BACKUP)

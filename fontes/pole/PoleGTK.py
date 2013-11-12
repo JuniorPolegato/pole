@@ -30,6 +30,8 @@ import re
 from string import strip
 import logging
 import traceback
+import pango
+import importlib
 
 logger = logging.getLogger('pole')
 
@@ -71,13 +73,15 @@ def warning(widget, text, title = None):
 def question(widget, text, title = None):
     return message(widget, text, gtk.MESSAGE_QUESTION, title)
 
-def error_detail(widget, text, detail, title='Erro'):
+def error_detail(widget, text, detail, title=None):
     # Get toplevel window
     if isinstance(widget, gtk.Widget):
         window = widget.get_toplevel()
     else:
         window = None
     # Create Message dialog with hidden details
+    if title is None:
+        title = message_titles[gtk.MESSAGE_ERROR]
     flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
     dialog = gtk.MessageDialog(window, flags, gtk.MESSAGE_ERROR,
                                      gtk.BUTTONS_CLOSE, text)
@@ -118,6 +122,35 @@ def show_exception(project, args):
             if isinstance(obj, gtk.Widget):
                 break
     return error_detail(obj, pri_text, '\n'.join(exc_message), title)
+
+
+def save(parent=None, title='', current_name='', folder=None):
+    filechooser = gtk.FileChooserDialog(title or _('Save'),
+                                        parent.get_toplevel(),
+                                        gtk.FILE_CHOOSER_ACTION_SAVE,
+                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                         gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+    if current_name:
+        filechooser.set_current_name(current_name)
+    filechooser.set_default_response(gtk.RESPONSE_OK)
+
+    if folder:
+        filechooser.set_current_folder(folder)
+
+    path = None
+    while True:
+        response = filechooser.run()
+        if response != gtk.RESPONSE_OK:
+            path = None
+            break
+
+        path = filechooser.get_filename()
+        if not os.path.exists(path):
+            break
+
+    filechooser.destroy()
+    return path
+
 
 def load_images_as_icon(path = '.'):
     for file in os.listdir(path):
@@ -447,7 +480,7 @@ class DateButton(gtk.Button, gtk.Buildable):
         self.updated = old != x or changed
         if self.__select_then_tab:
             self.__timer = gobject.timeout_add(500, self.__emit_tab)
-        super(DateButton, self).do_clicked(*args, **kargs)
+        # super(DateButton, self).do_clicked(self, *args, **kargs)
 
     def __emit_tab(self):
         gobject.source_remove(self.__timer)
@@ -527,6 +560,38 @@ class GridRow(object):
                 line[column] = formated[1]
         else:
             raise TypeError, _('Invalid type of column index or name `' + type(index) + '´.')
+
+
+class ComboBoxCompletion(gtk.ComboBox, gtk.Buildable):
+    __gtype_name__ = 'ComboBoxCompletion'
+
+    def __init__(self, *args, **kargs):
+        super(ComboBoxCompletion, self).__init__(*args, **kargs)
+        self.__completion = gtk.EntryCompletion()
+        self.__completion.set_model(self.get_model())
+        self.__completion.set_minimum_key_length(1)
+        self.__completion.set_text_column(0)
+        self.__completion.set_match_func(self.match_func)
+        self.__completion.connect('match-selected', self.on_match_selected)
+
+    def do_parser_finished(self, builder):
+        self.child.set_completion(self.__completion)
+        self.__completion.set_model(self.get_model())
+
+    def set_model(self, model):
+        super(ComboBoxCompletion, self).set_model(model)
+        self.__completion.set_model(model)
+
+    def match_func(self, completion, key, iter, column=0):
+        key = PoleUtil.formatar(key, "Livre Mai").replace(' ', '.*')
+        model = completion.get_model()
+        text = PoleUtil.formatar(model.get_value(iter, column), "Livre Mai")
+        return re.search(key, text)
+
+    def on_match_selected(self, completion, model, iter):
+        value = model.get_value(iter, 0)
+        set_active_text(self, value)
+
 
 class Editor(gtk.Entry, gtk.Buildable):
     __gtype_name__ = 'Editor'
@@ -872,6 +937,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
             else:
                 cell = gtk.CellRendererText()
                 cell.set_property('editable', editable)
+                cell.set_property('wrap-width', 800)
+                cell.set_property('wrap-mode', pango.WRAP_WORD)
                 cell.connect('edited', self.__editable_callback, len(self.__model_pos) - 1)
                 cell.connect('editing-started', self.__start_editing_callback, len(self.__model_pos) - 1)
                 column.pack_start(cell)
@@ -1035,6 +1102,13 @@ class Grid(gtk.TreeView, gtk.Buildable):
                         PoleLog.log_except()
                         formated.append(False)
                         error = True
+                elif t == str and type(field) in (datetime.date, datetime.datetime):
+                    try:
+                        formated.append(PoleUtil.convert_and_format(field, t)[0])
+                    except (ValueError, TypeError):
+                        PoleLog.log_except()
+                        formated.append(False)
+                        error = True
                 else:
                     formated.append(field)
             if self.__with_colors:
@@ -1091,7 +1165,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
         if error:
             message(self, _("Some values could not be converted or formatted!\n\nThey will be displayed as they are and evalueted by zero (0 ou 0.0) or false."))
 
-    def __get_line(self, path):
+    def __get_line(self, path, to_str=False):
         model_line = self.get_model()[path]
         values = []
         formateds = []
@@ -1107,6 +1181,9 @@ class Grid(gtk.TreeView, gtk.Buildable):
             if t in (int, long, float, datetime.datetime, datetime.date, datetime.time):
                 formateds.append(model_line[col+1])
                 col += 2
+            elif t is bool and to_str:
+                formateds.append(PoleUtil.convert_and_format(model_line[col], t)[1])
+                col += 1
             else:
                 formateds.append(model_line[col])
                 col += 1
@@ -1150,7 +1227,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
         csv = '\t'.join(self.__titles) + '\n'
         cols = len(self.__titles)
         lines = len(self.get_model())
-        csv += '\n'.join('\t'.join(self.__get_line(i)[1][:cols]) for i in range(lines)) + '\n'
+        csv += '\n'.join('\t'.join(self.__get_line(i, to_str=True)[1][:cols]) for i in range(lines)) + '\n'
         if filename:
             open(filename, 'w').write(csv)
         else:
@@ -1158,7 +1235,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
 
 def load_module(parent_project, parent_main_window, module_name, title, main_window_name, data = None):
     loop = glib.MainLoop()
-    module = __import__(module_name)
+    module = importlib.import_module(module_name)
     if data is None:
         data = []
     if isinstance(parent_main_window, VirtualWidget):
@@ -1208,6 +1285,7 @@ NEW_CLASSES = (
     ('GtkEntry', 'Editor', 'ed_'),
     ('GtkWindow', 'PopupWindow', 'popup_'),
     ('GtkButton', 'DateButton', 'dt_'),
+    ('GtkComboBox', 'ComboBoxCompletion', 'cc_'),
 )
 
 def build_interface(xml_file_or_xml_string = None):
@@ -1309,10 +1387,13 @@ class Project(object):
         # Criar uma coluna de dados para os combos, por padrão a coluna 0
         # Comente ou altere para a coluna desejada
         for combo in [x for x in self.interface.get_objects()
-                           if type(x) == gtk.ComboBox]:
-            celula = gtk.CellRendererText()
-            combo.pack_start(celula, False)
-            combo.add_attribute(celula, "text", 0)
+                                        if isinstance(x, gtk.ComboBox)]:
+            if not combo.get_has_entry():
+                celula = gtk.CellRendererText()
+                combo.pack_start(celula, False)
+                combo.add_attribute(celula, "text", 0)
+            elif combo.get_entry_text_column() == -1:
+                combo.set_entry_text_column(0)
         # Resolver problema de imagens não exibidas nos botões
         # Comente caso queira o comportamento configurado no Gnome, pois
         #     a partir da versão 2.28 por padrão não mostra, sendo que
@@ -1321,7 +1402,7 @@ class Project(object):
         #     a chave "/desktop/gnome/interface/buttons_have_icons" ou execute
         #     "gconftool --toggle /desktop/gnome/interface/buttons_have_icons"
         for botao in [x for x in self.interface.get_objects()
-                                                      if type(x) == gtk.Button]:
+                                          if isinstance(x, gtk.Button)]:
             try:
                 botao.child.child.get_children()[0].show()
             except:
@@ -1406,13 +1487,14 @@ def get_active_text(combo, column=0):
     return model[index][column]
 
 
-def load_store(combo, cursor):
-        model = combo.get_model()
-        model.clear()
+def load_store(combo, cursor, active=True):
+    model = combo.get_model()
+    model.clear()
 
-        for iter in cursor:
-            model.append(iter)
+    for row in cursor:
+        model.append(row)
 
+    if active:
         combo.set_active(0)
 
 
@@ -1577,6 +1659,18 @@ if __name__ == '__main__':
                 <property name="position">5</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkComboBox" id="cc_teste">
+                <property name="visible">True</property>
+                <property name="model">liststore1</property>
+                <property name="wrap_width">1</property>
+                <property name="has_entry">True</property>
+                <property name="entry_text_column">0</property>
+              </object>
+              <packing>
+                <property name="position">6</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="position">3</property>
@@ -1585,6 +1679,15 @@ if __name__ == '__main__':
       </object>
     </child>
   </object>
+  <object class="GtkListStore" id="liststore1">
+    <columns>
+      <!-- column-name Texto -->
+      <column type="gchararray"/>
+      <!-- column-name Código -->
+      <column type="gint"/>
+    </columns>
+  </object>
+
 </interface>
 """
 
@@ -1679,6 +1782,14 @@ if __name__ == '__main__':
     ui = build_interface(teste_ui)
     ui.connect_signals({'click': click, 'quit': gtk.main_quit, 'update_click': update, 'calendar': calendar})
     ui.get_object('gr_treeview1').format_callback = fx
+    completar = ui.get_object('liststore1')
+    completar.append(('Teste1', 1))
+    completar.append(('Teste2', 2))
+    completar.append(('aTeste3', 3))
+    completar.append(('bTeste4', 4))
+    completar.append(('cTeste5', 5))
+    completar.append(('Junior Polegato', 5))
+    completar.append(('Claudio Polegato Junior', 5))
     gtk.main()
     exit(0)
 
