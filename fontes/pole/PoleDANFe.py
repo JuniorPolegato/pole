@@ -177,11 +177,14 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     alt_comp = documento.altura(  14 * cm,   3 * cm, None, [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)])
     a3 = 15 * cm - alt_comp
     tabela, itens, altura = documento.tabela(5.4 * cm, a3, dados_tabela, colWidths, style=ts)
+    #print tabela, itens, altura / cm, len(dados), a3 / cm
+    #raw_input('----------------------')
     itens_extras = itens
     paginas = 1
     while itens_extras < len(dados):
         tabela_extra, i, altura = documento.tabela(19 * cm, 21 * cm, dados_tabela[itens_extras:],colWidths=(1 * cm, 5.51 * cm, .92  * cm, .42  * cm, .58  * cm, .58  * cm, 1 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm), style=ts)
         #print tabela_extra, i, altura / cm, len(dados), itens_extras
+        #raw_input('----------------------')
         itens_extras += i
         paginas += 1
 

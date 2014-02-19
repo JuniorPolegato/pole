@@ -1107,6 +1107,7 @@ DATE_TIME = 2
 MONTH = 3
 HOURS = 4
 DAYS_HOURS = 5
+HOLLERITH = 6
 try: # Try to identify date and time formats via nl_langinfo
     TIME_FORMAT = locale.nl_langinfo(locale.T_FMT)
     DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', locale.nl_langinfo(locale.D_FMT))
