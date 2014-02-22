@@ -96,7 +96,10 @@ class Conexao(object):
                 self.cookies[k] = v
             self.cabecalhos['Cookie'] = ';'.join([k + '=' + v for k,v in self.cookies.items()])
         if seguir and resposta.status in (302, 303) and resposta.getheader('location'):
-            return self.obter_dados(resposta.getheader('location').split(';')[0], '', atualiza_referer, mais_cabecalhos, seguir)
+            new_location = resposta.getheader('location').split(';')[0]
+            if new_location[0] != '/' and new_location[:4] != 'http' and new_location[:3] != 'ftp':
+                new_location = caminho.rsplit('/', 1)[0] + '/' + new_location
+            return self.obter_dados(new_location, '', atualiza_referer, mais_cabecalhos, seguir)
         return {'status': resposta.status, 'descrição': resposta.reason,
                 'cabeçalhos': resposta.getheaders(), 'cookies': self.cookies,
                 'conteúdo': conteudo, 'tempo': tempo}
