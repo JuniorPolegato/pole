@@ -74,7 +74,10 @@ def warning(widget, text, title = None):
 def question(widget, text, title = None):
     return message(widget, text, gtk.MESSAGE_QUESTION, title)
 
-def error_detail(widget, text, detail, title=None):
+def error_detail(widget, text, detail_info, title=None):
+    detail(widget, text, detail_info, title, gtk.MESSAGE_ERROR)
+
+def detail(widget, text, detail_info, title=None, message_type=gtk.MESSAGE_INFO):
     # Get toplevel window
     if isinstance(widget, gtk.Widget):
         window = widget.get_toplevel()
@@ -84,7 +87,7 @@ def error_detail(widget, text, detail, title=None):
     if title is None:
         title = message_titles[gtk.MESSAGE_ERROR]
     flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
-    dialog = gtk.MessageDialog(window, flags, gtk.MESSAGE_ERROR,
+    dialog = gtk.MessageDialog(window, flags, message_type,
                                      gtk.BUTTONS_CLOSE, text)
     dialog.format_secondary_text(' ')
     dialog.set_title(title)
@@ -97,7 +100,7 @@ def error_detail(widget, text, detail, title=None):
     text_view = gtk.TextView(text_buffer)
     scroll.set_shadow_type(gtk.SHADOW_IN)
     scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-    text_buffer.set_text(detail)
+    text_buffer.set_text(detail_info)
     text_view.set_editable(False)
     text_view.set_size_request(500, 200)
     vbox.pack_start(expander, False, False)
@@ -216,6 +219,7 @@ class PopupWindow(gtk.Window, gtk.Buildable):
             self.set_property('has_resize_grip', False)
         except:
             pass
+        self.__canceled = False
 
     def do_delete_event(self, event):
         return True
@@ -263,8 +267,10 @@ class PopupWindow(gtk.Window, gtk.Buildable):
         self.__loop.run()
         gtk.gdk.pointer_ungrab()
         self.hide()
+        return not self.__canceled
 
     def do_focus_out_event(self, event):
+        self.__canceled = True
         self.quit(self, event)
 
     def do_button_press_event(self, event):
@@ -281,6 +287,7 @@ class PopupWindow(gtk.Window, gtk.Buildable):
             #print w, h , x, y, self
             if 0 <= x <= w and 0 <= y <= h:
                 return
+            self.__canceled = True
         #popup.__loop.quit()
         self.__loop.quit()
 
@@ -854,6 +861,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 types.append(bool)
             elif column[1] == 'int':
                 types.append(int)
+            elif column[1] == 'long':
+                types.append(long)
             elif column[1] == 'float':
                 types.append(float)
             elif column[1] == 'str':
@@ -950,7 +959,6 @@ class Grid(gtk.TreeView, gtk.Buildable):
         self.__decimals = decimals
         self.__editables = editables
         self.__with_colors = with_colors
-        self.__structurex = False
         for column in self.get_columns():
             self.remove_column(column)
             column.destroy()
@@ -1058,6 +1066,14 @@ class Grid(gtk.TreeView, gtk.Buildable):
             self[path][column] = result
         return False
 
+    def __finish_editing(self, editor, event, popup):
+        key = event.keyval
+        if key == gtk.keysyms.Escape:
+            editor.props.text = self.__old_editing_text
+            popup.quit()
+        elif key in (gtk.keysyms.KP_Enter, gtk.keysyms.Return):
+            popup.quit()
+
     def __start_editing_callback(self, renderer, editable, path, column):
         #print '__start_editing_callback'
         #print 'renderer:', renderer
@@ -1071,32 +1087,35 @@ class Grid(gtk.TreeView, gtk.Buildable):
         x, y = self.get_bin_window().get_origin()
         area = self.get_cell_area(path, self.get_column(column))
         size = (area[2], area[3])
-        position = (x + area[0], y + area[1])
-        old = new = editable.props.text
+        self.__old_editing_text = new = editable.props.text
         if self.__types[column] in (datetime.date, datetime.datetime, datetime.time):
+            position = (x + area[0], y + area[1] + area[3])
             c = Calendar(editable, self.__decimals[column])
             if c.run(position, transient_for = self):
                 new = cf(editable.props.text, self.__types[column], self.__decimals[column])[1]
         else:
+            position = (x + area[0], y + area[1])
             p = PopupWindow()
             e = Editor()
-            if self.__types[column] in (int, long):
+            e.connect('key-press-event', self.__finish_editing, p)
+            if self.__structurex and self.__formats[column]:
+                e.config(self.__formats[column])
+                e.set_max_length(self.__sizes[column])
+            elif self.__types[column] in (int, long):
                 e.config("int")
             elif self.__types[column] == float:
                 e.config("float" + str(self.__decimals[column]))
-            else:
-                e.config("upper,normalize")
-            if self.__structurex:
-                e.set_max_length(self.__sizes[column])
+            #else:
+            #    e.config("upper,normalize")
             e.set_has_frame(False)
             e.show()
             p.add(e)
-            e.props.text = old
-            p.run(self, size, position)
-            new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
+            e.props.text = self.__old_editing_text
+            if p.run(self, size, position):
+                new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
 
         #print new, old, new != old
-        if new != old:
+        if new != self.__old_editing_text:
             #print 'editing_done'
             editable.set_text(new)
             editable.editing_done()
