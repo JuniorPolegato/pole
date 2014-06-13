@@ -179,6 +179,14 @@ def selectfile(title='', parent=None, folder=None, filters=[]):
         filechooser.destroy()
 
 
+def show_toolbutton_menu(toolbutton, menu):
+    toolbutton.children()[0].children()[1].clicked()
+    x, y = toolbutton.get_toplevel().window.get_origin()
+    x += toolbutton.allocation.x
+    y += toolbutton.allocation.y + toolbutton.allocation.height
+    menu.popup(None, None, lambda m: (x, y, True), 0, 0)
+
+
 def load_images_as_icon(path='.'):
     for file in os.listdir(path):
         try:
@@ -1111,8 +1119,14 @@ class Grid(gtk.TreeView, gtk.Buildable):
             e.show()
             p.add(e)
             e.props.text = self.__old_editing_text
-            if p.run(self, size, position):
-                new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
+
+            # Out click do cancel
+            #if p.run(self, size, position):
+            #    new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
+
+            # Out click do not cancel
+            p.run(self, size, position)
+            new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
 
         #print new, old, new != old
         if new != self.__old_editing_text:
@@ -1315,7 +1329,9 @@ class Grid(gtk.TreeView, gtk.Buildable):
         csv = '\t'.join(self.__titles) + '\n'
         cols = len(self.__titles)
         lines = len(self.get_model())
-        csv += '\n'.join('\t'.join(self.__get_line(i, to_str=True)[1][:cols]) for i in range(lines)) + '\n'
+        csv += '\n'.join(re.sub(r'\s', ' ', ';'.join(self.__get_line(i, to_str=True)[1][:cols]))
+                         for i in range(lines))
+        csv += '\n'
         if filename:
             open(filename, 'w').write(csv)
         else:
@@ -1324,7 +1340,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
     def wrap_width(self, width):
         self.__wrap_width = width
 
-    def live_load(self, cursor, clean=True, lines=50):
+    def live_load(self, cursor, clean=True, lines=200):
         if clean:
             self.clear()
         records = True
@@ -1353,6 +1369,34 @@ class Grid(gtk.TreeView, gtk.Buildable):
             if isinstance(line_or_column, gtk.TreeIter):
                 line_or_column = self.get_model().get_path(line_or_column)
             self.set_cursor(line_or_column)
+
+class Processing(gtk.Window):
+    def __init__(self, parent, title):
+        self.update_ui()
+        super(Processing, self).__init__()
+        self.set_title(title)
+        self.__bar = gtk.ProgressBar()
+        self.add(self.__bar)
+        self.set_transient_for(parent.get_toplevel())
+        self.set_modal(True)
+        self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
+        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+        self.set_deletable(False)
+        self.set_size_request(400, -1)
+        self.show_all()
+        self.update_ui()
+
+    def update_ui(self):
+        while gtk.events_pending():
+            gtk.main_iteration()
+
+    def pulse(self):
+        self.__bar.pulse()
+        self.update_ui()
+
+    def close(self):
+        self.destroy()
+        self.update_ui()
 
 def load_module(parent_project, parent_main_window, module_name, title, main_window_name, data = None):
     loop = glib.MainLoop()
@@ -1558,6 +1602,7 @@ class Project(object):
                               "consulteds_attributes")[attribute] = None
         return object.__getattribute__(self, attribute)
 
+
 def try_function(f):
     def action(project, *args, **kwargs):
         try:
@@ -1569,22 +1614,27 @@ def try_function(f):
             return None
     return action
 
-def read_text(textview, format=True, trimspace=True):
+
+def read_text(textview, format=True):
     buffer = textview.get_buffer()
     text = strip(buffer.get_text(*buffer.get_bounds()))
+    text = re.sub('[\t\r\f\v]', ' ', text)
+
     if format:
         text = formatar(text, 'Nome Mai')
-    if trimspace:
-        return re.sub('\s', ' ', text)
+
     return text
 
-def write_text(text, textview, format=True, trimspace=True):
+
+def write_text(text, textview, format=True):
     if format:
         text = formatar(text, 'Nome Mai')
-    if trimspace:
-        text = re.sub('\s', ' ', text)
+
+    text = re.sub('[\t\r\f\v]', ' ', text)
+
     buffer = textview.get_buffer()
     buffer.set_text(strip(text))
+
 
 def set_active_text(combo, text, column=0):
     model = combo.get_model()
@@ -1593,10 +1643,12 @@ def set_active_text(combo, text, column=0):
             combo.set_active(index)
             return
 
+
 def get_active_text(combo, column=0):
     index = combo.get_active()
     model = combo.get_model()
     return model[index][column]
+
 
 def load_store(combo, cursor, active=True):
     model = combo.get_model()
@@ -1605,6 +1657,14 @@ def load_store(combo, cursor, active=True):
         model.append(row)
     if active:
         combo.set_active(0)
+
+
+def hide_window(widget):
+    if widget.is_toplevel():
+        return widget.hide_on_delete()
+    else:
+        toplevel = widget.get_toplevel()
+        toplevel.hide()
 
 if __name__ == '__main__':
     teste_ui = """<?xml version="1.0"?>
