@@ -71,10 +71,10 @@
   </wsdl:binding>
   <wsdl:service name="NfeInutilizacao2">
     <wsdl:port name="NfeInutilizacao2Soap" binding="tns:NfeInutilizacao2Soap">
-      <soap:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/NfeInutilizacao2.asmx" />
+      <soap:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/nfeinutilizacao2.asmx" />
     </wsdl:port>
     <wsdl:port name="NfeInutilizacao2Soap12" binding="tns:NfeInutilizacao2Soap12">
-      <soap12:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/NfeInutilizacao2.asmx" />
+      <soap12:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/nfeinutilizacao2.asmx" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>

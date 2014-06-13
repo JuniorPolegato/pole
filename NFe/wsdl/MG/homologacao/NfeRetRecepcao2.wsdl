@@ -24,14 +24,14 @@
 </xs:complexType>
 </xs:schema>
   </wsdl:types>
-  <wsdl:message name="nfeRetRecepcao2">
-    <wsdl:part element="tns:nfeDadosMsg" name="nfeDadosMsg">
+  <wsdl:message name="nfeRetRecepcao2Response">
+    <wsdl:part element="tns:nfeRetRecepcao2Result" name="nfeRetRecepcao2Result">
     </wsdl:part>
     <wsdl:part element="tns:nfeCabecMsg" name="nfeCabecMsg">
     </wsdl:part>
   </wsdl:message>
-  <wsdl:message name="nfeRetRecepcao2Response">
-    <wsdl:part element="tns:nfeRetRecepcao2Result" name="nfeRetRecepcao2Result">
+  <wsdl:message name="nfeRetRecepcao2">
+    <wsdl:part element="tns:nfeDadosMsg" name="nfeDadosMsg">
     </wsdl:part>
     <wsdl:part element="tns:nfeCabecMsg" name="nfeCabecMsg">
     </wsdl:part>

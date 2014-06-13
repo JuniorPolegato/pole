@@ -71,10 +71,10 @@
   </wsdl:binding>
   <wsdl:service name="NfeConsulta2">
     <wsdl:port name="NfeConsulta2Soap" binding="tns:NfeConsulta2Soap">
-      <soap:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/NfeConsulta2.asmx" />
+      <soap:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/nfeconsulta2.asmx" />
     </wsdl:port>
     <wsdl:port name="NfeConsulta2Soap12" binding="tns:NfeConsulta2Soap12">
-      <soap12:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/NfeConsulta2.asmx" />
+      <soap12:address location="https://nfe.sefaz.ba.gov.br/webservices/nfenw/nfeconsulta2.asmx" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>

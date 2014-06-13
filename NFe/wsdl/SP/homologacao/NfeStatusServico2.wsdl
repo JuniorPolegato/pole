@@ -60,7 +60,7 @@
   <wsdl:service name="NfeStatusServico2">
     <wsdl:documentation xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">Serviço destinado à consulta do status do serviço prestado pelo Portal da Secretaria de Fazenda Estadual.</wsdl:documentation>
     <wsdl:port name="NfeStatusServico2Soap12" binding="tns:NfeStatusServico2Soap12">
-      <soap12:address location="https://homologacao.nfe.fazenda.sp.gov.br/nfeweb/services/NfeStatusServico2.asmx" />
+      <soap12:address location="https://homologacao.nfe.fazenda.sp.gov.br/nfeweb/services/nfestatusservico2.asmx" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>

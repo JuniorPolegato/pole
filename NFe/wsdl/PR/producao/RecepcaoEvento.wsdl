@@ -1,4 +1,5 @@
-<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions targetNamespace='http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento' xmlns:http='http://schemas.xmlsoap.org/wsdl/http/' xmlns:mime='http://schemas.xmlsoap.org/wsdl/mime/' xmlns:s='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/wsdl/soap/' xmlns:soap12='http://schemas.xmlsoap.org/wsdl/soap12/' xmlns:soapenc='http://schemas.xmlsoap.org/soap/encoding/' xmlns:tm='http://microsoft.com/wsdl/mime/textMatching/' xmlns:tns='http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento' xmlns:wsdl='http://schemas.xmlsoap.org/wsdl/'>
+<?xml version='1.0' encoding='UTF-8'?>
+<wsdl:definitions targetNamespace='http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento' xmlns:http='http://schemas.xmlsoap.org/wsdl/http/' xmlns:mime='http://schemas.xmlsoap.org/wsdl/mime/' xmlns:s='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/wsdl/soap/' xmlns:soap12='http://schemas.xmlsoap.org/wsdl/soap12/' xmlns:soapenc='http://schemas.xmlsoap.org/soap/encoding/' xmlns:tm='http://microsoft.com/wsdl/mime/textMatching/' xmlns:tns='http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento' xmlns:wsdl='http://schemas.xmlsoap.org/wsdl/'>
  <wsdl:documentation xmlns:wsdl='http://schemas.xmlsoap.org/wsdl/'>Servico destinado a recepcao de mensagens de Evento de NF-e.</wsdl:documentation>
  <wsdl:types>
   <s:schema elementFormDefault='qualified' targetNamespace='http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento'>
@@ -71,7 +72,7 @@
  <wsdl:service name='RecepcaoEvento'>
   <wsdl:documentation xmlns:wsdl='http://schemas.xmlsoap.org/wsdl/'>Servico destinado a recepcao de mensagens de evento de NF-e.</wsdl:documentation>
   <wsdl:port binding='tns:RecepcaoEventoSoap' name='RecepcaoEventoSoap'>
-   <soap:address location='https://ssefa00030.fazenda.pr.gov.br:8443/nfe-evento/NFeRecepcaoEvento'/>
+   <soap:address location='https://nfe2.fazenda.pr.gov.br/nfe-evento/NFeRecepcaoEvento'/>
   </wsdl:port>
  </wsdl:service>
 </wsdl:definitions>

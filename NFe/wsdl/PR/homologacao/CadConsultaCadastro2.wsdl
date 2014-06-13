@@ -72,7 +72,7 @@
  <wsdl:service name='CadConsultaCadastro2'>
   <wsdl:documentation xmlns:wsdl='http://schemas.xmlsoap.org/wsdl/'>Servico destinado ao atendimento de solicitacoes de consulta ao Cadastro de Contribuintes do ICMS da Secretaria de Fazenda Estatual.</wsdl:documentation>
   <wsdl:port binding='tns:CadConsultaCadastro2Soap12' name='CadConsultaCadastroServicePort'>
-   <soap12:address location='https://homologacao.nfe2.fazenda.pr.gov.br/nfe/CadConsultaCadastro2'/>
+   <soap12:address location='https://homologacao.nfe.fazenda.pr.gov.br/nfe/CadConsultaCadastro2'/>
   </wsdl:port>
  </wsdl:service>
 </wsdl:definitions>

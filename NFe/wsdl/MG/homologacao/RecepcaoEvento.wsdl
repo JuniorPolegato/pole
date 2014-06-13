@@ -25,16 +25,16 @@
       </s:complexType>
     </s:schema>
   </wsdl:types>
-  <wsdl:message name="nfeRecepcaoEventoSoap12In">
-    <wsdl:part element="tns:nfeDadosMsg" name="nfeDadosMsg">
+  <wsdl:message name="nfeRecepcaoEventoSoap12Out">
+    <wsdl:part element="tns:nfeRecepcaoEventoResult" name="nfeRecepcaoEventoResult">
     </wsdl:part>
   </wsdl:message>
   <wsdl:message name="nfeRecepcaoEventonfeCabecMsg">
     <wsdl:part element="tns:nfeCabecMsg" name="nfeCabecMsg">
     </wsdl:part>
   </wsdl:message>
-  <wsdl:message name="nfeRecepcaoEventoSoap12Out">
-    <wsdl:part element="tns:nfeRecepcaoEventoResult" name="nfeRecepcaoEventoResult">
+  <wsdl:message name="nfeRecepcaoEventoSoap12In">
+    <wsdl:part element="tns:nfeDadosMsg" name="nfeDadosMsg">
     </wsdl:part>
   </wsdl:message>
   <wsdl:portType name="RecepcaoEventoSoap12">

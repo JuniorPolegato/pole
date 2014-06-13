@@ -297,12 +297,13 @@ class Webservice(object):
         if uf not in UFS_IBGE:
             raise ValueError('UF ' + str(uf) + ' inválida!')
         if sefaz is None:
-            if uf in ('ES', 'MA', 'PA', 'PI'):
+            if uf in ('MA', 'PA', 'PI'):
                 sefaz = 'SVAN'
-            elif uf in ('AC', 'AL', 'AM', 'AP', 'DF', 'MS', 'PB', 'RJ', 'RN', 'RO', 'RR', 'SC', 'SE', 'TO'):
+            elif uf in ('AC', 'AL', 'AP', 'DF', 'ES', 'PB', 'RJ', 'RN', 'RO', 'RR', 'SC', 'SE', 'TO'):
                 sefaz = 'SVRS'
             else:
                 sefaz = uf
+            self.consultas_proprias = ('ES',)
         if ambiente not in (1, 2):
             raise ValueError('Ambiente ' + str(ambiente) + ' inválido!')
         self.__uf = uf
@@ -526,6 +527,9 @@ class Webservice(object):
         return self.servico('NfeRecepcao2', lote_nfe)
 
     def consultar_cadastro(self, CNPJ = None, IE = None, CPF = None):
+        if self.__uf in self.consultas_proprias:
+            sefaz = self.__sefaz
+            self.__sefaz = self.__uf
         consulta = PoleXML.XML()
         consulta.ConsCad['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         consulta.ConsCad['versao'] = '2.00'
@@ -546,7 +550,10 @@ class Webservice(object):
         #     2 - Credenciado com obrigatoriedade para todas operações
         #     3 - Credenciado com obrigatoriedade parcial
         #     4 - a SEFAZ não fornece a informação
-        return self.servico('CadConsultaCadastro2', consulta)
+        retorno = self.servico('CadConsultaCadastro2', consulta)
+        if self.__uf in self.consultas_proprias:
+            self.__sefaz = sefaz
+        return retorno
 
     def consultar_recibo(self, recibo):
         # Cria a estrutra consulta pelo número do recibo e faz a consulta

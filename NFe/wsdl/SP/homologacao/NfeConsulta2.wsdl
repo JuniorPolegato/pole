@@ -60,7 +60,7 @@
   <wsdl:service name="NfeConsulta2">
     <wsdl:documentation xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">Serviço destinado ao atendimento de solicitações de consulta da situação atual da NF-e na Base de Dados do Portal da Secretaria de Fazenda Estadual.</wsdl:documentation>
     <wsdl:port name="NfeConsulta2Soap12" binding="tns:NfeConsulta2Soap12">
-      <soap12:address location="https://homologacao.nfe.fazenda.sp.gov.br/nfeweb/services/NfeConsulta2.asmx" />
+      <soap12:address location="https://homologacao.nfe.fazenda.sp.gov.br/nfeweb/services/nfeconsulta2.asmx" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>
