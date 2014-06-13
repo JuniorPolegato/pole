@@ -1143,6 +1143,13 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
     elif type(content) not in (int, long, bool, float, str, unicode, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
         raise TypeError, _('Invalid argument "content" of type `%s´. Expected int, long, bool, float, str, date, time or datetime.') % (type(content).__name__,)
 
+    # Pole types
+    if type(return_type) in (str, unicode):
+        if return_type not in tipos:
+            raise TypeError, _('Invalid argument "return_type" like a value. Expected int, long, bool, float, str, date, time or datetime.')
+        tipo, tamanho, casas, cxopc, caracteres, mascara, padrao, alteravel, alinhamento = tipos[return_type]
+        return convert_and_format(content, python_tipo[tipo], casas)
+
     # Verifying type of return_type
     if type(return_type) != type and return_type not in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
         raise TypeError, _('Invalid argument "return_type" like a value. Expected int, long, bool, float, str, date, time or datetime.')
@@ -1417,12 +1424,12 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
             value = return_type(content)
     # Converting str content with locale support
     else:
-        if return_type == float:
-            value = locale.atof(content)
-        elif return_type == int:
-            value = int(round(locale.atof(content)))
-        elif return_type == long:
-            value = long(round(locale.atof(content)))
+        if return_type in (float, int, long):
+            decimal = locale.localeconv()['decimal_point']
+            content = re.sub('[^0-9%s]' % decimal, '', content)
+            value = 0. if not content else locale.atof(content)
+            if return_type != float:
+                value = return_type(round(value))
         elif return_type == bool:
             bs_up = [[i.upper() for i in bool_strings[0]], [i.upper() for i in bool_strings[1]]]
             if content.upper() in bs_up[0] + bs_up[1]:
@@ -1479,7 +1486,8 @@ def add_months(date, months):
     return date
 
 def last_day(date):
-    date = convert_and_format(date, datetime.date)[0]
+    return_type = datetime.datetime if isinstance(date, datetime.datetime) else datetime.date
+    date = convert_and_format(date, return_type)[0]
     if date.month in (1, 3, 5, 7, 8, 10, 12):
         date = date.replace(day = 31)
     elif date.month in (4, 6, 9, 11):
