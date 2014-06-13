@@ -178,8 +178,8 @@ class XML(object):
 
     def __call__(self, filho = None, qual = 0):
         '''Se filho for None, cria um novo nó e adiciona a estrutura, util para criar nós com mesmo nome.
-           Se filho for int, retorna enésimo filho do nó pai.
-           Se filho for '' equivale a todos os filhos para uso com string abaixo
+           Se filho for int, retorna enésimo filho do nó pai; se 0, retorna quantos irmãos com este nome.
+           Se filho for '' equivale a todos os filhos para uso com string abaixo:
            Se filho for string e qual for inteiro igual a 0, retorna quantos filhos com este nome tem.
            Se filho for string e qual for inteiro igual a -1 (FILHO), cria um novo filho e adiciona a estrutura, util para criar filhos com mesmo nome ou a partir de string.
            Se filho for string e qual for inteiro igual a -2 (TEXTO), adiciona um elemento texto ao elemento chamador.
@@ -454,7 +454,9 @@ def exportar(xml, endentacao = 4, nivel = 0, com_marca_xml = True, escapado = Tr
     xml_nss = nss(xml)
     exportado = _exportar(xml, endentacao, nivel)
     if xml_nss and exportado and exportado[0] == '<':
-        p = min(exportado.find(' '), exportado.find('>'), exportado.find('/'))
+        p = min(exportado.find('>'), exportado.find('/'))
+        if ' ' in exportado:
+            p = min(p, exportado.find(' '))
         xml_nss = ''.join(' %s="%s"' % x for x in xml_nss.items())
         exportado = exportado[:p] + xml_nss + exportado[p:]
     if com_marca_xml:
