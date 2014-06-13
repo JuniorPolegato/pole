@@ -12,6 +12,7 @@ Copyright © 2011 - Claudio Polegato Junior <junior@juniorpolegato.com.br>
 Todos os direitos reservados
 """
 
+import PoleSetting as setting
 import PoleUtil as util
 import PolePDF  as pdf
 import PoleHTTP  as http
@@ -22,21 +23,21 @@ from PoleLog import logger
 
 
 try:
-    import PoleGTK  as gtk
+    import PoleGTK as gtk
 except ImportError as error:
     logger.warning("Problemas ao importar o módulo PoleGTK: %s.", error)
 
 try:
-    import PoleXML  as xml
+    import PoleXML as xml
 except ImportError as error:
     logger.warning("Problemas ao importar o módulo PoleXML: %s.", error)
 
 try:
-    import PoleNFe  as nfe
+    import PoleNFe as nfe
 except ImportError as error:
     logger.warning("Problemas ao importar o módulo PoleNFe: %s.", error)
 
 try:
-    import PoleRelatorio  as relatorio
+    import PoleRelatorio as relatorio
 except ImportError as error:
      logger.warning("Problemas ao importar o módulo PoleRelatorio: %s.", error)
