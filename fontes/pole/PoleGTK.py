@@ -77,6 +77,9 @@ def question(widget, text, title = None):
 def error_detail(widget, text, detail_info, title=None):
     detail(widget, text, detail_info, title, gtk.MESSAGE_ERROR)
 
+def warning_detail(widget, text, detail_info, title='Warning'):
+    detail(widget, text, detail_info, title, gtk.MESSAGE_WARNING)
+
 def detail(widget, text, detail_info, title=None, message_type=gtk.MESSAGE_INFO):
     # Get toplevel window
     if isinstance(widget, gtk.Widget):
@@ -128,14 +131,14 @@ def show_exception(project, args):
     return error_detail(obj, pri_text, '\n'.join(exc_message), title)
 
 
-def save(parent=None, title='', current_name='', folder=None):
+def save(parent=None, title='', filename='', folder=None):
     filechooser = gtk.FileChooserDialog(title or _('Save'),
                                         parent.get_toplevel(),
                                         gtk.FILE_CHOOSER_ACTION_SAVE,
                                         (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                          gtk.STOCK_SAVE, gtk.RESPONSE_OK))
-    if current_name:
-        filechooser.set_current_name(current_name)
+    if filename:
+        filechooser.set_current_name(filename)
     filechooser.set_default_response(gtk.RESPONSE_OK)
 
     if folder:
@@ -150,6 +153,9 @@ def save(parent=None, title='', current_name='', folder=None):
 
         path = filechooser.get_filename()
         if not os.path.exists(path):
+            break
+
+        elif os.path.exists(path) and question(filechooser, 'Sobrescrever arquivo?'):
             break
 
     filechooser.destroy()
@@ -185,6 +191,13 @@ def show_toolbutton_menu(toolbutton, menu):
     x += toolbutton.allocation.x
     y += toolbutton.allocation.y + toolbutton.allocation.height
     menu.popup(None, None, lambda m: (x, y, True), 0, 0)
+
+
+def pixbuf_new_from_binary(binary):
+    pixloader = gtk.gdk.PixbufLoader()
+    pixloader.write(binary)
+    pixloader.close()
+    return pixloader.get_pixbuf()
 
 
 def load_images_as_icon(path='.'):
@@ -1470,7 +1483,7 @@ def build_interface(xml_file_or_xml_string = None):
         xml = xml.replace('<object class="' + gtk_class + '" id="' + start_of_name,
                           '<object class="' + pole_class + '" id="' + start_of_name)
     # Solving troble with can_focus false
-    dont_have_can_focus = ('ListStore', 'Adjustment', 'TextBuffer', 'Action', 'TreeViewColumn')
+    dont_have_can_focus = ('ListStore', 'Adjustment', 'TextBuffer', 'Action', 'TreeViewColumn', 'CellRendererPixbuf', 'CellRendererText')
     pos = xml.find('<object class="')
     while pos != -1:
         have_can_focus = True
