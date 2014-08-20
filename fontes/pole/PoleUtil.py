@@ -40,6 +40,9 @@ from decimal import Decimal, ROUND_DOWN
 import PoleLog
 import string
 
+from dateutil.relativedelta import relativedelta
+from dateutil.rrule import MONTHLY, rrule, WEEKLY
+
 
 def load_pole_translations(DIR):
     gettext.bindtextdomain(APP, DIR)
@@ -1977,8 +1980,12 @@ def make_pwd_hash(pwd):
     return phash.hexdigest()
 
 
-def sql_like(texto):
-    return '%{}%'.format('%'.join(texto.split()))
+def sql_like(value):
+    return '%{}%'.format('%'.join(value.split()))
+
+
+def sql_in(values):
+    return ', '.join([':id%d' % x for x in xrange(len(values))])
 
 
 def truncate(value):
@@ -1996,6 +2003,51 @@ def get_name_of_month(today, date):
     return name
 
 
-def get_danfe_path(rootdir, access_key, today, emit_date):
+def get_danfe_path(rootdir, key, today, emit_date):
     subfolder = get_name_of_month(today, emit_date)
-    return os.path.join(rootdir, subfolder, 'PDF', access_key + '.pdf')
+    return os.path.join(rootdir, subfolder, 'PDF', key + '.pdf')
+
+
+def first_day(date):
+    return convert_and_format(date, datetime.date, MONTH)[0]
+
+WEEKINDEX = {'SEG': 0, 'TER': 1, 'QUA': 2, 'QUI': 3, 'SEX': 4, 'SAB': 5, 'DOM': 6}
+
+
+def due_date(dtstart, days):
+    return [dtstart + relativedelta(days=day) for day in days]
+
+
+def due_date_to_nearest_monthday(dtstart, days, monthday):
+    return [min(rrule(MONTHLY,
+                      bymonthday=monthday,
+                      dtstart=day - relativedelta(days=30),
+                      until=day + relativedelta(days=30)),
+                key=lambda x: abs(x - day))
+            for day in due_date(dtstart, days)]
+
+
+def due_date_to_nearest_weekday(dtstart, days, weekdays):
+    return [min(rrule(WEEKLY,
+                      byweekday=[WEEKINDEX.get(d, 0) for d in weekdays],
+                      dtstart=day - relativedelta(weeks=1),
+                      until=day + relativedelta(weeks=1)),
+                key=lambda x: abs(x - day))
+            for day in due_date(dtstart, days)]
+
+
+def due_date_to_next_weekday(dtstart, days, weekdays):
+    return [rrule(WEEKLY,
+                  byweekday=[WEEKINDEX.get(d, 0) for d in weekdays],
+                  count=1,
+                  dtstart=day)[0]
+            for day in due_date(dtstart, days)]
+
+
+def slug(text):
+    text = normalize(text).lower()
+    return re.sub(r'\W+', '-', text)
+
+
+def normalize(text):
+    return unicodedata.normalize('NFKD', text.decode('utf-8')).encode('ascii', 'ignore')
