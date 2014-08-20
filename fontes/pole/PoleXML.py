@@ -488,7 +488,6 @@ def serializar(xml):
 def procurar(xml, nome_no, atributos = None):
     retorno = []
     for nome_filho, xml_filho in zip(xml._XML__filhos, xml._XML__xmls):
-        print nome_filho, type(xml_filho)
         if nome_filho == nome_no:
             if atributos:
                 if sum(map(lambda x: x in xml_filho._XML__atributos, atributos)):
