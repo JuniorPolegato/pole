@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for dir_evento in *PL_v1.01; do
+    echo $dir_evento
+    for evento in $dir_evento/*; do
+        echo $evento
+        ln -s ../$evento PL/
+    done
+done

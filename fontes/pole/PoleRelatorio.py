@@ -40,11 +40,13 @@ def gerar_pdf(paisagem, data_inicial, data_final, titulo_relatorio,
               sumario = None, folha = PolePDF.A4, logo = None, cabecalho_logo = None):
     # Acertando os cabeçalhos das colunas
     cabecalhos = []
+    cabecalhos_excluidos = []
     casas_default = PoleUtil.locale.localeconv()['frac_digits']
-    for registro in cabecalho_colunas:
+    for (n, registro) in enumerate(cabecalho_colunas):
         registro = list(registro)
 
         if registro[1] == 0:
+            cabecalhos_excluidos.append(n)
             continue
 
         if len(registro) < 4:
@@ -156,17 +158,21 @@ def gerar_pdf(paisagem, data_inicial, data_final, titulo_relatorio,
                                pdf.altura(largura, 1, None,
                                           [PolePDF.Paragraph(cabecalho, PolePDF.normal_centro)]))
     altura_disponivel -= altura_cabecalho
+
     # Transforma em parágrafo cada valor de cada campo, utilizando caracter adequado para booleano
     if dados and len(dados[0]) == 2:
         registros, dados_tabela = zip(*dados)
         # Caracteres para bool: ✔⊠☑✅✓❌❎⨯☒⬚❏⬜'
         dados_tabela = [[Paragraph(('✔' if campo else '❏') if type(campo) == bool else campo, estilo)
-                                 for campo, estilo in zip(linha, estilos)] for linha in dados_tabela]
+                                 for campo, estilo in zip(remove_columns(linha, cabecalhos_excluidos), estilos)] for linha in dados_tabela]
     else:
         dados_tabela = []
         for registro in registros:
+
+            remove_columns(registro, cabecalhos_excluidos)
+
             linha = []
-            for campo, tipo, estilo in zip (registro, tipos, estilos):
+            for campo, tipo, estilo in zip(registro, tipos, estilos):
                 if type(campo) == bool:
                     conteudo = '✔' if campo else '❏'
                 else:
@@ -174,6 +180,7 @@ def gerar_pdf(paisagem, data_inicial, data_final, titulo_relatorio,
                         conteudo = formatar(campo, tipo)
                     except ValueError:
                         conteudo = '' if campo is None else str(campo)
+
                 linha.append(Paragraph(conteudo, estilo))
             dados_tabela.append(linha)
     # Linha separadora com "Totais" na primeira coluna
@@ -283,6 +290,16 @@ PIZZA = 1
 BARRAS = 2
 ASCENDENTE = False
 DESCENDENTE = True
+
+
+def remove_columns(tuple, columns):
+    row = list(tuple)
+
+    for column in reversed(columns):
+        row.pop(column)
+
+    return row
+
 
 def grafico(rotulos_valores, tipo = PIZZA, tamanho = (500, 500),
             rgb_fundo = (1, 1, 0.9), rgb_retangulo = (0.9, 0.9, 0.9),

@@ -1147,11 +1147,14 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
         raise TypeError, _('Invalid argument "content" of type `%s´. Expected int, long, bool, float, str, date, time or datetime.') % (type(content).__name__,)
 
     # Pole types
+    pole_type = None
     if type(return_type) in (str, unicode):
         if return_type not in tipos:
             raise TypeError, _('Invalid argument "return_type" like a value. Expected int, long, bool, float, str, date, time or datetime.')
         tipo, tamanho, casas, cxopc, caracteres, mascara, padrao, alteravel, alinhamento = tipos[return_type]
-        return convert_and_format(content, python_tipo[tipo], casas)
+        pole_type = return_type
+        return_type = python_tipo[tipo]
+        decimals = casas
 
     # Verifying type of return_type
     if type(return_type) != type and return_type not in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
@@ -1425,6 +1428,7 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
             value = long(round(content))
         else:
             value = return_type(content)
+
     # Converting str content with locale support
     else:
         if return_type in (float, int, long):
@@ -1442,8 +1446,13 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
                 value = bool(locale.atof(content))
         else:
             value = content
+
+    # Formating Pole Type
+    if pole_type:
+        formated = formatar(content, pole_type)
+
     # Formating with locale support
-    if return_type == datetime.timedelta:
+    elif return_type == datetime.timedelta:
         days = value.days + (value.days < 0)
         seconds = value.seconds * (1, -1)[value.days < 0]
         hours = seconds / 3600
@@ -1464,7 +1473,10 @@ def convert_and_format(content, return_type, decimals = locale.localeconv()['fra
         formated = bool_formated[1 - value]
     else:
         formated = value
+
+    # Returning value and formated string
     return [value, formated]
+
 cf = convert_and_format
 VALUE = 0
 STRING = 1
@@ -1475,18 +1487,17 @@ def add_days(date, days):
 def add_months(date, months):
     day = date.day
     month = (date.month + months) % 12
-    if month == 0: month = 12
+    if month == 0:
+        month = 12
     year = date.year + (date.month + months - 1) / 12
     if month in (4, 6, 9, 11) and day > 30:
-        date = datetime.date(year, month, 30)
-    elif month == 2 and day > 28:
+        return date.replace(year = year, month = month, day = 30)
+    if month == 2 and day > 28:
         try:
-            date = datetime.date(year, month, 29)
+            return date.replace(year = year, month = month, day = 29)
         except ValueError:
-            date = datetime.date(year, month, 28)
-    else:
-        date = datetime.date(year, month, day)
-    return date
+            return date.replace(year = year, month = month, day = 28)
+    return date.replace(year = year, month = month)
 
 def last_day(date):
     return_type = datetime.datetime if isinstance(date, datetime.datetime) else datetime.date
@@ -1681,10 +1692,20 @@ tipos = {
     "Letras Mai Acentuadas e Números"         : (     1,       256,    0, False, cs["letras e números"]       , "upper"                                                            ,     1, 1,          0),
     "Letras Mai Acentuadas, Números e Espaços": (     1,       256,    0, False, cs["letras e números"]  + " ", "upper"                                                            ,     1, 1,          0),
     "Livre Mai Acentuado"                     : (     1,       256,    0, False, ""                           , "upper"                                                            ,     1, 1,          0),
+    "Números"                                 : (     1,       256,    0, False, cs["números"]                , ""                                                                 ,     1, 1,        100),
+    "Números e Espaços"                       : (     1,       256,    0, False, cs["números"]  + " "         , ""                                                                 ,     1, 1,        100),
+    "Números e Vírgulas"                      : (     1,       256,    0, False, cs["números"]  + ","         , ""                                                                 ,     1, 1,        100),
+    "Números e Pontos"                        : (     1,       256,    0, False, cs["números"]  + "."         , ""                                                                 ,     1, 1,        100),
+    "Números e Traços"                        : (     1,       256,    0, False, cs["números"]  + "-"         , ""                                                                 ,     1, 1,        100),
+    "Números e Barras"                        : (     1,       256,    0, False, cs["números"]  + "/"         , ""                                                                 ,     1, 1,        100),
+    "Números, Pontos e Traços"                : (     1,       256,    0, False, cs["números"]  + ".-"        , ""                                                                 ,     1, 1,        100),
+    "Números, Pontos e Barras"                : (     1,       256,    0, False, cs["números"]  + "./"        , ""                                                                 ,     1, 1,        100),
+    "Números, Pontos, Traços e Barras"        : (     1,       256,    0, False, cs["números"]  + ".-/"       , ""                                                                 ,     1, 1,        100),
     "Mês"                                     : (     1,         9,    0,  True, ""                           , ops["Mês"]                                                         ,     1, 0,         50),
     "Pele"                                    : (     1,         8,    0,  True, ""                           , ops["Pele"]                                                        ,     1, 0,         50),
     "Pertinência"                             : (     1,        11,    0,  True, ""                           , ops["Pertinência"]                                                 ,     1, 0,         50),
     "Pessoa"                                  : (     1,         8,    0,  True, ""                           , ops["Pessoa"]                                                      ,     1, 0,         50),
+    "PIS"                                     : (     1,        14,    0, False, cs["números"]                , "000'.'00000'.'00-0;000'.'00000'.'00-0;000'.'00000'.'00-0"         ,     1, 0,        100),
     "Porcentagem"                             : (     6,        14,    0,  True, cs["números"] + ',+-'        , "0%,;-0%,;0%"                                                      ,     1, 0,        100),
     "Porcentagem 1"                           : (     6,        14,    1, False, cs["números"] + ',+-'        , "0.0%,;-0.0%,;0.0%"                                                ,     1, 0,        100),
     "Porcentagem 2"                           : (     6,        14,    2, False, cs["números"] + ',+-'        , "0.00%,;-0.00%,;0.00%"                                             ,     1, 0,        100),
@@ -1985,7 +2006,11 @@ def sql_like(value):
 
 
 def sql_in(values):
-    return ', '.join([':id%d' % x for x in xrange(len(values))])
+    return ', '.join([':id%d' % n for (n, v) in enumerate(values)])
+
+
+def sql_in_kwargs(values):
+    return {'id%d' % k: v for (k, v) in enumerate(values)}
 
 
 def truncate(value):
@@ -2027,7 +2052,7 @@ def due_date_to_nearest_monthday(dtstart, days, monthday):
             for day in due_date(dtstart, days)]
 
 
-def due_date_to_nearest_weekday(dtstart, days, weekdays):
+def due_date_to_nearest_weekday(dtstart, days, weekdays=WEEKINDEX.keys()):
     return [min(rrule(WEEKLY,
                       byweekday=[WEEKINDEX.get(d, 0) for d in weekdays],
                       dtstart=day - relativedelta(weeks=1),
@@ -2036,7 +2061,7 @@ def due_date_to_nearest_weekday(dtstart, days, weekdays):
             for day in due_date(dtstart, days)]
 
 
-def due_date_to_next_weekday(dtstart, days, weekdays):
+def due_date_to_next_weekday(dtstart, days, weekdays=WEEKINDEX.keys()):
     return [rrule(WEEKLY,
                   byweekday=[WEEKINDEX.get(d, 0) for d in weekdays],
                   count=1,
@@ -2050,4 +2075,93 @@ def slug(text):
 
 
 def normalize(text):
-    return unicodedata.normalize('NFKD', text.decode('utf-8')).encode('ascii', 'ignore')
+    return unicodedata.normalize('NFKD', unicode(text)).encode('ascii', 'ignore')
+
+def float_sped(valor):
+    if valor:
+        try:
+            return ("%0.2f" % float(str(valor))).replace('.', ',')
+        except:
+            return str(valor).strip().replace('.', ',')
+    return '0,00'
+
+def xml_str(xml):
+    return str(xml).strip().upper()
+
+def xml_float(xml):
+    xml = str(xml)
+    if xml:
+        return float(xml)
+    return 0.
+
+def xml_data(xml):
+    # 2014-03-31T17:04:21
+    dh = [int(x) for x in re.split('[-T :]', str(xml))]
+    if len(dh) > 3:
+        return datetime.datetime(*dh)
+    return datetime.date(*dh)
+
+
+class cached_property(object):
+    """ A property that is only computed once per instance and then replaces
+        itself with an ordinary attribute. Deleting the attribute resets the
+        property.
+
+        Source: https://github.com/bottlepy/bottle/commit/fa7733e075da0d790d809aa3d2f53071897e6f76
+        """
+
+    def __init__(self, func):
+        self.__doc__ = getattr(func, '__doc__')
+        self.func = func
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        value = obj.__dict__[self.func.__name__] = self.func(obj)
+        return value
+
+
+class str_property(object):
+    def __init__(self, func):
+        self.__doc__ = getattr(func, '__doc__')
+        self.func = func
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        value = obj.__dict__[self.func.__name__] = xml_str(self.func(obj))
+        return value
+
+
+class float_property(object):
+    def __init__(self, func):
+        self.__doc__ = getattr(func, '__doc__')
+        self.func = func
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        value = obj.__dict__[self.func.__name__] = xml_float(self.func(obj))
+        return value
+
+
+class int_property(object):
+    def __init__(self, func):
+        self.__doc__ = getattr(func, '__doc__')
+        self.func = func
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        value = obj.__dict__[self.func.__name__] = int(xml_float(self.func(obj)))
+        return value
+
+
+class ErrorList(Exception):
+
+    def __init__(self, msg, error_list):
+        self.msg = msg
+        self.error_list = error_list
+
+    def __str__(self):
+        return ('{}\n\n{}'.format(self.msg, '\n\n'.join(self.error_list)))

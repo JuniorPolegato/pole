@@ -69,45 +69,53 @@ class LX300(object):
         self.append(LX300._DC4)
 
     def return_and_feed(self, lines=1):
-        for line in xrange(lines):
-            self.carriage_return()
-            self.line_feed()
+        self.carriage_return()
+        self.line_feed(lines)
 
     def append(self, text, *args):
         if args:
             text = text.format(*args)
+
         self._buffer += formatar(text, 'Letras')
 
 
 class ImpressoLX300(LX300):
-    def __init__(self, linhas_folha, linhas_avanco):
+    def __init__(self, linhas_folha, linhas_avanco, linhas_cabecalho):
         super(ImpressoLX300, self).__init__()
         self.linhas_folha = linhas_folha
         self.linhas_avanco = linhas_avanco
+        self.linhas_cabecalho = linhas_cabecalho
 
-    def escreve_condensado(self, texto, *args):
+    def escreve_condensado(self, texto, *args, **kwargs):
         self.select_condensed_mode()
-        self.append(texto, *args)
+        self._escreve(texto, *args, **kwargs)
 
-    def escreve_negrito(self, texto, *args):
+    def escreve_negrito(self, texto, *args, **kwargs):
         self.select_doublewith_mode()
-        self.append(texto, *args)
+        self._escreve(texto, *args, **kwargs)
 
-    def escreve(self, texto, *args):
+    def escreve(self, texto, *args, **kwargs):
         self.cancel_doublewith_mode()
         self.cancel_condensed_mode()
+        self._escreve(texto, *args, **kwargs)
+
+    def _escreve(self, texto, *args, **kwargs):
         self.append(texto, *args)
 
+        if not kwargs.pop('mesmalinha', None):
+            self.return_and_feed()
+
     def eof(self):
-        self.carriage_return()
+        total_linhas = self.lines + self.linhas_avanco
 
-        if self.lines < self.linhas_folha:
-            picote = abs(self.linhas_folha - self.lines - self.linhas_avanco)
+        if total_linhas <= self.linhas_folha:
+            picote = abs(self.linhas_folha - total_linhas)
+
         else:
-            picote = abs(self.linhas_folha -
-                         (self.lines + self.linhas_avanco) % self.linhas_folha)
+            picote = abs(self.linhas_folha - (total_linhas % self.linhas_folha))
 
-        self.line_feed(picote)
+        if picote:
+            self.line_feed(picote)
 
     def avanca_papel(self):
-        self.return_and_feed(self.linhas_avanco + 1)
+        self.line_feed(self.linhas_avanco - self.linhas_cabecalho)

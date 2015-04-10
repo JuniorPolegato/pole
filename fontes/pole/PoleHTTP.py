@@ -9,36 +9,58 @@ import zlib
 
 class Conexao(object):
     _cabecalho_iceweasel = {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux i686; rv:10.0.12) Gecko/20100101 Firefox/10.0.12 Iceweasel/10.0.12',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux i686; rv:31.0) Gecko/20100101 Firefox/31.0 Iceweasel/31.2.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'pt-br,pt;q=0.8,en-us;q=0.5,en;q=0.3',
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
     }
 
-    def __init__(self, servidor, porta = -1, protocolo = '', timeout = 5):
-        if not protocolo:
-            prot_serv = servidor.split('://', 1)
-            if len(prot_serv) == 2:
-                protocolo, servidor = prot_serv
-        protocolo = protocolo.lower()
-        if not protocolo:
-            protocolo = 'https' if porta == 443 else 'http'
-        elif protocolo not in ('http', 'https'):
-            raise Exception('Protocolo "%s" inválido!' % protocolo)
-        if porta == -1:
-            porta = 443 if protocolo == 'https' else 80
+    def __init__(self, endereco, porta = -1, protocolo = '', timeout = 5):
+        protocolo, servidor, porta, caminho = self.separar_endereco(endereco, porta, protocolo)
         if protocolo == 'https':
             self.conexao = httplib.HTTPSConnection(servidor, porta, timeout = timeout)
         else:
             self.conexao = httplib.HTTPConnection(servidor, porta, timeout = timeout)
+        self.protocolo = protocolo
         self.servidor = servidor
         self.porta = porta
-        self.protocolo = protocolo
+        self.caminho = caminho
         self._timeout = timeout
         self.cabecalhos = dict(self._cabecalho_iceweasel)
         self.cabecalhos['Host'] = self.servidor
         self.cookies = {}
+
+    def separar_endereco(self, endereco, porta = -1, protocolo = ''):
+        if '://' in endereco[:15]:
+            protocolo, resto = endereco.split('://', 1)
+        else:
+            resto = endereco
+        protocolo = protocolo.lower()
+
+        if '/' in resto:
+            serv_port, resto = resto.split('/', 1)
+            caminho = '/' + resto
+        else:
+            serv_port = resto
+            caminho = '/'
+
+        if ':' in serv_port:
+            servidor, porta = serv_port.split(':', 1)
+        else:
+            servidor = serv_port
+
+        if not protocolo:
+            protocolo = 'https' if porta == 443 else 'http'
+        elif protocolo not in ('http', 'https'):
+            raise Exception('Protocolo "%s" inválido!' % protocolo)
+
+        if porta == -1:
+            porta = 443 if protocolo == 'https' else 80
+        if not isinstance(porta, int) or 1 > porta > 65535:
+            raise Exception('Porta "%s" inválida!' % str(porta))
+
+        return protocolo, servidor, porta, caminho
 
     def renovar_conexao(self):
         self.fechar()
@@ -64,7 +86,9 @@ class Conexao(object):
             return zlib.decompress(dados)
         return dados
 
-    def obter_dados(self, caminho, dados = '', atualiza_referer = True, mais_cabecalhos = None, seguir = True):
+    def obter_dados(self, caminho='', dados = '', atualiza_referer = True, mais_cabecalhos = None, seguir = True):
+        if not caminho:
+            caminho = self.caminho
         if not self.conexao:
             raise Exception('Não conectado!')
         metodo = 'POST' if dados else 'GET'
@@ -95,11 +119,24 @@ class Conexao(object):
             for k, v in novos_cookies.items():
                 self.cookies[k] = v
             self.cabecalhos['Cookie'] = ';'.join([k + '=' + v for k,v in self.cookies.items()])
-        if seguir and resposta.status in (302, 303) and resposta.getheader('location'):
+        if seguir and resposta.status in (301, 302, 303) and resposta.getheader('location'):
             new_location = resposta.getheader('location').split(';')[0]
-            if new_location[0] != '/' and new_location[:4] != 'http' and new_location[:3] != 'ftp':
+            print 'new_location:', new_location
+            if '://' in new_location[:15]:
+                protocolo, servidor, porta, url = self.separar_endereco(new_location)
+                if (servidor, porta, protocolo) == (self.servidor, self.porta, self.protocolo):
+                    new_location = url
+                else:
+                    con = Conexao(new_location)
+                    con.cookies = self.cookies
+                    retorno = con.obter_dados()
+                    con.fechar()
+                    return retorno
+            elif new_location[0] != '/':
                 new_location = caminho.rsplit('/', 1)[0] + '/' + new_location
+
             return self.obter_dados(new_location, '', atualiza_referer, mais_cabecalhos, seguir)
+
         return {'status': resposta.status, 'descrição': resposta.reason,
                 'cabeçalhos': resposta.getheaders(), 'cookies': self.cookies,
                 'conteúdo': conteudo, 'tempo': tempo}

@@ -28,7 +28,9 @@ class GladePy(object):
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Iniciar a classe GladePy com o nome do projeto passado como parâmetro
-    def __init__(self, projeto_glade = None, codigo_python = None, coluna_combo = 0, imagem_botao = True, funcao = None, juntar = False):
+    def __init__(self, projeto_glade=None, codigo_python=None,
+                 coluna_combo=0, imagem_botao=True, funcao=None,
+                 juntar=False, classes_base=''):
         # Dicionário que conterá informações de funções chamads pelos sinais/eventos na forma:
         #   "nome_da_função": [("sinal_0/evento_0", "nome_do_widget_0", "classe_do_widget_0"), ..., ("sinal_n/evento_n", "nome_do_widget_n", "classe_do_widget_n")]
         self.funcoes = {}
@@ -44,12 +46,14 @@ class GladePy(object):
         if not codigo_python:
             codigo_python = self.gerar_nome_codigo_python(projeto_glade)
         # Atualizar o código Python conforme dados do dicionário e proposta do projeto GladePy
-        linha_funcao = self.atualizar_codigo_python(projeto_glade, codigo_python, coluna_combo, imagem_botao, funcao, juntar)
+        linha_funcao = self.atualizar_codigo_python(
+                            projeto_glade, codigo_python, coluna_combo,
+                                imagem_botao, funcao, juntar, classes_base)
         # Se passada, localizar a linha da função a ser posicionado o cursor
         if editor:
             linha_de_comando = editor
             if funcao and line_option and linha_funcao:
-                linha_de_comando += " " + line_option + " " + str(linha_funcao)
+                linha_de_comando += " %s %i" % (line_option, linha_funcao)
                 if column_option:
                     linha_de_comando += " " + column_option + " 8"
             os.system(linha_de_comando + ' "' + codigo_python + '"')
@@ -100,7 +104,12 @@ class GladePy(object):
     # Caso o arquivo com código Python não existir,
     #     criar um com o conteúdo inicial em conformidade
     #     à proposta do projeto GladePy
-    def criar_codigo_python(self, projeto_glade, codigo_python, coluna_combo, imagem_botao):
+    def criar_codigo_python(self, projeto_glade, codigo_python,
+                              coluna_combo, imagem_botao, classes_base):
+        if classes_base:
+            classes_base = classes_base.strip()
+            if classes_base[0] != ',':
+                classes_base = ', ' + ', '.join(classes_base.split(','))
         arquivo = open(codigo_python, "w")
         arquivo.write("#!/usr/bin/env python\n")
         arquivo.write("# -*- coding: utf-8 -*-\n\n")
@@ -110,7 +119,7 @@ class GladePy(object):
         arquivo.write("import zlib\n")
         arquivo.write("import base64\n\n")
         arquivo.write("import pole\n\n")
-        arquivo.write("class Project(pole.gtk.Project):\n")
+        arquivo.write("class Project(pole.gtk.Project%s):\n" % classes_base)
         arquivo.write("    @pole.gtk.try_function\n")
         arquivo.write("    def __init__(self, parent, loop, data):\n")
         arquivo.write("        ui = '/caminho/projeto.ui'\n")
@@ -130,17 +139,22 @@ class GladePy(object):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Atualizar o código Python conforme dados do dicionário e proposta
     #     do projeto GladePy
-    def atualizar_codigo_python(self, projeto_glade, codigo_python, coluna_combo, imagem_botao, funcao_posicionada = None, juntar = False):
+    def atualizar_codigo_python(self, projeto_glade, codigo_python,
+                                coluna_combo, imagem_botao,
+                                funcao_posicionada=None, juntar=False,
+                                classes_base=''):
         # Se não existir o código python, criar um código inicial e então atualizar
         if not os.path.exists(codigo_python):
-            self.criar_codigo_python(projeto_glade, codigo_python, coluna_combo, imagem_botao)
+            self.criar_codigo_python(projeto_glade, codigo_python,
+                               coluna_combo, imagem_botao, classes_base)
         # Abrir o arquivo de código Python
         arquivo = open(codigo_python, "r+")
         # Encontrar a classe Projeto e guardar a posição subseqüente
         inicio_codigo_classe_projeto = 0
         linha_codigo_classe_projeto = 0
         linha = ' '
-        while linha and "class Project(pole.gtk.Project):" not in linha:
+        linha_classe = "class Project(pole.gtk.Project"
+        while linha and linha_classe not in linha:
             linha = arquivo.readline()
             inicio_codigo_classe_projeto += len(linha)
             linha_codigo_classe_projeto += 1
@@ -315,9 +329,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         print "\nUso: [python] %s [opções] nome_projeto_glade [nome_código_python]\n" % (sys.argv[0])
         print "    Onde:"
-        print "        Opções. . . . . . : opções que mudam a forma padrão de  tratamento e"
-        print "                            geração do código:"
-        print "                            -f <função>: nome da função sob a qual  o cursor"
+        print "        Opções. . . . . .: opções que mudam a forma padrão de  tratamento  e"
+        print "                           geração do código:"
+        print "                           -f <função>:  nome da função sob a qual  o cursor"
         print "                                         será posicionado ao abrir o editor."
         print "                                         O editor  se  encontra  no  arquivo"
         print "                                         .gladepy.conf no  diretório HOME do"
@@ -325,19 +339,19 @@ if __name__ == "__main__":
         print "                                         variáveis:  editor,  line_option  e"
         print "                                         column_option no  formato do Python"
         print "                                         variável = \"valor\" por linha."
-        print "                            -c <coluna>: coluna a ser mostrada nas caixas de"
+        print "                           -c <coluna>:  coluna a ser mostrada nas caixas de"
         print "                                         combinação  (combos). None para não"
         print "                                         mostrar  nenhuma,  deverá ser feito"
         print "                                         manualmente.  Se   não  especificar"
         print "                                         esta opção,  a coluna 0 será usada."
-        print "                            -img_btn   : Se esta opção for especificada, não"
+        print "                           -img_btn   :  Se esta opção for especificada, não"
         print "                                         gera     código     para     mostar"
         print "                                         impreterivelmente  as  imagens  nos"
         print "                                         botões.   Neste    caso   segue   o"
         print "                                         comportamento do tema ou Gnome, que"
         print "                                         por padrão  não  mostra  as imagens"
         print "                                         nos botões."
-        print "                            -join      : Se  esta  opção  for  especificada,"
+        print "                           -join      :  Se  esta  opção  for  especificada,"
         print "                                         junta  a  inteface  gráfica XML  no"
         print "                                         código Pyhton. Este XML estará numa"
         print "                                         numa    variável    comprimida    e"
@@ -349,6 +363,11 @@ if __name__ == "__main__":
         print "                                         inteface no Glade, deve-se executar"
         print "                                         executar  novamente  o GladePy para"
         print "                                         atualizar esta variável."
+        print "                           -baseclasses: Se  esta  opção  for  especificada,"
+        print "                                         adiciona o  parâmetro seguinte como"
+        print "                                         classe(s)-base junto ao Project, as"
+        print "                                         quais  devem  estar  separadas  por"
+        print "                                         vírgula se for mais de uma."
         print "        nome_projeto_glade: nome obrigatório  do  arquivo  que  contém o XML"
         print "                            gerado  pelo  Glade,   geralmente  com  extensão"
         print "                            `.glade´ tratado  na  versão  0.2 por libGlade e"
@@ -377,6 +396,7 @@ if __name__ == "__main__":
         combo_column = 0
         image_button = True
         join = False
+        baseclasses = ''
         try:
             exec(open(os.environ["HOME"] + "/.gladepy.conf").read())
         except:
@@ -384,6 +404,10 @@ if __name__ == "__main__":
         funcao = None
         parametro = 1
         while parametro < len(sys.argv):
+            if sys.argv[parametro] == "-baseclasses":
+                parametro += 1
+                baseclasses = ', ' + ', '.join(c.strip() for c
+                                      in sys.argv[parametro].split(','))
             if sys.argv[parametro] == "-join":
                 join = True
             elif sys.argv[parametro] == "-f":
@@ -402,4 +426,5 @@ if __name__ == "__main__":
             else:
                 nome_projeto_glade = sys.argv[parametro]
             parametro += 1
-        GladePy(nome_projeto_glade, nome_codigo_python, combo_column, image_button, funcao, join)
+        GladePy(nome_projeto_glade, nome_codigo_python, combo_column,
+                                image_button, funcao, join, baseclasses)
