@@ -925,6 +925,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
         decimals = []
         editables = []
         with_colors = False
+        sizes = []
+        formats = []
         for column in configs:
             if len(column) > 4:
                 raise ValueError, _("Invalid values column format, expected max of 4 values: name, type[, decimal][,edit].")
@@ -987,16 +989,13 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 type_info = PoleUtil.tipos[column[1]]
                 types.append(PoleUtil.python_tipo[type_info[0]])
                 decimals.append(type_info[2])
-                self.__sizes.append(type_info[1])
-                self.__formats.append(column[1])
-                self.__foreing_data.append(None)
-                self.__structurex = True
+                sizes.append(type_info[1])
+                formats.append(column[1])
             else:
                 raise TypeError, _('Invalid type `%s´. Expected int, long, bool, float, str, datetime, date, time, month or hours.') % (column[1],)
             if column[1] not in PoleUtil.tipos:
-                self.__sizes.append(None)
-                self.__formats.append(None)
-                self.__foreing_data.append(None)
+                sizes.append(None)
+                formats.append(None)
             c = 2
 
             if len(column) > 2:
@@ -1022,9 +1021,9 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 if column[1] not in ('date', 'time', 'datetime', 'month', 'hours') + tuple(PoleUtil.tipos):
                     decimals.append(PoleUtil.locale.localeconv()['frac_digits'])
                 editables.append(False)
-        self.structure(titles, types, decimals, editables, with_colors)
+        self.structure(titles, types, decimals, editables, with_colors, sizes, formats)
 
-    def structure(self, titles, types, decimals = None, editables = None, with_colors = False):
+    def structure(self, titles, types, decimals=None, editables=None, with_colors=False, sizes=None, formats=None, foreing_data=None):
         if not decimals:
             decimals = [PoleUtil.locale.localeconv()['frac_digits']] * len(titles)
         if not editables:
@@ -1037,8 +1036,11 @@ class Grid(gtk.TreeView, gtk.Buildable):
         self.__editables = editables
         self.__with_colors = with_colors
 
-        self.__formats = [None] * len(types)
-        self.__structurex = False
+        vazio = [None] * len(types)
+        self.__sizes = sizes if sizes else vazio
+        self.__formats = formats if formats else vazio
+        self.__foreing_data = foreing_data if foreing_data else vazio
+        self.__structurex = bool(sizes or formats or foreing_data)
 
         for column in self.get_columns():
             self.remove_column(column)
@@ -1119,18 +1121,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
         self.append_column(column)
 
     def get_structure(self):
-        return (self.__titles, self.__types, self.__decimals, self.__editables, self.__with_colors)
-
-    def structurex(self, sizes, formats, foreing_data):
-        self.__sizes = sizes
-        self.__formats = formats
-        self.__foreing_data = foreing_data
-        self.__structurex = True
-
-    def get_structurex(self):
-        if self.__structurex:
-            return (self.__sizes, self.__formats, self.__foreing_data)
-        return None
+        return (self.__titles, self.__types, self.__decimals, self.__editables, self.__with_colors, self.__sizes, self.__formats, self.__foreing_data)
 
     def __editable_callback(self, renderer, path, *args):
         if isinstance(renderer, gtk.CellRendererToggle):
