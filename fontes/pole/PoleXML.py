@@ -274,18 +274,25 @@ class XML(object):
 
 def importar(xml, html = False):
     def _importar(pai, elemento):
-        # print type(elemento), elemento, elemento.tag
+        # print 'type....:', type(elemento)
+        # print 'elemento:', elemento
+        # print 'tag.....:', elemento.tag
+        # print 'nsmap...:', elemento.nsmap
+        # print 'attrib..:', elemento.attrib
+
         if isinstance(elemento, lxml.etree._Comment):
             atual = pai('!--', FILHO)
         elif isinstance(elemento, lxml.etree._ProcessingInstruction):
             atual = pai('?xml', FILHO)
         else:
-            atual = pai(elemento.tag.split('}')[-1], FILHO)
+            atual = pai(elemento.tag.rsplit('}', 1)[-1], FILHO)
+
         parent = elemento.getparent()
         if parent is not None:
             ns_pai = elemento.getparent().nsmap
         else:
             ns_pai = []
+
         for ns in elemento.nsmap:
             if ns in ns_pai and elemento.nsmap[ns] == ns_pai[ns]:
                 continue
@@ -293,14 +300,24 @@ def importar(xml, html = False):
                 atual['xmlns'] = unescape(elemento.nsmap[ns])
             else:
                 atual['xmlns:' + ns] = unescape(elemento.nsmap[ns])
+
         for a in elemento.attrib:
-            atual[a] = elemento.attrib[a]
+            if '}' in a:
+                ns, nsa = a.rsplit('}', 1)
+                nss = elemento.nsmap.items()
+                ns = filter(lambda x: x[1] == ns[1:], nss)[0][0]
+                nsa = "%s:%s" % (ns, nsa)
+            else:
+                nsa = a
+            atual[nsa] = elemento.attrib[a]
+
         if (elemento.text is not None and not
                isinstance(elemento, lxml.etree._ProcessingInstruction)):
             for texto in elemento.text.split('\n'):
                 texto2 = unescape(texto)
                 if len(texto2):
                     atual(texto2, TEXTO)
+
         for filho in elemento:
             _importar(atual, filho)
             if filho.tail is not None:
