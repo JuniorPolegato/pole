@@ -520,7 +520,7 @@ class Webservice(object):
         consulta.consSitNFe.tpAmb = self.__ambiente
         consulta.consSitNFe.xServ = 'CONSULTAR'
         consulta.consSitNFe.chNFe = chave
-        return ws_consulta.servico('NfeConsulta2', consulta)
+        return ws_consulta.servico('NfeConsultaProtocolo', consulta)
 
     def consultar_num_nota(self, num_nota):
         for ano in range(datetime.date.today().year % 100, 5, -1):
