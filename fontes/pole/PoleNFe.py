@@ -39,6 +39,9 @@ import PoleXML
 import PoleUtil
 cf = PoleUtil.convert_and_format
 
+# Danfe
+from PoleDANFe import danfe
+
 # Constantes
 
 PRODUCAO = 1

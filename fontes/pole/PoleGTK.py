@@ -25,6 +25,7 @@ import PoleLog
 import unicodedata
 import sys
 import os
+import stat
 import re
 from string import strip
 import logging
@@ -45,6 +46,7 @@ message_titles = {gtk.MESSAGE_INFO: _('Information'),
                   gtk.MESSAGE_ERROR: _('Error')
                  }
 
+
 def message(widget, text, message_type = gtk.MESSAGE_INFO, title = None):
     if message_type == gtk.MESSAGE_QUESTION:
         buttons = gtk.BUTTONS_YES_NO
@@ -52,7 +54,8 @@ def message(widget, text, message_type = gtk.MESSAGE_INFO, title = None):
         buttons = gtk.BUTTONS_CLOSE
     flags = flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
     dialog = gtk.MessageDialog(widget.get_toplevel(), flags,
-                                            message_type, buttons, text)
+                                            message_type, buttons)
+    dialog.set_markup(text)
 
     if title is None:
         title = message_titles[message_type]
@@ -61,25 +64,65 @@ def message(widget, text, message_type = gtk.MESSAGE_INFO, title = None):
     dialog.destroy()
     return result
 
-def info(widget, text, title = None):
+
+def destroy(widget, event=None):
+    widget.destroy()
+
+
+def info_bar_ex(widget, message, message_type=gtk.MESSAGE_INFO,
+                button_label='Fechar', callback=destroy, timeout=3000):
+    bar = gtk.InfoBar()
+    bar.set_message_type(message_type)
+    bar.add_button(button_label, gtk.RESPONSE_CLOSE)
+    bar.get_content_area().pack_start(gtk.Label(message), True, True)
+    bar.connect('response', callback)
+    bar.connect('close', destroy)
+
+    widget.pack_start(bar, False, False)
+    widget.reorder_child(bar, 0)
+    bar.show_all()
+
+    glib.timeout_add(timeout, lambda: bar.destroy())
+
+
+def info_bar(parent, text, **kwargs):
+    return info_bar_ex(parent, text, gtk.MESSAGE_INFO, **kwargs)
+
+
+def warning_bar(parent, text, **kwargs):
+    return info_bar_ex(parent, text, gtk.MESSAGE_WARNING, **kwargs)
+
+
+def error_bar(parent, text, **kwargs):
+    return info_bar_ex(parent, text, gtk.MESSAGE_ERROR, **kwargs)
+
+
+def info(widget, text, title=None):
     return message(widget, text, gtk.MESSAGE_INFO, title)
 
-def error(widget, text, title = None):
+
+def error(widget, text, title=None):
     return message(widget, text, gtk.MESSAGE_ERROR, title)
 
-def warning(widget, text, title = None):
+
+def warning(widget, text, title=None):
     return message(widget, text, gtk.MESSAGE_WARNING, title)
 
-def question(widget, text, title = None):
+
+def question(widget, text, title=None):
     return message(widget, text, gtk.MESSAGE_QUESTION, title)
+
 
 def error_detail(widget, text, detail_info, title=None):
     detail(widget, text, detail_info, title, gtk.MESSAGE_ERROR)
 
+
 def warning_detail(widget, text, detail_info, title='Warning'):
     detail(widget, text, detail_info, title, gtk.MESSAGE_WARNING)
 
-def detail(widget, text, detail_info, title=None, message_type=gtk.MESSAGE_INFO):
+
+def detail(widget, text, detail_info, title=None,
+           message_type=gtk.MESSAGE_INFO):
     # Get toplevel window
     if isinstance(widget, gtk.Widget):
         window = widget.get_toplevel()
@@ -90,7 +133,7 @@ def detail(widget, text, detail_info, title=None, message_type=gtk.MESSAGE_INFO)
         title = message_titles[gtk.MESSAGE_ERROR]
     flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
     dialog = gtk.MessageDialog(window, flags, message_type,
-                                     gtk.BUTTONS_CLOSE, text)
+                               gtk.BUTTONS_CLOSE, text)
     dialog.format_secondary_text(' ')
     dialog.set_title(title)
     vbox = dialog.get_message_area()
@@ -113,6 +156,7 @@ def detail(widget, text, detail_info, title=None, message_type=gtk.MESSAGE_INFO)
     dialog.destroy()
     return result
 
+
 def show_exception(project, args):
     # Exception message
     exc_message = traceback.format_exc().strip().splitlines()
@@ -130,78 +174,13 @@ def show_exception(project, args):
     return error_detail(obj, pri_text, '\n'.join(exc_message), title)
 
 
-def save(parent=None, title='', filename='', folder=None):
-    filechooser = gtk.FileChooserDialog(title or _('Save'),
-                                        parent.get_toplevel(),
-                                        gtk.FILE_CHOOSER_ACTION_SAVE,
-                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                         gtk.STOCK_SAVE, gtk.RESPONSE_OK))
-    if filename:
-        filechooser.set_current_name(filename)
-    filechooser.set_default_response(gtk.RESPONSE_OK)
-
-    if folder:
-        filechooser.set_current_folder(folder)
-
-    path = None
-    while True:
-        response = filechooser.run()
-        if response != gtk.RESPONSE_OK:
-            path = None
-            break
-
-        path = filechooser.get_filename()
-        if not os.path.exists(path):
-            break
-
-        elif os.path.exists(path) and question(filechooser, 'Sobrescrever arquivo?'):
-            break
-
-    filechooser.destroy()
-    return path
-
-
-def selectfolder(parent, title=_('Select folder'), folder=None):
-    filechooser = gtk.FileChooserDialog(
-        title,
-        parent.get_toplevel(),
-        gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-         gtk.STOCK_OK, gtk.RESPONSE_OK))
-
-    if folder:
-        filechooser.set_current_folder(folder)
-
-    filechooser.set_default_response(gtk.RESPONSE_OK)
-
-    response = filechooser.run()
-    if response != gtk.RESPONSE_OK:
-        filechooser.destroy()
-        return
-
-    path = filechooser.get_filename()
-    if path and os.access(path, os.R_OK | os.X_OK):
-        filechooser.destroy()
-        return path
-
-    abspath = os.path.abspath(path)
-
-    error(parent,
-          _('The folder "%s" could not be selected. '
-            'Permission denied.') % abspath,
-          _('Could not select folder "%s"') % abspath)
-
-    filechooser.destroy()
-    return
-
-
-def selectfile(title='', parent=None, folder=None, filters=[],
-                                  select_folder=False, save_file=False):
+def select_file_or_folder(parent=None, title=None, file_or_folder=None,
+                          filters=[], select_folder=False, save_file=False):
     if select_folder:
         select_type = gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER
         if not title:
             title = _('Select folder')
-    if save_file:
+    elif save_file:
         select_type = gtk.FILE_CHOOSER_ACTION_SAVE
         if not title:
             title = _('Select file to save to')
@@ -212,11 +191,13 @@ def selectfile(title='', parent=None, folder=None, filters=[],
 
     parent = parent.get_toplevel()
 
+    ok = gtk.STOCK_SAVE if save_file else gtk.STOCK_OPEN
+
     filechooser = gtk.FileChooserDialog(title,
                                         parent,
                                         select_type,
                                         (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                         gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+                                         ok, gtk.RESPONSE_OK))
 
     for f in filters:
         if isinstance(f, (str, unicode)):
@@ -226,18 +207,51 @@ def selectfile(title='', parent=None, folder=None, filters=[],
             f = fx
         filechooser.add_filter(f)
 
-    if folder:
-        filechooser.set_current_folder(folder)
+    if file_or_folder:
+        while True:
+            try:
+                mode = os.stat(file_or_folder)[stat.ST_MODE]
+            except OSError:
+                temp = os.path.dirname(file_or_folder)
+                if temp == file_or_folder:
+                    break
+                file_or_folder = temp
+                continue
+            if stat.S_ISDIR(mode):
+                filechooser.set_current_folder(file_or_folder)
+            elif stat.S_ISREG(mode):
+                filechooser.set_filename(file_or_folder)
+            break
 
     filechooser.set_default_response(gtk.RESPONSE_OK)
 
     try:
         if filechooser.run() == gtk.RESPONSE_OK:
-            return filechooser.get_filename()
+            path = filechooser.get_filename()
+            if not save_file:
+                return path
+            if not os.path.exists(path):
+                return path
+            if question(filechooser, 'Sobrescrever arquivo?') == gtk.RESPONSE_YES:
+                return path
 
     finally:
         filechooser.destroy()
 
+
+def save_file(parent=None, title=None, file_or_folder=None, filters=[]):
+    return select_file_or_folder(parent, title, file_or_folder,
+                                 filters, False, True)
+
+
+def select_file(parent=None, title=None, file_or_folder=None, filters=[]):
+    return select_file_or_folder(parent, title, file_or_folder,
+                                 filters, False, False)
+
+
+def select_folder(parent=None, title=None, file_or_folder=None, filters=[]):
+    return select_file_or_folder(parent, title, file_or_folder,
+                                 filters, True, False)
 
 def show_toolbutton_menu(toolbutton, menu):
     toolbutton.children()[0].children()[1].clicked()
@@ -697,6 +711,8 @@ class GridRow(object):
             raise TypeError, _('Invalid type of column index or name `' + type(index) + '´.')
     def path(self):
         return self.__path
+    def is_expanded(self):
+        return self.__grid.row_expanded(self.__path)
 
 
 class ComboBoxCompletion(gtk.ComboBox, gtk.Buildable):
@@ -753,6 +769,7 @@ class Editor(gtk.Entry, gtk.Buildable):
         self.__num = False
         self.__old_text = ''
         self.__characters = None
+        self.__max_length = -1
         self.__pole_type = None
 
     def do_parser_finished(self, builder):
@@ -789,8 +806,9 @@ class Editor(gtk.Entry, gtk.Buildable):
             self.__pole_type = pole_type
             self.__decimals = type_info[2]
             self.__characters = type_info[4]
-            if self.get_max_length() == -1:
-                self.set_max_length(type_info[1])
+            self.__max_length = type_info[1]
+            if self.get_max_length() == self.__max_length:
+                self.set_max_length(0)
             #self.set_width_chars(type_info[1]) # Depends on layout
             self.set_alignment(type_info[8])
         else:
@@ -864,6 +882,8 @@ class Editor(gtk.Entry, gtk.Buildable):
             gtk.Entry.do_focus_out_event(self, *args, **kargs)
             return
         self.__formating = True
+        if self.get_max_length() == self.__max_length:
+            self.set_max_length(0)
         if self.__int:
             self.set_text(cf(self.get_text(), int)[1])
         elif self.__float:
@@ -879,6 +899,8 @@ class Editor(gtk.Entry, gtk.Buildable):
         self.__formating = False
         self.do_changed()
         #super(Editor, self).do_focus_in_event(self, *args, **kargs)
+        if self.get_max_length() == 0:
+            self.set_max_length(self.__max_length)
         gtk.Entry.do_focus_in_event(self, *args, **kargs)
 
 class Grid(gtk.TreeView, gtk.Buildable):
@@ -1173,7 +1195,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
             tx = self.__formats[column]
             if tx:
                 e.config(tx)
-                e.set_max_length(self.__sizes[column])
+                #e.set_max_length(self.__sizes[column])
             elif self.__types[column] in (int, long):
                 e.config("int")
             elif self.__types[column] == float:
@@ -1254,7 +1276,10 @@ class Grid(gtk.TreeView, gtk.Buildable):
                         formated += f
                     except ValueError or TypeError:
                         PoleLog.log_except()
-                        formated += [t(0), field]
+                        if t in (int, long, float):
+                            formated += [t(0), field]
+                        else:
+                            formated += [t(1900, 1, 1), field]
                         error = True
                 elif t == bool:
                     try:
@@ -1400,19 +1425,47 @@ class Grid(gtk.TreeView, gtk.Buildable):
             path_iter = self.get_model().get_iter_from_string(str(path_iter))
         return self.get_model().remove(path_iter)
 
-    def export(self, filename = None):
-        csv = '\t'.join(self.__titles) + '\n'
+    def is_expanded(self, path_iter):
+        if not isinstance(path_iter, (tuple, gtk.TreeIter)):
+            path_iter = self.get_model().get_iter_from_string(str(path_iter))
+        if isinstance(path_iter, gtk.TreeIter):
+            path_iter = self.get_model().get_path(path_iter)
+        return self.row_expanded(path_iter)
+
+    def __export_csv_children(self, children, csv, cols, only_expanded_rows):
+        for line in children:
+            csv.append('\t'.join(('' if x is None else x) for x in
+                                   self.__get_line(line.iter,
+                                                   bool_to_str=True
+                                                  )[1][:cols]))
+            if not only_expanded_rows or self.row_expanded(line.path):
+                self.__export_csv_children(line.iterchildren(), csv,
+                                           cols, only_expanded_rows)
+
+    def export_csv(self, filename = None, only_expanded_rows = True):
+        csv = ['\t'.join(self.__titles)]
         cols = len(self.__titles)
-        lines = len(self.get_model())
-        csv += '\n'.join('\t'.join(('' if x is None else x) for x in
-                                   self.__get_line(i, bool_to_str=True
-                                                            )[1][:cols])
-                         for i in range(lines))
-        csv += '\n'
+        model = self.get_model()
+        self.__export_csv_children(model, csv, cols, only_expanded_rows)
+        csv = '\n'.join(csv) + '\n'
         if filename:
             open(filename, 'w').write(csv)
         else:
             gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD).set_text(csv)
+
+    def __data_matrix_children(self, children, data, cols, only_expanded_rows):
+        for line in children:
+            data.append(self.__get_line(line.iter)[0][:cols])
+            if not only_expanded_rows or self.row_expanded(line.path):
+                self.__data_matrix_children(line.iterchildren(), data,
+                                            cols, only_expanded_rows)
+
+    def data_matrix(self, only_expanded_rows = True):
+        data = []
+        cols = len(self.__titles)
+        model = self.get_model()
+        self.__data_matrix_children(model, data, cols, only_expanded_rows)
+        return data
 
     def wrap_width(self, width):
         self.__wrap_width = width
@@ -1513,6 +1566,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
         column= self.get_columns().index(pos[1])
         self.set_search_column(column)
 
+
 class Processing(gtk.Window):
     def __init__(self, parent, title, step=None, finish=None,
                                                      stop_button=False):
@@ -1532,7 +1586,7 @@ class Processing(gtk.Window):
         else:
             self.add(self.__bar)
 
-        #self.set_transient_for(parent.get_toplevel())
+        self.set_transient_for(parent.get_toplevel())
         self.set_modal(True)
         self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
         self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
@@ -1841,6 +1895,7 @@ def hide_window(widget):
     else:
         toplevel = widget.get_toplevel()
         toplevel.hide()
+
 
 if __name__ == '__main__':
     teste_ui = """<?xml version="1.0"?>

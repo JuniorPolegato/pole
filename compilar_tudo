@@ -1,8 +1,15 @@
 #!/bin/bash
 
-find fontes -name "*.so" -exec rm -v "{}" \;
-find fontes -name "*.pyc" -exec rm -v "{}" \;
-find fontes -name "*.py" -exec python -m py_compile "{}" \;
-find fontes -name "*.pyc" -and -not -path "./modulos/*" -exec mv -v "{}" modulos/ \;
-gcc -Wall -shared -o modulos/PoleXmlSec.so fontes/pole/PoleXmlSec.c -I /usr/include/python2.7/ -I /usr/include/libxml2 -I /usr/include/xmlsec1 -l xml2 -l xmlsec1 -l xmlsec1-openssl
+if [ -e fontes ]; then
+    DIR="fontes/"
+else
+    DIR=""
+fi
+
+find ${DIR}pole -name "*.so" -exec rm -v "{}" \;
+find ${DIR}pole -name "*.pyc" -exec rm -v "{}" \;
+find ${DIR}pole -name "*.py" -exec python -m py_compile "{}" \;
+mkdir -p modulos
+find ${DIR}pole -name "*.pyc" -and -not -path "./modulos/*" -exec mv -v "{}" modulos/ \;
+gcc -Wall -shared -o modulos/PoleXmlSec.so ${DIR}pole/PoleXmlSec.c -I /usr/include/python2.7/ -I /usr/include/libxml2 -I /usr/include/xmlsec1 -l xml2 -l xmlsec1 -l xmlsec1-openssl
 msgfmt -o po/locale/pt_BR/LC_MESSAGES/pole.mo po/locale/pt_BR/LC_MESSAGES/pole.po
