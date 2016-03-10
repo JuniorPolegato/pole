@@ -6,13 +6,16 @@ from PolePDF import *
 import locale
 import cx_Oracle
 
+# Se o Python rodando é o 2.7
+import sys
+py_27 = sys.version_info[:2] == (2, 7)
+
 # Tamanho da fonte de a chave de acesso caber no espaço
-fonte_chave_acesso = ParagraphStyle('normal', fontSize = 7, leading = 7, alignment = TA_CENTER)
+fonte_chave_acesso = ParagraphStyle('normal', fontSize = 7,
+                                    leading = 7, alignment = TA_CENTER)
 
 def transforma_string(variavel):
-    if variavel == None:
-       return "&nbsp;"
-    return str(variavel).replace("&", "&amp;amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return ' ' if variavel == None else str(variavel)
 
 def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
 
@@ -23,8 +26,6 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     # conexao Oracle
     connection = cx_Oracle.connect("usuario/senha@banco")
     cursor = connection.cursor()
-    #cursor.execute("insert into administrador.nfe (cod_nota_fiscal, chave_acesso, data_autorizacao, protocolo_autorizacao) values (186567, '35100855666777000105550010000135834230972122', '10/08/2010 11:21:47', '135100445370768')")
-    #cursor.execute("commit")
 
     #Busca Dados da Nota
     sql=("SELECT nt.COD_NOTA_FISCAL, nt.COD_INTERNO, nt.SEQUENCIA, nt.NUM_FORMULARIO, nt.TIPO, nt.DATA_DE_PROCESSAMENTO, TO_CHAR(nt.DATA_DE_EMISSAO,'DD/MM/YYYY'), TO_CHAR(nt.DATA_SAIDA_ENTRADA,'DD/MM/YYYY'),"
@@ -49,9 +50,13 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     chave_de_acesso        = transforma_string(registros[81])
     protocolo              = transforma_string(registros[82])
     natureza_operacao      = transforma_string(registros[9])
-    ie_empresa               = "552.117.233.111"
-    ie_sub_empresa           = "&nbsp;"
-    cnpj_empresa             = "55.555.111/0001-01"
+    ie_empresa             = "552.117.233.111"
+    ie_sub_empresa         = " "
+    cnpj_empresa           = "55.555.111/0001-01"
+    nome_empresa           = "Nome da Empresa"
+    razao_social_p1        = "Razão Social"
+    razao_social_p2        = "da Empresa Ltda."
+    endereco               = 'Av. Ainda sem nome, S/N - Pq. Industrial, Ribeirão Preto, SP - CEP 14090-200\nFone: (16)3599-9999 - Fax: (16)3599-9911 - www.empresa.com.br'
     cod_entidade           = PoleUtil.formatar_inteiro(registros[13])
     razao_social           = transforma_string(registros[14])
     if len(PoleUtil.somente_digitos(registros[15])) > 11:
@@ -67,7 +72,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     fone_fax               = transforma_string(registros[21])
     uf                     = transforma_string(registros[22])
     ie                     = transforma_string(registros[23])
-    hora_entrada_saida     = '&nbsp;'
+    hora_entrada_saida     = ' '
     tipo_nota              = registros[4]
     tipo_pagamento         = transforma_string(registros[53])
     base_calculo_icms      = PoleUtil.formatar_real(registros[25])
@@ -101,13 +106,14 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     vendedor               = transforma_string(registros[83])
     denegado               = (registros[84] == 'S')
 
-    documento = PDF('NF-e ' + numero_nfe + ' - Série 001 - Nome da Empresa', diretorio + '/' + chave_de_acesso + '.pdf')
-    documento.celula(19 * cm, 0.1 * cm, None, [Paragraph('Ped.: ' + locale.format('%i', int(cod_nota_fiscal), True, True), normal_direita)], False, posicao=(1 * cm, 0.6 * cm))
-    documento.celula(15 * cm, 0.4 * cm, 'RECEBEMOS DE <b>Nome da Empresa - Restante da razão social LTDA</b> OS PRODUTOS CONSTANTES DA NOTA FISCAL INDICADA AO LADO', '')
+    documento = PDF('NF-e ' + numero_nfe + ' - Série 001 - ' + nome_empresa, diretorio + '/' + chave_de_acesso + '.pdf')
+    documento.celula(19 * cm, 0.1 * cm, None, [paragrafo('Ped.: ' + locale.format('%i', int(cod_nota_fiscal), True, True), normal_direita)], False, posicao=(1 * cm, 0.6 * cm))
+    documento.celula(15 * cm, 0.4 * cm, 'RECEBEMOS DE <b>' + razao_social_p1 + ' ' + razao_social_p2 + '</b> OS PRODUTOS CONSTANTES DA NOTA FISCAL INDICADA AO LADO', '')
     documento.celula( 5 * cm, .8 * cm, 'DATA DE RECEBIMENTO', '')
-    documento.celula(10 * cm, .8 * cm, 'IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR', '&nbsp;')
-    documento.celula( 4 * cm, 1.2 * cm, None, [Paragraph('<b>NF-e<br/>Nº '+numero_nfe+'<br/>Série:'+serie_nfe+'</b>', normal_centro)])
-    documento.celula(19 * cm, 0.4 * cm, '················································································································································································································································································································································································································································','', borda = False)
+    documento.celula(10 * cm, .8 * cm, 'IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR', ' ')
+    documento.celula( 4 * cm, 1.2 * cm, None, [paragrafo('<b>NF-e\nNº '+numero_nfe+'\nSérie:'+serie_nfe+'</b>', normal_centro)])
+    p = 385 if py_27 else 432
+    documento.celula(19 * cm, 0.4 * cm, '·' * p, '', borda = False)
 
     # Logotipo
     if logo is not None:
@@ -118,8 +124,8 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     I.drawHeight = 13 * mm
 
     #Codigo de Barras
-    barcode = BarCode('Code128', value = chave_de_acesso, barWidth = 0.26 * mm) #, 0.4 * mm, 6.8 * mm)
-    #barcode.barWidth = 0.26 * mm
+    barcode = Code128(chave_de_acesso)
+    barcode.barWidth = 0.25 * mm
 
     # Número de páginas e dados da tabela
     ts = [('GRID', (0,0), (-1,-1), .5, colors.black),
@@ -156,7 +162,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         dados_tabela.append(
             [
                 PoleUtil.formatar_inteiro(linha[ 0]),
-                Paragraph(linha[ 1], fonte_tab_grande),
+                paragrafo(linha[ 1], fonte_tab_grande),
                 ncm,
                 linha[ 3],
                 linha[ 4],
@@ -173,7 +179,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
                 PoleUtil.formatar_real(str(linha[15]).replace('.', ','), 2),
             ]
         )
-    alt_comp = documento.altura(  14 * cm,   3 * cm, None, [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)])
+    alt_comp = documento.altura(  14 * cm,   3 * cm, None, [paragrafo('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), paragrafo('Pedido ' + nome_empresa + ': ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '\n \n' + observacao.replace('<', '\n').replace('>', '\n'), normal_esquerda)])
     a3 = 15 * cm - alt_comp
     tabela, itens, altura = documento.tabela(5.4 * cm, a3, dados_tabela, colWidths, style=ts)
     #print tabela, itens, altura / cm, len(dados), a3 / cm
@@ -188,44 +194,44 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         paginas += 1
 
     # Dados Empresa
-    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
+    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
     a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
-    a2 = documento.altura( 3.5 * cm, 1 * mm, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-    a3 = documento.altura( 7.5 * cm, 1 * mm, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),barcode,Paragraph('<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
+    a2 = documento.altura( 3.65 * cm, 1 * mm, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
+    a3 = documento.altura( 7.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), barcode, paragrafo('\n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
     if a1_1 + a1_2 > a2:
         a = a1_1 + a1_2
     else:
         a = a2
     if a < a3:
         a = a3
-    documento.celula( 8 * cm, a, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
-    documento.celula( 3.5 * cm, a, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-    documento.celula( 7.5 * cm, a, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),Paragraph('<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e<br/>www.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
+    documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
+    documento.celula( 3.65 * cm, a, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
+    documento.celula( 7.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
     # Natureza da Operação flutuante
     documento.celula( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao, posicao = (1 * cm, 2.6 * cm + a - a1_2))
 
     #Posição Chave de acesso celula flutuante
-    chave_de_acesso = [Paragraph('Chave de acesso', pequena_esquerda), Paragraph(' '.join([chave_de_acesso[x*4:x*4+4] for x in range(11)]), fonte_chave_acesso)]
-    documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.65 * cm, 4 * cm))
+    chave_de_acesso = [paragrafo('Chave de acesso', pequena_esquerda), paragrafo(' '.join([chave_de_acesso[x*4:x*4+4] for x in range(11)]), fonte_chave_acesso if py_27 else normal_centro)]
+    documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.725 * cm, 4 * cm))
     #Posição Entrada Saida celula flutuante
     if tipo_nota=='S':
         tipo = "1"
     else:
         tipo = "0"
-    documento.celula(.4* cm,.4 * cm, None,[Paragraph(str(tipo), normal_centro)],posicao=(10.65 * cm, 3.3 * cm))
-    documento.celula(10 * mm, 1 * mm, None,[barcode],posicao=(15.75 * cm, 2.82 * cm), borda = False)
+    documento.celula(.4* cm,.4 * cm, None, [paragrafo(str(tipo), normal_centro)], posicao=(10.65 * cm, 3.3 * cm))
+    documento.celula(10 * mm, 1 * mm, None, [barcode], posicao=(15.825 * cm, 2.82 * cm), borda = False)
 
-    #documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph('00000000000000000000000000000000000', normal_esquerda)])
+    #documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo('00000000000000000000000000000000000', normal_esquerda)])
 
     # Inscrição estadual
     documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_empresa)
-    documento.celula( 4.5 * cm, 1 * mm, None, [Paragraph('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda),Paragraph(ie_sub_empresa,normal_direita)])
-    documento.celula( 3.5 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
-    documento.celula( 7.5 * cm, 1 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph(protocolo, normal_esquerda)])
+    documento.celula( 4.5 * cm, 1 * mm, None, [paragrafo('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda), paragrafo(ie_sub_empresa, normal_direita)])
+    documento.celula( 3.65 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
+    documento.celula( 7.35 * cm, 1 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo(protocolo, normal_esquerda)])
 
     # DESTINATARIO REMETENTE
-    documento.celula( 19 * cm, 1 * mm, None, [Paragraph('DESTINATÁRIO / REMETENTE', pequena_esquerda)], borda = False)
+    documento.celula( 19 * cm, 1 * mm, None, [paragrafo('DESTINATÁRIO / REMETENTE', pequena_esquerda)], borda = False)
 
     #print razao_social
     documento.celula(14.0 * cm, 1 * mm, 'NOME/RAZAO SOCIAL', razao_social)
@@ -244,14 +250,14 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 2.5 * cm, 1 * mm, 'HORA ENTRADA/SAIDA' , hora_entrada_saida)
 
     # FATURA
-    documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('FATURA', pequena_esquerda)], borda = False)
+    documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('FATURA', pequena_esquerda)], borda = False)
 
     # ALTURA PAGAMENTO 1 DETALHES
-    a1 = documento.altura( 1.8 * cm, 1 * mm, None, [Paragraph('01/02/2009', normal_direita),Paragraph('100,00', normal_direita)])
+    a1 = documento.altura( 1.8 * cm, 1 * mm, None, [paragrafo('01/02/2009', normal_direita), paragrafo('100,00', normal_direita)])
 
 
     # FORMA DE PAGAMENTO
-    documento.celula( 4* cm, a1, None, [Paragraph('FORMA DE PAGAMENTO<br/>', pequena_esquerda),Paragraph(tipo_pagamento, normal_esquerda)])
+    documento.celula( 4* cm, a1, None, [paragrafo('FORMA DE PAGAMENTO\n', pequena_esquerda), paragrafo(tipo_pagamento, normal_esquerda)])
 
     sql_parcelas=("select cod_nota_fiscal, num_parcela, valor_parcela, to_char(vencimento_parcela,'DD/MM/YYYY') "
                           "from administrador.parcela_nota_fiscal "
@@ -267,23 +273,23 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         valor_parcela = PoleUtil.formatar_real(parcela[2])
         num_parcela   = transforma_string(parcela[1])
         # PAGAMENTO 1
-        documento.celula( .3 * cm, a1, None, [Paragraph('&nbsp;', pequena_centro), Paragraph('&nbsp;' + num_parcela, normal_centro)])
+        documento.celula( .4 * cm, a1, None, [paragrafo(' ', pequena_centro), paragrafo(' ' + num_parcela, normal_centro)])
 
         # PAGAMENTO 1 DETALHES
-        documento.celula( 2.2 * cm, a1, None, [Paragraph(data_parcela, normal_direita),Paragraph(valor_parcela, normal_direita)])
+        documento.celula( 2.1 * cm, a1, None, [paragrafo(data_parcela, normal_direita), paragrafo(valor_parcela, normal_direita)])
     #
     # Preenche campo de parcelas em branco caso tenha menos pagamentos que 6
     #
     if len(parcelas) < 6:
         for parcela_branco in range(6-len(parcelas)):
             # PAGAMENTO 1
-            documento.celula( .3 * cm, a1, None, [Paragraph('&nbsp;', pequena_centro), Paragraph('&nbsp;', normal_centro)], borda = False)
+            documento.celula( .4 * cm, a1, None, [paragrafo(' ', pequena_centro), paragrafo(' ', normal_centro)], borda = False)
 
             # PAGAMENTO 1 DETALHES
-            documento.celula( 2.2 * cm, a1, None, [Paragraph('&nbsp;', normal_direita),Paragraph('&nbsp;', normal_direita)],borda = False)
+            documento.celula( 2.1 * cm, a1, None, [paragrafo(' ', normal_direita), paragrafo(' ', normal_direita)],borda = False)
 
     # CALCULO DO IMPOSTO
-    documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('CÁLCULO DO IMPOSTO', pequena_esquerda)], borda = False)
+    documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('CÁLCULO DO IMPOSTO', pequena_esquerda)], borda = False)
 
     # BASE DE CALCULO ICMS
     documento.celula( 3.8 * cm, 3.8 * mm, 'BASE DE CÁLCULO DO ICMS', base_calculo_icms, alinhamento = 'direita')
@@ -320,17 +326,17 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 3.8 * cm, 3.8 * mm, 'VALOR TOTAL DA NOTA', vl_total_nota, alinhamento = 'direita')
 
     # TRANSPORTADOR/VOLUMES TRANSPORTADOS
-    documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('TRANSPORTADOR/VOLUMES TRANSPORTADOS', pequena_esquerda)], borda = False)
+    documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('TRANSPORTADOR/VOLUMES TRANSPORTADOS', pequena_esquerda)], borda = False)
 
      # FRETE ALTURA
-    a1 = documento.altura( 3.7 * cm, 3.8 * mm, None, [Paragraph('FRETE POR CONTA', pequena_esquerda), Paragraph('0-EMITENTE', pequena_esquerda), Paragraph('1-DESTINATÁRIO', pequena_esquerda)])
+    a1 = documento.altura( 3.7 * cm, 3.8 * mm, None, [paragrafo('FRETE POR CONTA', pequena_esquerda), paragrafo('0-EMITENTE', pequena_esquerda), paragrafo('1-DESTINATÁRIO', pequena_esquerda)])
 
     # RAZÃO SOCIAL
-    #documento.celula( 6.5 * cm, a1, None, [Paragraph('RAZÃO SOCIAL', pequena_esquerda), Paragraph(razao_transportadora, normal_esquerda)])
+    #documento.celula( 6.5 * cm, a1, None, [paragrafo('RAZÃO SOCIAL', pequena_esquerda), paragrafo(razao_transportadora, normal_esquerda)])
     documento.celula( 10 * cm, a1, 'RAZÃO SOCIAL', razao_transportadora)
 
     # FRETE
-    documento.celula( 2.5 * cm, a1, None, [Paragraph('FRETE POR CONTA', pequena_esquerda), Paragraph('0-EMITENTE', pequena_esquerda), Paragraph('1-DESTINATÁRIO', pequena_esquerda)])
+    documento.celula( 2.5 * cm, a1, None, [paragrafo('FRETE POR CONTA', pequena_esquerda), paragrafo('0-EMITENTE', pequena_esquerda), paragrafo('1-DESTINATÁRIO', pequena_esquerda)])
 
     # CÓDIGO ANTT
     documento.celula( 1.5 * cm, a1, 'CÓDIGO ANTT', '')
@@ -345,7 +351,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 2.5 * cm, a1, 'CNPJ/CPF', cnpj_transporte)
 
     #FRETE POR CONTA NUMERO FLUTUANTE
-    documento.celula(.4 * cm,.4 * cm, None,[Paragraph(frete_conta[int(frete_por_conta)],normal_centro)],posicao=(12.9 * cm, 10.95 * cm))
+    documento.celula(.4 * cm,.4 * cm, None,[paragrafo(frete_conta[int(frete_por_conta)],normal_centro)],posicao=(12.9 * cm, 10.95 * cm))
 
     # ENDEREÇO
     documento.celula( 10* cm, 3.8 * mm, 'ENDEREÇO', endereco_transporte)
@@ -378,70 +384,70 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 2.6 * cm, 3.8 * mm, 'PESO LÍQUIDO', peso_liquido, alinhamento = 'direita')
 
     # DADOS DO PRODUTO/SERVIÇO
-    documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('DADOS DO PRODUTO/SERVIÇO', pequena_esquerda)], borda = False)
+    documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('DADOS DO PRODUTO/SERVIÇO', pequena_esquerda)], borda = False)
 
 
     # ALÍQ. ICMS - altura
-    a1 = documento.altura( .6 * cm, 3.8 * mm, None, [Paragraph('ALÍQ. ICMS', pequena_esquerda)])
+    a1 = documento.altura( .6 * cm, 3.8 * mm, None, [paragrafo('ALÍQ. ICMS', pequena_esquerda)])
 
     # CÓDIGO
-    documento.celula(colWidths[ 0], a1, None, [Paragraph('CÓDIGO', pequena_centro)])
+    documento.celula(colWidths[ 0], a1, None, [paragrafo('CÓDIGO', pequena_centro)])
 
     # DESCRIÇÃO DO PRODUTO/SERVIÇO
-    documento.celula(colWidths[ 1], a1, None, [Paragraph('DESCRIÇÃO DO PRODUTO/SERVIÇO', pequena_centro)])
+    documento.celula(colWidths[ 1], a1, None, [paragrafo('DESCRIÇÃO DO PRODUTO/SERVIÇO', pequena_centro)])
 
     # NCM/SH
-    documento.celula(colWidths[ 2], a1, None, [Paragraph('NCM/SH', pequena_esquerda)])
+    documento.celula(colWidths[ 2], a1, None, [paragrafo('NCM/SH', pequena_esquerda)])
 
     # CST
-    documento.celula(colWidths[ 3], a1, None, [Paragraph('CST', pequena_esquerda)])
+    documento.celula(colWidths[ 3], a1, None, [paragrafo('CST', pequena_esquerda)])
 
     # CFOP
-    documento.celula(colWidths[ 4], a1, None, [Paragraph('CFOP', pequena_centro)])
+    documento.celula(colWidths[ 4], a1, None, [paragrafo('CFOP', pequena_centro)])
 
     # UNID.
-    documento.celula(colWidths[ 5], a1, None, [Paragraph('UNID.', pequena_esquerda)])
+    documento.celula(colWidths[ 5], a1, None, [paragrafo('UNID.', pequena_esquerda)])
 
     # QTD
-    documento.celula(colWidths[ 6], a1, None, [Paragraph('QTD', pequena_centro)])
+    documento.celula(colWidths[ 6], a1, None, [paragrafo('QTD', pequena_centro)])
 
     # VLR. UNIT.
-    documento.celula(colWidths[ 7], a1, None, [Paragraph('VLR. UNIT.', pequena_centro)])
+    documento.celula(colWidths[ 7], a1, None, [paragrafo('VLR. UNIT.', pequena_centro)])
 
     # VLR. TOTAL
-    documento.celula(colWidths[ 8], a1, None, [Paragraph('VLR. TOTAL', pequena_centro)])
+    documento.celula(colWidths[ 8], a1, None, [paragrafo('VLR. TOTAL', pequena_centro)])
 
     # BC ICMS
-    documento.celula(colWidths[ 9], a1, None, [Paragraph('BC ICMS', pequena_centro)])
+    documento.celula(colWidths[ 9], a1, None, [paragrafo('BC ICMS', pequena_centro)])
 
     # VLR. ICMS
-    documento.celula(colWidths[10], a1, None, [Paragraph('VLR. ICMS', pequena_centro)])
+    documento.celula(colWidths[10], a1, None, [paragrafo('VLR. ICMS', pequena_centro)])
 
     # BC ICMS ST
-    documento.celula(colWidths[11], a1, None, [Paragraph('BC ICMS ST', pequena_centro)])
+    documento.celula(colWidths[11], a1, None, [paragrafo('BC ICMS ST', pequena_centro)])
 
     # VLR. ICMS ST
-    documento.celula(colWidths[12], a1, None, [Paragraph('VLR. ICMS ST', pequena_centro)])
+    documento.celula(colWidths[12], a1, None, [paragrafo('VLR. ICMS ST', pequena_centro)])
 
     # VLR. IPI
-    documento.celula(colWidths[13], a1, None, [Paragraph('VLR. IPI', pequena_centro)])
+    documento.celula(colWidths[13], a1, None, [paragrafo('VLR. IPI', pequena_centro)])
 
     # ALÍQ. ICMS
-    documento.celula(colWidths[14], a1, None, [Paragraph('ALÍQ. ICMS', pequena_centro)])
+    documento.celula(colWidths[14], a1, None, [paragrafo('ALÍQ. ICMS', pequena_centro)])
 
     # ALÍQ. IPI
-    documento.celula(colWidths[15], a1, None, [Paragraph('ALÍQ. IPI', pequena_centro)])
+    documento.celula(colWidths[15], a1, None, [paragrafo('ALÍQ. IPI', pequena_centro)])
 
     #DADOS ADICIONAIS
-    documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('DADOS ADICIONAIS', pequena_esquerda)], borda = False, posicao=(1 * cm, 28.4 * cm - alt_comp))
-    documento.celula( 14 * cm,      alt_comp, None,      [Paragraph('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), Paragraph('Pedido: ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '<br/>&nbsp;<br/>' + observacao.replace('>', '<br/>').replace('&gt;', '<br/>').replace('  ', '&nbsp; '), normal_esquerda)], posicao=(1 * cm, 28.7 * cm - alt_comp))
+    documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('DADOS ADICIONAIS', pequena_esquerda)], borda = False, posicao=(1 * cm, 28.4 * cm - alt_comp))
+    documento.celula( 14 * cm,      alt_comp, None,      [paragrafo('INFORMAÇÕES COMPLEMENTARES', pequena_esquerda), paragrafo('Pedido ' + nome_empresa + ': ' + PoleUtil.formatar_inteiro(cod_nota_fiscal) + ' - ' + vendedor + ' - Cliente: ' + cod_entidade + '\n \n' + observacao.replace('<', '\n').replace('>', '\n'), normal_esquerda)], posicao=(1 * cm, 28.7 * cm - alt_comp))
     if denegado:
-        documento.celula(  5 * cm,       alt_comp, None, [Paragraph('RESERVADO AO FISCO', pequena_esquerda), Paragraph('USO DENEGADO', extra_grande_centro), Paragraph('&nbsp;<br/>NFe SEM VALOR', grande_centro)], posicao=(15 * cm, 28.7 * cm - alt_comp))
+        documento.celula(  5 * cm,       alt_comp, None, [paragrafo('RESERVADO AO FISCO', pequena_esquerda), paragrafo('USO DENEGADO', extra_grande_centro), paragrafo(' \nNFe SEM VALOR', grande_centro)], posicao=(15 * cm, 28.7 * cm - alt_comp))
     else:
-        documento.celula(  5 * cm,       alt_comp, None, [Paragraph('RESERVADO AO FISCO', pequena_esquerda)],posicao=(15 * cm, 28.7 * cm - alt_comp))
+        documento.celula(  5 * cm,       alt_comp, None, [paragrafo('RESERVADO AO FISCO', pequena_esquerda)],posicao=(15 * cm, 28.7 * cm - alt_comp))
 
     #Propaganda
-    documento.celula( 19 * cm, 1 * mm, None, [Paragraph('NF-e ERP 3.0 - www.juniorpolegato.com.br', minuscula_direita)], posicao = (1 * cm, 28.7 * cm), borda = False)
+    documento.celula( 19 * cm, 1 * mm, None, [paragrafo('NF-e ERP 3.0 - www.juniorpolegato.com.br', minuscula_direita)], posicao = (1 * cm, 28.7 * cm), borda = False)
 
 
     documento.celula(19 * cm, 15 * cm - alt_comp, None, (tabela,), borda=False, espacamento=0)
@@ -450,99 +456,100 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     while itens < len(dados):
         pagina += 1
         documento.nova_pagina()
-        # cabec
+        # Cabeçalho
         documento.celula(19 * cm, 1.2 * cm, '', '', borda = False)
-        documento.celula(19 * cm, 0.4 * cm, '················································································································································································································································································································································································································································','', borda = False)
+        p = 385 if py_27 else 432
+        documento.celula(19 * cm, 0.4 * cm, '·' * p, '', borda = False)
 
         # Dados Empresa
-        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
+        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
         a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
-        a2 = documento.altura( 3.5 * cm, 1 * mm, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-        a3 = documento.altura( 7.5 * cm, 1 * mm, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),barcode,Paragraph('<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
+        a2 = documento.altura( 3.65 * cm, 1 * mm, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
+        a3 = documento.altura( 7.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), barcode, paragrafo('\n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
         if a1_1 + a1_2 > a2:
             a = a1_1 + a1_2
         else:
             a = a2
         if a < a3:
             a = a3
-        documento.celula( 8 * cm, a, None, [I,Paragraph('<b>Nome da Empresa</b>', normal_centro),Paragraph('<b>Restante da razão social LTDA</b>', pequena_centro),Paragraph('Av. Pres. Kennedy, 2272 - Pq. Ind. Lagoinha, Ribeirão Preto, SP - CEP 14095-220<br/>Fone: (16)3514-9966 - Fax: (16)3514-9969 - www.empresamercantil.com.br', pequena_centro)])
-        documento.celula( 3.5 * cm, a, None, [Paragraph('<b>DANFE</b>', normal_centro),Paragraph('Documento Auxiliar da Nota Fiscal Eletrônica<br/>&nbsp;', pequena_centro),Paragraph('0 - Entrada', pequena_esquerda),Paragraph('1 - Saída<br/>&nbsp;', pequena_esquerda),Paragraph('&nbsp;<br/><b>Nº '+numero_nfe+'</b>', normal_esquerda),Paragraph('<b>Série: '+serie_nfe+'</b>', normal_esquerda),Paragraph('&nbsp;<br/><b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-        documento.celula( 7.5 * cm, a, None, [Paragraph('Controle do Fisco<br/>&nbsp;', pequena_esquerda),Paragraph('<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;<br/>&nbsp;', pequena_esquerda),Paragraph('Consulta de autenticidade no portal nacional da NF-e<br/>www.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
+        documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
+        documento.celula( 3.65 * cm, a, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
+        documento.celula( 7.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
         # Natureza da Operação flutuante
         documento.celula( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao, posicao = (1 * cm, 2.6 * cm + a - a1_2))
 
         #Posição Chave de acesso celula flutuante
-        documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.65 * cm, 4 * cm))
+        documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.725 * cm, 4 * cm))
         #Posição Entrada Saida celula flutuante
         if tipo_nota=='S':
             tipo = "1"
         else:
             tipo = "0"
-        documento.celula(.4* cm,.4 * cm, None,[Paragraph(str(tipo), normal_centro)],posicao=(10.65 * cm, 3.3 * cm))
-        documento.celula(10 * mm, 1 * mm, None,[barcode],posicao=(15.75 * cm, 2.82 * cm), borda = False)
+        documento.celula(.4* cm,.4 * cm, None,[paragrafo(str(tipo), normal_centro)],posicao=(10.65 * cm, 3.3 * cm))
+        documento.celula(10 * mm, 1 * mm, None, [barcode], posicao=(15.825 * cm, 2.82 * cm), borda = False)
 
-        #documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph('00000000000000000000000000000000000', normal_esquerda)])
+        #documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo('00000000000000000000000000000000000', normal_esquerda)])
 
         # Inscrição estadual
         documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_empresa)
-        documento.celula( 4.5 * cm, 1 * mm, None, [Paragraph('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda),Paragraph(ie_sub_empresa,normal_direita)])
-        documento.celula( 3.5 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
-        documento.celula( 7.5 * cm, 1 * mm, None, [Paragraph('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), Paragraph(protocolo, normal_esquerda)])
+        documento.celula( 4.5 * cm, 1 * mm, None, [paragrafo('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda), paragrafo(ie_sub_empresa,normal_direita)])
+        documento.celula( 3.65 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
+        documento.celula( 7.35 * cm, 1 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo(protocolo, normal_esquerda)])
 
         # DADOS DO PRODUTO/SERVIÇO
-        documento.celula( 19 * cm, 3.8 * mm, None, [Paragraph('DADOS DO PRODUTO/SERVIÇO', pequena_esquerda)], borda = False)
+        documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('DADOS DO PRODUTO/SERVIÇO', pequena_esquerda)], borda = False)
 
         # ALÍQ. ICMS - altura
-        a1 = documento.altura( .6 * cm, 3.8 * mm, None, [Paragraph('ALÍQ. ICMS', pequena_esquerda)])
+        a1 = documento.altura( .6 * cm, 3.8 * mm, None, [paragrafo('ALÍQ. ICMS', pequena_esquerda)])
 
         # CÓDIGO
-        documento.celula( 1 * cm, a1, None, [Paragraph('CÓDIGO', pequena_centro)])
+        documento.celula( 1 * cm, a1, None, [paragrafo('CÓDIGO', pequena_centro)])
 
         # DESCRIÇÃO DO PRODUTO/SERVIÇO
-        documento.celula( 5.51 * cm, a1, None, [Paragraph('DESCRIÇÃO DO PRODUTO/SERVIÇO', pequena_centro)])
+        documento.celula( 5.51 * cm, a1, None, [paragrafo('DESCRIÇÃO DO PRODUTO/SERVIÇO', pequena_centro)])
 
         # NCM/SH
-        documento.celula( .92 * cm, a1, None, [Paragraph('NCM/SH', pequena_esquerda)])
+        documento.celula( .92 * cm, a1, None, [paragrafo('NCM/SH', pequena_esquerda)])
 
         # CST
-        documento.celula( .42 * cm, a1, None, [Paragraph('CST', pequena_esquerda)])
+        documento.celula( .42 * cm, a1, None, [paragrafo('CST', pequena_esquerda)])
 
         # CFOP
-        documento.celula( .58 * cm, a1, None, [Paragraph('CFOP', pequena_centro)])
+        documento.celula( .58 * cm, a1, None, [paragrafo('CFOP', pequena_centro)])
 
         # UNID.
-        documento.celula( .58 * cm, a1, None, [Paragraph('UNID.', pequena_esquerda)])
+        documento.celula( .58 * cm, a1, None, [paragrafo('UNID.', pequena_esquerda)])
 
         # QTD
-        documento.celula( 1 * cm, a1, None, [Paragraph('QTD', pequena_centro)])
+        documento.celula( 1 * cm, a1, None, [paragrafo('QTD', pequena_centro)])
 
         # VLR. UNIT.
-        documento.celula( 1.08 * cm, a1, None, [Paragraph('VLR. UNIT.', pequena_centro)])
+        documento.celula( 1.08 * cm, a1, None, [paragrafo('VLR. UNIT.', pequena_centro)])
 
         # VLR. TOTAL
-        documento.celula( 1.125 * cm, a1, None, [Paragraph('VLR. TOTAL', pequena_centro)])
+        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. TOTAL', pequena_centro)])
 
         # BC ICMS
-        documento.celula( 1.125 * cm, a1, None, [Paragraph('BC ICMS', pequena_centro)])
+        documento.celula( 1.125 * cm, a1, None, [paragrafo('BC ICMS', pequena_centro)])
 
         # VLR. ICMS
-        documento.celula( 1.125 * cm, a1, None, [Paragraph('VLR. ICMS', pequena_centro)])
+        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. ICMS', pequena_centro)])
 
         # BC ICMS ST
-        documento.celula( 1.125 * cm, a1, None, [Paragraph('BC ICMS ST', pequena_centro)])
+        documento.celula( 1.125 * cm, a1, None, [paragrafo('BC ICMS ST', pequena_centro)])
 
         # VLR. ICMS ST
-        documento.celula( 1.125 * cm, a1, None, [Paragraph('VLR. ICMS ST', pequena_centro)])
+        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. ICMS ST', pequena_centro)])
 
         # VLR. IPI
-        documento.celula( 1.125 * cm, a1, None, [Paragraph('VLR. IPI', pequena_centro)])
+        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. IPI', pequena_centro)])
 
         # ALÍQ. ICMS
-        documento.celula( .58 * cm, a1, None, [Paragraph('ALÍQ. ICMS', pequena_centro)])
+        documento.celula( .58 * cm, a1, None, [paragrafo('ALÍQ. ICMS', pequena_centro)])
 
         # ALÍQ. IPI
-        documento.celula( .58 * cm, a1, None, [Paragraph('ALÍQ. IPI', pequena_centro)])
+        documento.celula( .58 * cm, a1, None, [paragrafo('ALÍQ. IPI', pequena_centro)])
 
 
         tabela, i, altura = documento.tabela(19 * cm, 21 * cm, dados_tabela[itens:],colWidths=(1 * cm, 5.51 * cm, .92  * cm, .42  * cm, .58  * cm, .58  * cm, 1 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm), style=ts)

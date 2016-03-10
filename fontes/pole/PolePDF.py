@@ -21,12 +21,13 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.lib import colors
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus.paragraph import Paragraph
-from reportlab.platypus import *
+from reportlab.platypus import Image
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus.flowables import PageBreak
 from reportlab.platypus.tables import Table
 from reportlab.graphics.barcode import getCodeNames as BarCodeNames
 from reportlab.graphics.barcode import createBarcodeDrawing as BarCode
+from reportlab.graphics.barcode.code128 import Code128
+
 
 extra_grande_centro = ParagraphStyle('normal', fontSize = 18, leading = 18, alignment = TA_CENTER)
 grande_centro       = ParagraphStyle('normal', fontSize = 14, leading = 14, alignment = TA_CENTER)
@@ -49,15 +50,58 @@ A = 3
 ALTO = 0
 BAIXO = 1
 
+# ' ' = '\xc2\xa0' = nbsp em utf-8
+
+XML_ESCAPE = (('lt', '<'), ('gt', '>'), ('amp', '&'),
+              ('quot', '"'), ('nbsp', ' '))
+
+FORM_ESCAPE = (('<b>', '\0b\0'), ('</b>', '\0/b\0'),
+               ('<i>', '\0i\0'), ('</i>', '\0/i\0'),
+               ('<br/>', '\n'),
+               ('&nbsp; ', '  '), (' &nbsp;', '  '))
+
+def escape(text):
+    if not text:
+        return text
+    if text == ' ':
+        return '&nbsp;'
+    for f, x in FORM_ESCAPE:
+        text = text.replace(f, x)
+    for e, c in XML_ESCAPE:
+        if c == ' ' and isinstance(text, unicode):
+            c = u' '
+        text = text.replace(c, '&%s;' % e)
+    for f, x in FORM_ESCAPE:
+        text = text.replace(x, f)
+    return text
+
+def unescape(text):
+    if not text:
+        return text
+    for f, x in FORM_ESCAPE:
+        text = text.replace(x, f)
+    for e, c in XML_ESCAPE:
+        text = text.replace('&%s;' % e, c)
+    for f, x in FORM_ESCAPE:
+        text = text.replace(f, x)
+    return text
+
+def paragrafo(texto, estilo):
+    return Paragraph(escape(texto), estilo)
+
 class PDF(object):
-    def __init__(self, titulo = 'Sem Nome',  nome_do_arquivo = '/tmp/teste.pdf', margem = 1 * cm, tamanho_pagina = A4, espacamento = 0.5 * mm, espessura = 0.5, paisagem = False):
+    def __init__(self, titulo = 'Sem Nome',  nome_do_arquivo = '/tmp/pole.pdf',
+                 margem = 1 * cm, tamanho_pagina = A4, espacamento = 0.5 * mm,
+                 espessura = 0.5, paisagem = False):
         if paisagem:
             tamanho_pagina = landscape(tamanho_pagina)
         self.canvas = Canvas(nome_do_arquivo, pagesize = tamanho_pagina)
         self.canvas.setTitle(titulo)
         self.titulo = titulo
         self.nome_do_arquivo = nome_do_arquivo
-        self.retangulos = [[0, 0, self.canvas._pagesize[0] - 2 * margem, self.canvas._pagesize[1] - 2 * margem]]
+        self.retangulos = [[0, 0,
+                            self.canvas._pagesize[0] - 2 * margem,
+                            self.canvas._pagesize[1] - 2 * margem]]
         self.margem = margem
         self.espacamento = espacamento
         self.erro = 0.001 * mm
@@ -110,7 +154,9 @@ class PDF(object):
             if self.ponto_dentro(retangulo[:2], r):
                 retangulo[j] += retangulo[i] - r[i]
                 retangulo[i] = r[i]
-            if qual == BAIXO and self.ponto_dentro([retangulo[X] + retangulo[L], retangulo[Y]], r):
+            if qual == BAIXO and self.ponto_dentro([retangulo[X] +
+                                                    retangulo[L],
+                                                    retangulo[Y]], r):
                 retangulo[L] += r[X] + r[L] - (retangulo[X] + retangulo[L])
 
     def ponto_insercao(self, largura, altura):
@@ -199,6 +245,8 @@ class PDF(object):
         return retorno
 
     def tabela(self, largura, altura, dados, colWidths=None, rowHeights=None, style=None, repeatRows=0, repeatCols=0, splitByRow=1, emptyTableAction=None, ident=None, hAlign=None, vAlign=None):
+        # Escape dados str ou unicode
+        dados = [[escape(d) if isinstance(d, (str, unicode)) else d for d in l] for l in dados]
         # Renderizar 1 linha
         tabela = Table(dados[:1], colWidths, rowHeights, style, repeatRows, repeatCols, splitByRow, emptyTableAction, ident, hAlign, vAlign)
         l, a = tabela.wrapOn(self.canvas, largura, altura)
@@ -247,9 +295,9 @@ class PDF(object):
         else:
             estilo = normal_justa
         if titulo == '':
-            componentes = (Paragraph(dados, estilo),)
+            componentes = (paragrafo(dados, estilo),)
         elif titulo:
-            componentes = (Paragraph(titulo, pequena_esquerda), Paragraph(dados, estilo))
+            componentes = (paragrafo(titulo, pequena_esquerda), paragrafo(dados, estilo))
         else:
             componentes = dados
         altura_total = 0
@@ -261,9 +309,9 @@ class PDF(object):
             linhas = componentes[1].breakLines(largura_texto).lines
             if len(linhas) > 0:
                 if isinstance(linhas[0], tuple): # texto comum
-                    componentes = (componentes[0], Paragraph(' '.join(linhas[0][1]), estilo))
+                    componentes = (componentes[0], paragrafo(' '.join(linhas[0][1]), estilo))
                 else: # texto com formatação
-                    componentes = (componentes[0], Paragraph(''.join([linhas[0].words[i].text for i in range(len(linhas[0].words))]), estilo))
+                    componentes = (componentes[0], paragrafo(''.join(w.text for w in linhas[0].words), estilo))
         for componente in componentes:
             larg, alt = componente.wrapOn(self.canvas, largura_texto, altura_texto)
             altura_total += alt
@@ -410,5 +458,5 @@ if __name__ == "__main__":
             value = '7899041283458'
         bar = BarCode(code_name, value = value)
         pdf.celula(9 * cm, 1, None, [Paragraph(code_name, pequena_esquerda), bar])
-    pdf.celula( 1 * cm, 2 * cm, 'Onde estou', 'Fim')
+    pdf.celula(1 * cm, 2 * cm, 'Onde estou', 'Fim')
     pdf.mostrar()
