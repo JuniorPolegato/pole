@@ -1,2 +1,6 @@
-include *.txt
-recursive-include docs *.txt
+include *.txt *.md
+recursive-include docs *
+recursive-include NFe *
+recursive-include po *.po *.pot
+recursive-include gladepy .gladepy.conf glade-code-generator
+recursive-include gladepy/patch_glade-3_3.6.7 *.patch *.txt *.deb

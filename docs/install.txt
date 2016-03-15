@@ -1,0 +1,26 @@
+Pole needs Python packages:
+
+babel >= 1.0.0
+cairo >= 1.1.0
+cx_Oracle >= 5.1.0  --  If you are using Oracle and just for PoleDANFe
+dateutil >= 0.1.0
+gtk2 >= 2.16.0
+lxml >= 3.0.0
+pytz >= 2008.0.0
+reportlab >= 3.0.0
+suds >= 0.7.0
+
+To install them on Debian, use:
+
+apt-get install python-babel python-cairo python-dateutil\
+                python-gtk2 python-lxml python-reportlab python-suds python-tz
+
+
+To compile PoleXmlSec, need libxml2-dev, libxmlsec1-dev and libxmlsec1-openssl
+packages on Debian:
+
+apt-get install libxml2-dev libxmlsec1-dev libxmlsec1-openssl
+
+
+If you don't running about Debian, verify how to install this packages on your
+distribuition.

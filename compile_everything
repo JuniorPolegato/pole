@@ -1,0 +1,14 @@
+#!/bin/bash
+
+find -name "*.so" -exec rm -v "{}" \;
+find -name "*.pyc" -exec rm -v "{}" \;
+find -name "*.mo" -exec rm -v "{}" \;
+
+mkdir -p compiled
+
+find src -name "*.py" -exec python -m py_compile "{}" \;
+find src -name "*.pyc" -and -not -path "./compiled/*" -exec mv -v "{}" compiled \;
+
+gcc -Wall -shared -o compiled/PoleXmlSec.so src/pole/PoleXmlSec.c -I /usr/include/python2.7/ -I/usr/include/libxml2 -I/usr/include/xmlsec1 -lxml2 -lxmlsec1 -lxmlsec1-openssl
+
+python setup.py compile_catalog

@@ -4,3 +4,8 @@
 *.mo
 *.obj
 .ropeproject
+dist
+build
+compiled
+MANIFEST
+pole.egg-info

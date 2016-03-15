@@ -253,7 +253,7 @@ load_trusted_certs(const char** files) {
         size = ftell(file);
         fseek(file, 0, SEEK_SET);
         data = (char*)malloc(size + 1);
-        fread(data, size, 1, file);
+        size = fread(data, size, 1, file);
         fclose(file);
         data[size] = '\0';
         /* Set pi to start of certificate and pf to end */

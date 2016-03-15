@@ -4,7 +4,7 @@
 import PoleUtil
 from PolePDF import *
 import locale
-import cx_Oracle
+# import cx_Oracle
 
 # Se o Python rodando é o 2.7
 import sys
@@ -13,6 +13,15 @@ py_27 = sys.version_info[:2] == (2, 7)
 # Tamanho da fonte de a chave de acesso caber no espaço
 fonte_chave_acesso = ParagraphStyle('normal', fontSize = 7,
                                     leading = 7, alignment = TA_CENTER)
+
+connection      = None # cx_Oracle.connect("usuario/senha@banco")
+ie_empresa      = "552.117.233.111"
+ie_sub_empresa  = " "
+cnpj_empresa    = "55.555.111/0001-01"
+nome_empresa    = "Nome da Empresa"
+razao_social_p1 = "Razão Social"
+razao_social_p2 = "da Empresa Ltda."
+endereco        = 'Av. Ainda sem nome, S/N - Pq. Industrial, Ribeirão Preto, SP - CEP 14090-200\nFone: (16)3599-9999 - Fax: (16)3599-9911 - www.empresa.com.br'
 
 def transforma_string(variavel):
     return ' ' if variavel == None else str(variavel)
@@ -24,7 +33,6 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     frete_conta = ("Erro","0","1")
 
     # conexao Oracle
-    connection = cx_Oracle.connect("usuario/senha@banco")
     cursor = connection.cursor()
 
     #Busca Dados da Nota
@@ -50,13 +58,6 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     chave_de_acesso        = transforma_string(registros[81])
     protocolo              = transforma_string(registros[82])
     natureza_operacao      = transforma_string(registros[9])
-    ie_empresa             = "552.117.233.111"
-    ie_sub_empresa         = " "
-    cnpj_empresa           = "55.555.111/0001-01"
-    nome_empresa           = "Nome da Empresa"
-    razao_social_p1        = "Razão Social"
-    razao_social_p2        = "da Empresa Ltda."
-    endereco               = 'Av. Ainda sem nome, S/N - Pq. Industrial, Ribeirão Preto, SP - CEP 14090-200\nFone: (16)3599-9999 - Fax: (16)3599-9911 - www.empresa.com.br'
     cod_entidade           = PoleUtil.formatar_inteiro(registros[13])
     razao_social           = transforma_string(registros[14])
     if len(PoleUtil.somente_digitos(registros[15])) > 11:

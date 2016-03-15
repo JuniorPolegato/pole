@@ -1,12 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Imports
+import locale
+import os.path
+import hashlib
+import PoleLog
+import string
+import re
+import math
+import smtplib
+import datetime
+import unicodedata
+import mimetypes
+import base64
+import sys
+from decimal import Decimal, ROUND_DOWN
+from collections import OrderedDict, namedtuple
+from dateutil.relativedelta import relativedelta
+from dateutil.rrule import MONTHLY, rrule, WEEKLY
+
 """PoleUtil - Conjunto de funções úteis em Python de uso frequente
 
 Arquivo: PoleUtil.py
-Versão.: 0.1.0
+Versão.: 1.0.0
 Autor..: Claudio Polegato Junior
-Data...: 25 Mar 2011
+Data...: 15 Mar 2016
 
 Copyright © 2011 - Claudio Polegato Junior <junior@juniorpolegato.com.br>
 Todos os direitos reservados
@@ -25,49 +44,35 @@ decimal e agrupamento, bem como tranformar números formatados em inteiro
 e real.
 """
 
-APP = 'pole'
-VER = (0,4,1)
 
-# Importing localization module configured previous by Gtk
-import locale
+APP_NAME = 'pole'
+VER = (1, 0, 0)
+
 language, encode = (locale.setlocale(locale.LC_ALL, '') + '..').split('.')[:2]
 
-# Importing e configuration internationalization module gettex
-import os.path
-import gettext
-import hashlib
-from decimal import Decimal, ROUND_DOWN
-import PoleLog
-import string
+_ = locale.gettext
 
-from dateutil.relativedelta import relativedelta
-from dateutil.rrule import MONTHLY, rrule, WEEKLY
+p = sys.prefix
+s = os.path.sep
+locale_dir_levels = [[], ['..'], ['..', '..'], ['..', '..', '..']]
+locale_dir_names = [['po'], ['pole', 'po']]
+locale_dirs = [l + n for l in locale_dir_levels for n in locale_dir_names]
+locale_dirs += [[p], [p, 'share'], [p, 'local'], [p, 'local', 'share'],
+                [p, 'usr'], [p, 'usr', 'share'], [p, 'usr', 'local'],
+                [p, 'usr', 'local', 'share'],
+                [s, 'usr'], [s, 'usr', 'share'], [s, 'usr', 'local'],
+                [s, 'usr', 'local', 'share']]
+locale_dirs = [os.path.join(*(d + ['locale'])) for d in locale_dirs]
 
-
-def load_pole_translations(DIR):
-    gettext.bindtextdomain(APP, DIR)
-    gettext.textdomain(APP)
-
-_ = gettext.gettext
-
-DIR = '/usr/share/locale'
-for locale_folder in ('../../pole/po/locale', '../pole/po/locale', 'pole/po/locale', 'po/locale', 'locale', '../po/locale', '../locale', '/usr/share/locale', '/usr/local/share/locale', '/usr/local/'):
-    if os.path.exists(locale_folder + '/' + language + '/LC_MESSAGES/' + APP + '.mo'):
-        DIR = locale_folder
-        load_pole_translations(DIR)
+for locale_dir in locale_dirs:
+    if os.path.exists(os.path.join(locale_dir, language,
+                      'LC_MESSAGES', APP_NAME + '.mo')):
+        locale.bindtextdomain(APP_NAME, locale_dir)
+        locale.textdomain(APP_NAME)
         break
 
-import re
-import math
-import smtplib
-import datetime
-import unicodedata
-import mimetypes
-import base64
-import sys
-from collections import OrderedDict, namedtuple
 
-def digits(string, zero_when_empty = True):
+def digits(string, zero_when_empty=True):
     """\brief Extrai apenas os dígitos de uma lista de \a caracteres.
 
     Função que retorna apenas os dígitos de uma lista de \a carateres

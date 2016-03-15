@@ -1,0 +1,20 @@
+#!/bin/bash
+
+./compile_everything
+
+DIST_DIR=`python -c 'import sys;  print filter(lambda x: "dist-packages" in x, sys.path)[0]'`
+
+echo -en "\n\nroot => "
+
+su -c "cp -dRuv src/pole $DIST_DIR/
+       cp -dRuv compiled/*.pyc compiled/*.so $DIST_DIR/pole/
+       for language in `ls po/locale`; do
+         mkdir -p /usr/local/share/locale/\$language/LC_MESSAGES
+         cp -dRuv po/locale/\$language/LC_MESSAGES/pole.mo /usr/local/share/locale/\$language/LC_MESSAGES/
+       done
+       cp -dRuv gladepy/gladepy.py /usr/local/bin/
+       mkdir -p /usr/local/share/pole/gladepy
+       cp -dRuv gladepy/.gladepy.conf gladepy/glade-code-generator /usr/local/share/pole/gladepy
+       mkdir -p /usr/local/share/pole/glade
+       cp -dRuv gladepy/patch_glade-3_3.6.7/*.deb gladepy/patch_glade-3_3.6.7/*.patch gladepy/patch_glade-3_3.6.7/*.txt /usr/local/share/pole/glade
+       cp -dRuv NFe /usr/local/share/pole"

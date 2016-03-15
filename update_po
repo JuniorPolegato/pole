@@ -1,0 +1,13 @@
+#!/bin/bash
+
+python setup.py extract_messages
+
+python setup.py update_catalog
+
+for language in `ls po/locale`; do
+    if [ ! -f po/locale/$language/LC_MESSAGES/pole.po ]; then
+        python setup.py init_catalog -l $language
+    fi
+done
+
+python setup.py compile_catalog
