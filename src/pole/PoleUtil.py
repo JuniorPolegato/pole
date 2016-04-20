@@ -2082,7 +2082,7 @@ def due_date_to_next_weekday(dtstart, days, weekdays=WEEKINDEX.keys()):
 
 def slug(text):
     text = normalize(text).lower()
-    return re.sub(r'\W+', '-', text)
+    return re.sub(r'\W+', '_', text)
 
 
 def normalize(text):

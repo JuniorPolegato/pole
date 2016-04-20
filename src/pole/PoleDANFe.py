@@ -6,6 +6,8 @@ from PolePDF import *
 import locale
 # import cx_Oracle
 
+cf = PoleUtil.cf
+
 # Se o Python rodando é o 2.7
 import sys
 py_27 = sys.version_info[:2] == (2, 7)
@@ -21,16 +23,18 @@ cnpj_empresa    = "55.555.111/0001-01"
 nome_empresa    = "Nome da Empresa"
 razao_social_p1 = "Razão Social"
 razao_social_p2 = "da Empresa Ltda."
-endereco        = 'Av. Ainda sem nome, S/N - Pq. Industrial, Ribeirão Preto, SP - CEP 14090-200\nFone: (16)3599-9999 - Fax: (16)3599-9911 - www.empresa.com.br'
+endereco_danfe  = 'Av. Ainda sem nome, S/N - Pq. Industrial, Ribeirão Preto, SP - CEP 14090-200\nFone: (16)3599-9999 - Fax: (16)3599-9911 - www.empresa.com.br'
+
 
 def transforma_string(variavel):
-    return ' ' if variavel == None else str(variavel)
+    return ' ' if variavel is None else str(variavel)
 
-def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
+
+def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
 
     cod_nota_fiscal = str(cod_nota_fiscal)
 
-    frete_conta = ("Erro","0","1")
+    frete_conta = ("Erro", "0", "1")
 
     # conexao Oracle
     cursor = connection.cursor()
@@ -44,9 +48,9 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
                  " nt.PESO_LIQUIDO, nt.NUM_PEDIDO, nt.USUARIO, nt.COND_PAGAMENTO, nt.CARTA_CORRECAO, nt.IMPRESSO, nt.OBSERVACAO, nt.STATUS, nt.LIVRO_FISCAL, nt.REGIAO_DA_LOJA, nt.REGIAO_DO_DESTINATARIO,"
                  " nt.RAZAO_SOCIAL_TRANSPORTADORA, nt.COD_ENDERECO_ENTREGA, nt.ENDERECO_ENTREGA, nt.BAIRRO_ENTREGA, nt.CIDADE_ENTREGA, nt.UF_ENTREGA, nt.CEP_ENTREGA, nt.TELEFONE_ENTREGA,"
                  " nt.FATURAMENTO_A_VISTA, nt.PAGO,  nt.NUM_NOTA, nt.COD_END_TRANSP, nt.BALCAO, nt.ANO, nt.MES, nt.DIA, nt.VALOR_FRETE, nt.NUM_COMANDA, nt.MODELO, nt.SERIE, n.CHAVE_ACESSO,"
-                 " n.PROTOCOLO_AUTORIZACAO || ' - ' || TO_CHAR(n.DATA_AUTORIZACAO, 'DD/MM/YYYY HH24:MI'), (select f.login from administrador.funcionario f where f.cod_entidade = nt.usuario),"
+                 " n.PROTOCOLO_AUTORIZACAO || ' - ' || TO_CHAR(n.DATA_AUTORIZACAO, 'DD/MM/YYYY HH24:MI'), (select f.login from funcionario f where f.cod_entidade = nt.usuario),"
                  " n.denegado"
-                 " from administrador.nota_fiscal nt, administrador.nfe n "
+                 " from nota_fiscal nt, nfe n "
                  " where n.COD_NOTA_FISCAL = " + cod_nota_fiscal + " and nt.COD_NOTA_FISCAL = " + cod_nota_fiscal)
     #print sql
     cursor.execute(sql)
@@ -144,14 +148,40 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
           ('FONTSIZE', (0,0), (1,-1), fonte_tab_grande.fontSize),
         ]
 
-    colWidths = (1 * cm, 5.51 * cm, .92  * cm, .42  * cm, .58  * cm, .58  * cm, 1 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
+    colWidths = (1 * cm, 5.51 * cm, .92  * cm, .46  * cm, .6  * cm, .59  * cm, .93 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
     colWidths = [width * fonte_tab_pequena.fontSize/5. for width in colWidths]
     colWidths = tuple([colWidths[0], 19 * cm - sum(colWidths) + colWidths[1]] + colWidths[2:])
 
-    sql_itens = ("SELECT cod_produto, descricao, classificacao_fiscal NCM, situacao_tributaria_A || situacao_tributaria_B, cfop, cod_unidade, quantidade, valor_unitario_liquido, "
-                        "total_liquido, base_icms, icms, base_substituicao, substituicao, ipi, percentual_icms, percentual_ipi "
-                        "FROM administrador.item_nota_fiscal i where cod_nota_fiscal = " + cod_nota_fiscal)
-    cursor.execute(sql_itens)
+    pPIS_presumido = 0.65
+    pCOFINS_presumido = 3.00
+
+    sql_difal = ("select nvl(sum(icms_rem), 0), nvl(sum(icms_dest), 0),"
+                 " nvl(sum(icms_fcp), 0),"
+                 " nvl(sum(total_liquido), 0) * :0 / 100,"
+                 " nvl(sum(total_liquido), 0) * :1 / 100, min(cfop)"
+                 " from item_nota_fiscal"
+                 " where cod_nota_fiscal = :2",
+                 [pPIS_presumido, pCOFINS_presumido, cod_nota_fiscal])
+    cursor.execute(*sql_difal)
+    dados = cursor.fetchone()
+    print 'sql_difal:', sql_difal
+    print 'dados:', dados
+    cfop = dados[5]
+    if (cfop in ('5.910', '5.911', '6.910', '6.911') or cfop[0] in ('3', '7') or registros[60] in ('SPAD', 'MGAD') or tipo_pagamento == '- - - - -'):
+        icms_rem, icms_dest, icms_fcp, pis, cofins, difal = '0,00'
+    else:
+        icms_rem, icms_dest, icms_fcp, pis, cofins = [cf(v, 'Quebrado 2')[1] for v in dados[:5]]
+        difal = cf(sum(dados[:3]), 'Quebrado 2')[1]
+
+    sql_itens = ("select cod_produto, descricao, classificacao_fiscal ncm,"
+                 " situacao_tributaria_A || situacao_tributaria_B, cfop,"
+                 " cod_unidade, quantidade, valor_unitario_liquido,"
+                 " total_liquido, base_icms, icms, base_substituicao,"
+                 " substituicao, ipi, percentual_icms, percentual_ipi"
+                 " from item_nota_fiscal"
+                 " where cod_nota_fiscal = :0",
+                 [cod_nota_fiscal])
+    cursor.execute(*sql_itens)
     dados = cursor.fetchall()
 
     dados_tabela = []
@@ -195,7 +225,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         paginas += 1
 
     # Dados Empresa
-    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
+    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
     a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
     a2 = documento.altura( 3.65 * cm, 1 * mm, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
     a3 = documento.altura( 7.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), barcode, paragrafo('\n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
@@ -205,7 +235,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         a = a2
     if a < a3:
         a = a3
-    documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
+    documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
     documento.celula( 3.65 * cm, a, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
     documento.celula( 7.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
@@ -235,8 +265,8 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 19 * cm, 1 * mm, None, [paragrafo('DESTINATÁRIO / REMETENTE', pequena_esquerda)], borda = False)
 
     #print razao_social
-    documento.celula(14.0 * cm, 1 * mm, 'NOME/RAZAO SOCIAL', razao_social)
-    documento.celula( 2.5 * cm, 1 * mm, 'CNPJ/CPF', cnpj)
+    documento.celula(13.8 * cm, 1 * mm, 'NOME/RAZAO SOCIAL', razao_social)
+    documento.celula( 2.7 * cm, 1 * mm, 'CNPJ/CPF', cnpj)
     documento.celula( 2.5 * cm, 1 * mm, 'DATA EMISSÃO', data_emissao)
 
     documento.celula(11.1 * cm, 1 * mm, 'ENDEREÇO', endereco)
@@ -246,8 +276,8 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
 
     documento.celula(10.5 * cm, 1 * mm, 'MUNICÍPIO', municipio)
     documento.celula( 2.5 * cm, 1 * mm, 'FONE/FAX', fone_fax)
-    documento.celula( 0.5 * cm, 1 * mm, 'UF', uf)
-    documento.celula( 3.0 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie)
+    documento.celula( 0.6 * cm, 1 * mm, 'UF', uf)
+    documento.celula( 2.9 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie)
     documento.celula( 2.5 * cm, 1 * mm, 'HORA ENTRADA/SAIDA' , hora_entrada_saida)
 
     # FATURA
@@ -261,7 +291,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 4* cm, a1, None, [paragrafo('FORMA DE PAGAMENTO\n', pequena_esquerda), paragrafo(tipo_pagamento, normal_esquerda)])
 
     sql_parcelas=("select cod_nota_fiscal, num_parcela, valor_parcela, to_char(vencimento_parcela,'DD/MM/YYYY') "
-                          "from administrador.parcela_nota_fiscal "
+                          "from parcela_nota_fiscal "
                           "where cod_nota_fiscal = " + cod_nota_fiscal + " order by num_parcela")
 
     cursor.execute(sql_parcelas)
@@ -293,38 +323,59 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('CÁLCULO DO IMPOSTO', pequena_esquerda)], borda = False)
 
     # BASE DE CALCULO ICMS
-    documento.celula( 3.8 * cm, 3.8 * mm, 'BASE DE CÁLCULO DO ICMS', base_calculo_icms, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'BASE DE CÁLC. ICMS', base_calculo_icms, alinhamento = 'direita')
 
     # VALOR DO ICMS
-    documento.celula( 3.8 * cm, 3.8 * mm, 'VALOR DO ICMS', vl_icms, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'VALOR DO ICMS', vl_icms, alinhamento = 'direita')
 
     # BASE DE CALCULO DO ICMS ST
-    documento.celula( 3.8 * cm, 3.8 * mm, 'BASE DE CÁLCULO DO ICMS ST', base_calculo_icms_st, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'BASE CÁLC. ICMS ST', base_calculo_icms_st, alinhamento = 'direita')
 
     # VALOR DO ICMS ST
-    documento.celula( 3.8 * cm, 3.8 * mm, 'VALOR DO ICMS ST', vl_icms_st, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'VALOR DO ICMS ST', vl_icms_st, alinhamento = 'direita')
+
+    # VALOR DO IMPOSTO DE IMPORTAÇÃO
+    documento.celula( 2.11 * cm, mm, 'V. IMP. IMPORTAÇÃO', '0,00', alinhamento = 'direita')
+
+    # VALOR DO ICMS DIFAL PARA UF DO REMETENTE
+    documento.celula( 2.11 * cm, mm, 'V. ICMS UF REMET.', icms_rem, alinhamento = 'direita')
+
+    # VALOR DO FUNDO DE COMBATE À POBREZA
+    documento.celula( 2.11 * cm, mm, 'VALOR DO FCP', icms_fcp, alinhamento = 'direita')
+
+    # VALOR DO PIS
+    documento.celula( 2.11 * cm, mm, 'VALOR DO PIS', pis, alinhamento = 'direita')
 
     # VALOR TOTAL DOS PRODUTOS
-    documento.celula( 3.8 * cm, 3.8 * mm, 'VALOR TOTAL DOS PRODUTOS', vl_total_produtos, alinhamento = 'direita')
+    documento.celula( 2.12 * cm, mm, 'V. TOTAL PRODUTOS', vl_total_produtos, alinhamento = 'direita')
 
     # VALOR DO FRETE
-    #documento.celula( 2.85 * cm, 3.8 * mm, 'VALOR DO FRETE', vl_frete, alinhamento = 'direita')
-    documento.celula( 2.85 * cm, 3.8 * mm, 'VALOR DO FRETE', '0,00', alinhamento = 'direita')
+    # documento.celula( 2.85 * cm, mm, 'VALOR DO FRETE', vl_frete, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'VALOR DO FRETE', '0,00', alinhamento = 'direita')
 
     # VALOR DO SEGURO
-    documento.celula( 2.85 * cm, 3.8 * mm, 'VALOR DO SEGURO', vl_seguro, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'VALOR DO SEGURO', vl_seguro, alinhamento = 'direita')
 
     # DESCONTO
-    documento.celula( 2.85 * cm, 3.8 * mm, 'DESCONTO', '0,00', alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'DESCONTO', '0,00', alinhamento = 'direita')
 
     # OUTRAS DESPESAS ACESSÓRIAS
-    documento.celula( 2.85 * cm, 3.8 * mm, 'OUTRAS DESPESAS', outras_despesas, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'OUTRAS DESPESAS', outras_despesas, alinhamento = 'direita')
 
     # VALOR DO IPI
-    documento.celula( 3.8 * cm, 3.8 * mm, 'VALOR DO IPI', vl_ipi, alinhamento = 'direita')
+    documento.celula( 2.11 * cm, mm, 'VALOR DO IPI', vl_ipi, alinhamento = 'direita')
+
+    # VALOR DO ICMS DIFAL PARA UF DO DESTINATÁRIO
+    documento.celula( 2.11 * cm, mm, 'V. ICMS UF DESTINO', icms_dest, alinhamento = 'direita')
+
+    # VALOR DO IMPOSTO DIFAL
+    documento.celula( 2.11 * cm, mm, 'V. TOTAL DIFAL', difal, alinhamento = 'direita')
+
+    # VALOR DO COFINS
+    documento.celula( 2.11 * cm, mm, 'VALOR DO COFINS', cofins, alinhamento = 'direita')
 
     # VALOR TOTAL DA NOTA
-    documento.celula( 3.8 * cm, 3.8 * mm, 'VALOR TOTAL DA NOTA', vl_total_nota, alinhamento = 'direita')
+    documento.celula( 2.12 * cm, mm, 'V. TOTAL NOTA', vl_total_nota, alinhamento = 'direita')
 
     # TRANSPORTADOR/VOLUMES TRANSPORTADOS
     documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('TRANSPORTADOR/VOLUMES TRANSPORTADOS', pequena_esquerda)], borda = False)
@@ -334,7 +385,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
 
     # RAZÃO SOCIAL
     #documento.celula( 6.5 * cm, a1, None, [paragrafo('RAZÃO SOCIAL', pequena_esquerda), paragrafo(razao_transportadora, normal_esquerda)])
-    documento.celula( 10 * cm, a1, 'RAZÃO SOCIAL', razao_transportadora)
+    documento.celula( 9.8 * cm, a1, 'RAZÃO SOCIAL', razao_transportadora)
 
     # FRETE
     documento.celula( 2.5 * cm, a1, None, [paragrafo('FRETE POR CONTA', pequena_esquerda), paragrafo('0-EMITENTE', pequena_esquerda), paragrafo('1-DESTINATÁRIO', pequena_esquerda)])
@@ -343,28 +394,28 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 1.5 * cm, a1, 'CÓDIGO ANTT', '')
 
     # PLACA DO VEÍCULO
-    documento.celula( 2 * cm, a1, 'PLACA DO VEÍCULO', placa_veiculo)
+    documento.celula(1.9 * cm, a1, 'PLACA DO VEÍCULO', placa_veiculo)
 
     # UF
-    documento.celula(0.5 * cm, a1, 'UF', uf_transporte)
+    documento.celula(0.6 * cm, a1, 'UF', uf_transporte)
 
     # CNPJ/CPF
-    documento.celula( 2.5 * cm, a1, 'CNPJ/CPF', cnpj_transporte)
+    documento.celula( 2.7 * cm, a1, 'CNPJ/CPF', cnpj_transporte)
 
     #FRETE POR CONTA NUMERO FLUTUANTE
-    documento.celula(.4 * cm,.4 * cm, None,[paragrafo(frete_conta[int(frete_por_conta)],normal_centro)],posicao=(12.9 * cm, 10.95 * cm))
+    documento.celula(.4 * cm,.4 * cm, None,[paragrafo(frete_conta[int(frete_por_conta)],normal_centro)],posicao=(12.8 * cm, 10.9 * cm))
 
     # ENDEREÇO
-    documento.celula( 10* cm, 3.8 * mm, 'ENDEREÇO', endereco_transporte)
+    documento.celula(9.8 * cm, 3.8 * mm, 'ENDEREÇO', endereco_transporte)
 
     # MUNICÍPIO
-    documento.celula( 6 * cm, 3.8 * mm, 'MUNICÍPIO', municipio_transporte)
+    documento.celula(5.9 * cm, 3.8 * mm, 'MUNICÍPIO', municipio_transporte)
 
     # UF
-    documento.celula( .5 * cm, 3.8 * mm, 'UF', uf_endereco_transporte)
+    documento.celula( .6 * cm, 3.8 * mm, 'UF', uf_endereco_transporte)
 
     # INSCRIÇÃO ESTADUAL
-    documento.celula( 2.5 * cm, 3.8 * mm, 'INSCRIÇÃO ESTADUAL', ie_transporte)
+    documento.celula( 2.7 * cm, 3.8 * mm, 'INSCRIÇÃO ESTADUAL', ie_transporte)
 
     # QUANTIDADE
     documento.celula( 2.5 * cm, 3.8 * mm, 'QUANTIDADE', quantidade, alinhamento = 'direita')
@@ -376,13 +427,13 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     documento.celula( 4.2 * cm, 3.8 * mm, 'MARCA', marca)
 
     # NUMERAÇÃO
-    documento.celula( 3 * cm, 3.8 * mm, 'NUMERAÇÃO', numeracao)
+    documento.celula( 2.8 * cm, 3.8 * mm, 'NUMERAÇÃO', numeracao)
 
     # PESO BRUTO
-    documento.celula( 2.6 * cm, 3.8 * mm, 'PESO BRUTO', peso_bruto, alinhamento = 'direita')
+    documento.celula( 2.7 * cm, 3.8 * mm, 'PESO BRUTO', peso_bruto, alinhamento = 'direita')
 
     # PESO LÍQUIDO
-    documento.celula( 2.6 * cm, 3.8 * mm, 'PESO LÍQUIDO', peso_liquido, alinhamento = 'direita')
+    documento.celula( 2.7 * cm, 3.8 * mm, 'PESO LÍQUIDO', peso_liquido, alinhamento = 'direita')
 
     # DADOS DO PRODUTO/SERVIÇO
     documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('DADOS DO PRODUTO/SERVIÇO', pequena_esquerda)], borda = False)
@@ -392,52 +443,52 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
     a1 = documento.altura( .6 * cm, 3.8 * mm, None, [paragrafo('ALÍQ. ICMS', pequena_esquerda)])
 
     # CÓDIGO
-    documento.celula(colWidths[ 0], a1, None, [paragrafo('CÓDIGO', pequena_centro)])
+    documento.celula(colWidths[ 0], a1, None, [paragrafo('CÓDIGO', pequena_direita)])
 
     # DESCRIÇÃO DO PRODUTO/SERVIÇO
-    documento.celula(colWidths[ 1], a1, None, [paragrafo('DESCRIÇÃO DO PRODUTO/SERVIÇO', pequena_centro)])
+    documento.celula(colWidths[ 1], a1, None, [paragrafo('DESCRIÇÃO DO PRODUTO / SERVIÇO', pequena_esquerda)])
 
     # NCM/SH
-    documento.celula(colWidths[ 2], a1, None, [paragrafo('NCM/SH', pequena_esquerda)])
+    documento.celula(colWidths[ 2], a1, None, [paragrafo('NCM / SH', pequena_direita)])
 
     # CST
-    documento.celula(colWidths[ 3], a1, None, [paragrafo('CST', pequena_esquerda)])
+    documento.celula(colWidths[ 3], a1, None, [paragrafo('CST', pequena_direita)])
 
     # CFOP
-    documento.celula(colWidths[ 4], a1, None, [paragrafo('CFOP', pequena_centro)])
+    documento.celula(colWidths[ 4], a1, None, [paragrafo('CFOP', pequena_direita)])
 
     # UNID.
-    documento.celula(colWidths[ 5], a1, None, [paragrafo('UNID.', pequena_esquerda)])
+    documento.celula(colWidths[ 5], a1, None, [paragrafo('UNID.', pequena_direita)])
 
     # QTD
-    documento.celula(colWidths[ 6], a1, None, [paragrafo('QTD', pequena_centro)])
+    documento.celula(colWidths[ 6], a1, None, [paragrafo('QUANT.', pequena_direita)])
 
     # VLR. UNIT.
-    documento.celula(colWidths[ 7], a1, None, [paragrafo('VLR. UNIT.', pequena_centro)])
+    documento.celula(colWidths[ 7], a1, None, [paragrafo('VALOR UNIT.', pequena_direita)])
 
     # VLR. TOTAL
-    documento.celula(colWidths[ 8], a1, None, [paragrafo('VLR. TOTAL', pequena_centro)])
+    documento.celula(colWidths[ 8], a1, None, [paragrafo('VALOR TOTAL', pequena_direita)])
 
     # BC ICMS
-    documento.celula(colWidths[ 9], a1, None, [paragrafo('BC ICMS', pequena_centro)])
+    documento.celula(colWidths[ 9], a1, None, [paragrafo('B. CÁLC. ICMS', pequena_direita)])
 
     # VLR. ICMS
-    documento.celula(colWidths[10], a1, None, [paragrafo('VLR. ICMS', pequena_centro)])
+    documento.celula(colWidths[10], a1, None, [paragrafo('VALOR ICMS', pequena_direita)])
 
     # BC ICMS ST
-    documento.celula(colWidths[11], a1, None, [paragrafo('BC ICMS ST', pequena_centro)])
+    documento.celula(colWidths[11], a1, None, [paragrafo('B. CÁLC. ICMS ST', pequena_direita)])
 
     # VLR. ICMS ST
-    documento.celula(colWidths[12], a1, None, [paragrafo('VLR. ICMS ST', pequena_centro)])
+    documento.celula(colWidths[12], a1, None, [paragrafo('VALOR ICMS ST', pequena_direita)])
 
     # VLR. IPI
-    documento.celula(colWidths[13], a1, None, [paragrafo('VLR. IPI', pequena_centro)])
+    documento.celula(colWidths[13], a1, None, [paragrafo('     VALOR IPI', pequena_direita)])
 
     # ALÍQ. ICMS
-    documento.celula(colWidths[14], a1, None, [paragrafo('ALÍQ. ICMS', pequena_centro)])
+    documento.celula(colWidths[14], a1, None, [paragrafo('ALÍQ. ICMS', pequena_direita)])
 
     # ALÍQ. IPI
-    documento.celula(colWidths[15], a1, None, [paragrafo('ALÍQ. IPI', pequena_centro)])
+    documento.celula(colWidths[15], a1, None, [paragrafo('ALÍQ. IPI', pequena_direita)])
 
     #DADOS ADICIONAIS
     documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('DADOS ADICIONAIS', pequena_esquerda)], borda = False, posicao=(1 * cm, 28.4 * cm - alt_comp))
@@ -463,7 +514,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         documento.celula(19 * cm, 0.4 * cm, '·' * p, '', borda = False)
 
         # Dados Empresa
-        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
+        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
         a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
         a2 = documento.altura( 3.65 * cm, 1 * mm, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
         a3 = documento.altura( 7.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), barcode, paragrafo('\n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
@@ -473,7 +524,7 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
             a = a2
         if a < a3:
             a = a3
-        documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco, pequena_centro)])
+        documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
         documento.celula( 3.65 * cm, a, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
         documento.celula( 7.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
@@ -505,53 +556,52 @@ def danfe(cod_nota_fiscal, logo = None, diretorio = '/tmp'):
         a1 = documento.altura( .6 * cm, 3.8 * mm, None, [paragrafo('ALÍQ. ICMS', pequena_esquerda)])
 
         # CÓDIGO
-        documento.celula( 1 * cm, a1, None, [paragrafo('CÓDIGO', pequena_centro)])
+        documento.celula(colWidths[ 0], a1, None, [paragrafo('CÓDIGO', pequena_direita)])
 
         # DESCRIÇÃO DO PRODUTO/SERVIÇO
-        documento.celula( 5.51 * cm, a1, None, [paragrafo('DESCRIÇÃO DO PRODUTO/SERVIÇO', pequena_centro)])
+        documento.celula(colWidths[ 1], a1, None, [paragrafo('DESCRIÇÃO DO PRODUTO / SERVIÇO', pequena_esquerda)])
 
         # NCM/SH
-        documento.celula( .92 * cm, a1, None, [paragrafo('NCM/SH', pequena_esquerda)])
+        documento.celula(colWidths[ 2], a1, None, [paragrafo('NCM / SH', pequena_direita)])
 
         # CST
-        documento.celula( .42 * cm, a1, None, [paragrafo('CST', pequena_esquerda)])
+        documento.celula(colWidths[ 3], a1, None, [paragrafo('CST', pequena_direita)])
 
         # CFOP
-        documento.celula( .58 * cm, a1, None, [paragrafo('CFOP', pequena_centro)])
+        documento.celula(colWidths[ 4], a1, None, [paragrafo('CFOP', pequena_direita)])
 
         # UNID.
-        documento.celula( .58 * cm, a1, None, [paragrafo('UNID.', pequena_esquerda)])
+        documento.celula(colWidths[ 5], a1, None, [paragrafo('UNID.', pequena_direita)])
 
         # QTD
-        documento.celula( 1 * cm, a1, None, [paragrafo('QTD', pequena_centro)])
+        documento.celula(colWidths[ 6], a1, None, [paragrafo('QUANT.', pequena_direita)])
 
         # VLR. UNIT.
-        documento.celula( 1.08 * cm, a1, None, [paragrafo('VLR. UNIT.', pequena_centro)])
+        documento.celula(colWidths[ 7], a1, None, [paragrafo('VALOR UNIT.', pequena_direita)])
 
         # VLR. TOTAL
-        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. TOTAL', pequena_centro)])
+        documento.celula(colWidths[ 8], a1, None, [paragrafo('VALOR TOTAL', pequena_direita)])
 
         # BC ICMS
-        documento.celula( 1.125 * cm, a1, None, [paragrafo('BC ICMS', pequena_centro)])
+        documento.celula(colWidths[ 9], a1, None, [paragrafo('B. CÁLC. ICMS', pequena_direita)])
 
         # VLR. ICMS
-        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. ICMS', pequena_centro)])
+        documento.celula(colWidths[10], a1, None, [paragrafo('VALOR ICMS', pequena_direita)])
 
         # BC ICMS ST
-        documento.celula( 1.125 * cm, a1, None, [paragrafo('BC ICMS ST', pequena_centro)])
+        documento.celula(colWidths[11], a1, None, [paragrafo('B. CÁLC. ICMS ST', pequena_direita)])
 
         # VLR. ICMS ST
-        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. ICMS ST', pequena_centro)])
+        documento.celula(colWidths[12], a1, None, [paragrafo('VALOR ICMS ST', pequena_direita)])
 
         # VLR. IPI
-        documento.celula( 1.125 * cm, a1, None, [paragrafo('VLR. IPI', pequena_centro)])
+        documento.celula(colWidths[13], a1, None, [paragrafo('     VALOR IPI', pequena_direita)])
 
         # ALÍQ. ICMS
-        documento.celula( .58 * cm, a1, None, [paragrafo('ALÍQ. ICMS', pequena_centro)])
+        documento.celula(colWidths[14], a1, None, [paragrafo('ALÍQ. ICMS', pequena_direita)])
 
         # ALÍQ. IPI
-        documento.celula( .58 * cm, a1, None, [paragrafo('ALÍQ. IPI', pequena_centro)])
-
+        documento.celula(colWidths[15], a1, None, [paragrafo('ALÍQ. IPI', pequena_direita)])
 
         tabela, i, altura = documento.tabela(19 * cm, 21 * cm, dados_tabela[itens:],colWidths=(1 * cm, 5.51 * cm, .92  * cm, .42  * cm, .58  * cm, .58  * cm, 1 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm), style=ts)
         documento.celula(19 * cm, 21 * cm, None, (tabela,), borda=False, espacamento=0)

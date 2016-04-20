@@ -38,7 +38,7 @@
 #include <libxslt/xslt.h>
 #endif /* XMLSEC_NO_XSLT */
 
-#define XMLSEC_CRYPTO_OPENSSL
+//#define XMLSEC_CRYPTO_OPENSSL
 
 //#define XMLSEC_CRYPTO_DYNAMIC_LOADING
 
@@ -273,15 +273,14 @@ load_trusted_certs(const char** files) {
                 valid_cert = 0;
             }
             else if (xmlSecCryptoAppKeysMngrCertLoadMemory(mngr_test, (xmlSecByte*)pi, pf - pi + 25, xmlSecKeyDataFormatPem, xmlSecKeyDataTypeTrusted) < 0) {
-                fprintf(stderr,"XmlSecError: failed to load pem certificate from \"%s\" at %i.\n", *a, pi - data + 1);
+                fprintf(stderr,"XmlSecError: failed to load pem certificate from \"%s\" at %li.\n", *a, (long int)(pi - data + 1));
                 valid_cert = 0;
             }
             xmlSecKeysMngrDestroy(mngr_test);
             /* If certificate is valid, add this to keys manager for future use */
             if (valid_cert && xmlSecCryptoAppKeysMngrCertLoadMemory(
               mngr, (xmlSecByte*)pi, pf - pi + 25, xmlSecKeyDataFormatPem, xmlSecKeyDataTypeTrusted) < 0)
-                fprintf(stderr,"XmlSecError: maybe duplicate pem certificate from \"%s\" at %i.\n",
-                        *a, pi - data + 1);
+                fprintf(stderr,"XmlSecError: maybe duplicate pem certificate from \"%s\" at %li.\n", *a, (long int)(pi - data + 1));
             pi = pf + 25;
             pf = strstr(pi, "-----END CERTIFICATE-----");
         }

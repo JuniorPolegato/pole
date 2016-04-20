@@ -30,7 +30,7 @@
 
             <hr width=100% size=1 color=silver>
 
-            <b>Version Information:</b>&nbsp;Microsoft .NET Framework Version:2.0.50727.3662; ASP.NET Version:2.0.50727.3658
+            <b>Version Information:</b>&nbsp;Microsoft .NET Framework Version:2.0.50727.3662; ASP.NET Version:2.0.50727.3668
 
             </font>
 
@@ -41,6 +41,8 @@
    at System.Web.UI.Util.CheckVirtualFileExists(VirtualPath virtualPath)
    at System.Web.Compilation.BuildManager.GetVPathBuildResultInternal(VirtualPath virtualPath, Boolean noBuild, Boolean allowCrossApp, Boolean allowBuildInPrecompile)
    at System.Web.Compilation.BuildManager.GetVPathBuildResultWithNoAssert(HttpContext context, VirtualPath virtualPath, Boolean noBuild, Boolean allowCrossApp, Boolean allowBuildInPrecompile)
+   at System.Web.Compilation.BuildManager.GetVPathBuildResult(HttpContext context, VirtualPath virtualPath, Boolean noBuild, Boolean allowCrossApp, Boolean allowBuildInPrecompile)
+   at System.Web.Compilation.BuildManager.GetVPathBuildResult(HttpContext context, VirtualPath virtualPath)
    at System.Web.UI.WebServiceParser.GetCompiledType(String inputFile, HttpContext context)
    at System.Web.Services.Protocols.WebServiceHandlerFactory.GetHandler(HttpContext context, String verb, String url, String filePath)
    at System.Web.HttpApplication.MapHttpHandler(HttpContext context, String requestType, VirtualPath path, String pathTranslated, Boolean useAppConfig)

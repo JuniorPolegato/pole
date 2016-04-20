@@ -35,15 +35,17 @@ from suds.sax.element import Element as E
 # Módulo feito por Junior Polegato em CPython para assinar XML
 import PoleXML
 
+# Net
+import socket
+import httplib
+import urllib2
+import ssl
+
 # Conversão
 import PoleUtil
 cf = PoleUtil.convert_and_format
 
-# Danfe
-from PoleDANFe import danfe
-
 # Constantes
-
 PRODUCAO = 1
 HOMOLOGACAO = 2
 
@@ -69,6 +71,12 @@ UFS_SIGLAS = {'AC': 'Acre',               'PA': 'Pará',
               'MT': 'Mato Grosso',        'SP': 'São Paulo',
                                           'TO': 'Tocantins'}
 
+# UF que utilizam a SVAN - Sefaz Virtual do Ambiente Nacional: MA, PA, PI
+#
+# UF que utilizam a SVRS - Sefaz Virtual do RS:
+# - Para demais serviços relacionados com o sistema da NF-e: AC, AL, AP, DF,
+#                                        ES, PB, RJ, RN, RO, RR, SC, SE, TO
+
 SEFAZ = {'AC': 'SVRS',     'PA': 'SVAN',
          'AL': 'SVRS',     'PB': 'SVRS',
          'AM': 'AM',       'PE': 'PE',
@@ -85,7 +93,10 @@ SEFAZ = {'AC': 'SVRS',     'PA': 'SVAN',
                            'TO': 'SVRS'}
 
 # Não operacional para SVRS para UFs: AL, AP, DF, RJ, RO, RR, SE, TO
-# Não operacional para SVAN para UFs: MA, PA, PI
+# Não operacional para SVAN para UFs: PA, PI
+#
+# UF que utilizam a SVRS - Sefaz Virtual do RS:
+# - Para serviço de Consulta Cadastro: AC, RN, PB, SC
 
 SEFAZ_CONSULTA = {'AC': 'SVRS',     'PA': 'SVAN',
                   'AL': 'SVRS',     'PB': 'SVRS',
@@ -96,11 +107,17 @@ SEFAZ_CONSULTA = {'AC': 'SVRS',     'PA': 'SVAN',
                   'DF': 'SVRS',     'RN': 'SVRS',
                   'ES': 'ES',       'RO': 'SVRS',
                   'GO': 'GO',       'RR': 'SVRS',
-                  'MA': 'SVAN',     'RS': 'RS',
+                  'MA': 'MA',       'RS': 'RS',
                   'MG': 'MG',       'SC': 'SVRS',
                   'MS': 'MS',       'SE': 'SVRS',
                   'MT': 'MT',       'SP': 'SP',
                                     'TO': 'SVRS'}
+
+# Autorizadores em contingência:
+# - UF que utilizam a SVC-AN - Sefaz Virtual de Contingência Ambiente Nacional:
+#               AC, AL, AP, DF, ES, MG, PB, RJ, RN, RO, RR, RS, SC, SE, SP, TO
+# - UF que utilizam a SVC-RS - Sefaz Virtual de Contingência Rio Grande do Sul:
+#                                   AM, BA, CE, GO, MA, MS, MT, PA, PE, PI, PR
 
 SEFAZ_CONTINGENCIA = {'AC': 'SVC-AN', 'AL': 'SVC-AN', 'AM': 'SVC-RS',
                       'AP': 'SVC-AN', 'BA': 'SVC-RS', 'CE': 'SVC-RS',
@@ -115,9 +132,9 @@ SEFAZ_CONTINGENCIA = {'AC': 'SVC-AN', 'AL': 'SVC-AN', 'AM': 'SVC-RS',
 EVENTOS = {
     # 'Envento': ('Cód. Evento', 'xsd', evento maiúsculo, 'xsd de envio')
     'Carta de Correcao': ('110110', 'CCe', False,
-                          'CCe'),
+                          'envCCe'),
     'Cancelamento': ('110111', 'eventoCancNFe', False,
-                     'eventoCancNFe'),
+                     'envEventoCancNFe'),
     'Confirmacao da Operacao': ('210200', 'confRecebto', True,
                                 'envConfRecebto'),
     'Ciencia da Operacao': ('210210', 'confRecebto', True, 'envConfRecebto'),
@@ -130,11 +147,6 @@ EVENTOS = {
 TODAS = 0
 SEM_CONFIRMACAO_MANIFESTACAO = 1
 SEM_MANIFESTACAO = 2
-
-import socket
-import httplib
-import urllib2
-import ssl
 
 
 def print_req(req):
@@ -208,7 +220,7 @@ class HTTPSConnection(httplib.HTTPConnection):
     default_port = 443
 
     def __init__(self, host, port=None, key_file=None, cert_file=None,
-                 strict=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                 strict=None, timeout=10,
                  source_address=None, ca_certs=None):
         httplib.HTTPConnection.__init__(self, host, port, strict, timeout,
                                         source_address)
@@ -223,7 +235,7 @@ class HTTPSConnection(httplib.HTTPConnection):
             self.sock = sock
             self._tunnel()
         self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file,
-                                    ssl_version=ssl.PROTOCOL_SSLv23,
+                                    ssl_version=ssl.PROTOCOL_TLSv1,  # SSLv23,
                                     ca_certs=self.ca_certs,
                                     cert_reqs=ssl.CERT_REQUIRED)
 
@@ -248,29 +260,6 @@ class https_ssl(urllib2.HTTPSHandler):
         # de autoridade certificadora.
         return HTTPSConnection(host, timeout=timeout, key_file=self.key_file,
                                cert_file=self.cert_file, ca_certs=self.ca_file)
-
-
-class https_ssl_mt(urllib2.HTTPSHandler):
-    def __init__(self, key_file, cert_file, ca_file):
-        urllib2.HTTPSHandler.__init__(self)
-        self.key_file = key_file
-        self.cert_file = cert_file
-        self.ca_file = ca_file
-        self.protocol = 2
-
-    def https_open(self, req):
-        return self.do_open(self.conexao, req)
-
-    def conexao(self, host, timeout=None):
-        # Na versão do httplib do servidor o HTTPSConnection funciona Ok,
-        # e este que criei não, então tem que usar "httplib.HTTPSConnection"
-        # para rodar no servidor com versões antigas.
-        # Na versão atual de 16 Jul 2013, "httplib.HTTPSConnection" funciona.
-        # Para maior segurança, utilizar HTTPSConnection acima por fazer uso
-        # de autoridade certificadora.
-        return httplib.HTTPSConnection(host, timeout=timeout,
-                                       key_file=self.key_file,
-                                       cert_file=self.cert_file)
 
 
 # Sobrescrita a função "str" de Element (E) para não endentar nem quebrar linha
@@ -373,7 +362,7 @@ class Webservice(object):
        |     |---> sefaz_1
        |     |     |---> homologacao
        |     |     |     |---> 1.00
-       |     |     |     |     |---> NFeDistribuicaoDFe.wsdl
+       |     |     |     |     |---> NfeDistribuicaoDFe.wsdl
        |     |     |     |     |---> RecepcaoEvento.wsdl
        |     |     |     |---> 2.00
        |     |     |     |     |---> NfeConsultaCadastro.wsdl
@@ -384,11 +373,11 @@ class Webservice(object):
        |     |     |     |     |---> NfeStatusServico.wsdl
        |     |     |     |     \---> RecepcaoEvento.wsdl
        |     |     |     \---> 3.10
-       |     |     |           |---> NFeAutorizacao.wsdl
+       |     |     |           |---> NfeAutorizacao.wsdl
        |     |     |           |---> NfeConsultaCadastro.wsdl
        |     |     |           |---> NfeConsultaProtocolo.wsdl
        |     |     |           |---> NfeInutilizacao.wsdl
-       |     |     |           |---> NFeRetAutorizacao.wsdl
+       |     |     |           |---> NfeRetAutorizacao.wsdl
        |     |     |           |---> NfeStatusServico.wsdl
        |     |     |           \---> RecepcaoEvento.wsdl
        |     |     \---> producao
@@ -464,11 +453,7 @@ class Webservice(object):
         arquivo_wsdl = 'file://' + arquivo_wsdl
         # Criar meio de transporte criptografado
         transporte = suds.transport.http.HttpTransport()
-        transporte_ssl = (https_ssl_mt
-                          if (self.__sefaz == 'MT'
-                              or (sys.version_info.major == 2 and
-                                  sys.version_info.minor < 7))
-                          else https_ssl)
+        transporte_ssl = https_ssl
         transporte.urlopener = urllib2.build_opener(
             transporte_ssl(key_file=self.__chave, cert_file=self.__certificado,
                            ca_file=self.__certificadoras))
@@ -585,11 +570,11 @@ class Webservice(object):
         inutilizacao.inutNFe['versao'] = '3.10'
         # Id = Código da UF + Ano (2 posições) + CNPJ + modelo + série +
         # nro inicial e nro final, precedida do literal “ID”
-        inutilizacao.inutNFe.infInut['Id'] = ('ID' + UFS_IBGE[self.__uf] +
-                                              str(int(ano) % 100) + self.__cnpj
-                                              + '55' + ("%03i" % int(serie)) +
-                                              ("%09i" % int(numero_inicial)) +
-                                              ("%09i" % int(numero_final)))
+        inutilizacao.inutNFe.infInut['Id'] = ('ID%s%02i%s55%03i%09i%09i' %
+                                              (UFS_IBGE[self.__uf],
+                                               int(ano) % 100, self.__cnpj,
+                                               int(serie), int(numero_inicial),
+                                               int(numero_final)))
         inutilizacao.inutNFe.infInut.tpAmb = self.__ambiente
         inutilizacao.inutNFe.infInut.xServ = 'INUTILIZAR'
         inutilizacao.inutNFe.infInut.cUF = UFS_IBGE[self.__uf]
@@ -601,7 +586,7 @@ class Webservice(object):
         inutilizacao.inutNFe.infInut.nNFFin = numero_final
         inutilizacao.inutNFe.infInut.xJust = justificativa
         self.assinar(inutilizacao.inutNFe.infInut)
-        return self.servico('NfeInutilizacao2', inutilizacao)
+        return self.servico('NfeInutilizacao', inutilizacao)
 
     def enviar_envento(self, descr_evento, chave_nfe, data_hora_evento,
                        qtd_mesmo_evento, xml_adicional):
@@ -756,17 +741,17 @@ class Webservice(object):
             retorno = self.servico('NfeRetAutorizacao', consulta)
             cStat = str(retorno.retConsReciNFe.cStat)
             if aviso_processamento:
-                print ('Tentativa %i: %s - %s' % (tentativa,
-                       str(retorno.retConsReciNFe.cStat),
-                       str(retorno.retConsReciNFe.xMotivo)))
+                print('Tentativa %i: %s - %s' % (tentativa,
+                      str(retorno.retConsReciNFe.cStat),
+                      str(retorno.retConsReciNFe.xMotivo)))
                 if cStat == '105':
                     print 'Consultando novamente...'
             tentativa += 1
         # Retorna o resultado da consulta do recibo
         if aviso_processamento:
-            print ('Tentativa %i: %s - %s' % (tentativa - 1,
-                   str(retorno.retConsReciNFe.protNFe.infProt.cStat),
-                   str(retorno.retConsReciNFe.protNFe.infProt.xMotivo)))
+            print('Tentativa %i: %s - %s' % (tentativa - 1,
+                  str(retorno.retConsReciNFe.protNFe.infProt.cStat),
+                  str(retorno.retConsReciNFe.protNFe.infProt.xMotivo)))
         return retorno
 
     def validar(self, xml, nome_xsd=None):

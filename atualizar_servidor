@@ -4,10 +4,10 @@ SRV_MNT="$1"
 if [ -z "$SRV_MNT" ]; then
     SRV_MNT="/media/servidor"
 fi
-./compilar_tudo
+./compile_everything
 mount "$SRV_MNT"
 mkdir -p "$SRV_MNT"/pole
-cp -av modulos/* "$SRV_MNT"/pole/
+cp -av compiled/* "$SRV_MNT"/pole/
 for mo in po/locale/*/LC_MESSAGES/*.mo; do
     mkdir -p "$SRV_MNT"/pole/`dirname "$mo"`
     cp -av "$mo" "$SRV_MNT"/pole/`dirname "$mo"`

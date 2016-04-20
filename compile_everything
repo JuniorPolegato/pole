@@ -1,14 +1,48 @@
 #!/bin/bash
 
-find -name "*.so" -exec rm -v "{}" \;
-find -name "*.pyc" -exec rm -v "{}" \;
-find -name "*.mo" -exec rm -v "{}" \;
+# Delete previous builds
+for pattern in '.ropeproject' 'dist' 'build' 'compiled' 'pole.egg-info'\
+               '*.pyc' '*.so' '*.o' '*.mo' '*.obj'; do
+    find -name "$pattern" -exec rm -rf -v "{}" \;
+done
 
+# Create compiled directory
 mkdir -p compiled
 
-find src -name "*.py" -exec python -m py_compile "{}" \;
-find src -name "*.pyc" -and -not -path "./compiled/*" -exec mv -v "{}" compiled \;
+# Compilation options for xmlsec1
+CFLAGS=`pkg-config --cflags xmlsec1|tr -d '\\\\'`
+LIBS=`pkg-config --libs xmlsec1`
+if [ -z "$CFLAGS" ]; then
+    CFLAGS="-DXMLSEC_CRYPTO=\"openssl\" -D__XMLSEC_FUNCTION__=__FUNCTION__
+            -DXMLSEC_NO_GOST=1 -DXMLSEC_NO_XKMS=1
+            -DXMLSEC_NO_CRYPTO_DYNAMIC_LOADING=1 -DXMLSEC_OPENSSL_100=1
+            -DXMLSEC_CRYPTO_OPENSSL=1
+            -I/usr/include/libxml2 -I/usr/include/xmlsec1"
+    if [ "`uname -m`" == "x86_64" ]; then
+        CFLAGS="-DXMLSEC_NO_SIZE_T $CFLAGS"
+    fi
+    LIBS="-lxmlsec1-openssl -lxmlsec1 -lssl -lcrypto -lxslt -lxml2"
+fi
 
-gcc -Wall -shared -o compiled/PoleXmlSec.so src/pole/PoleXmlSec.c -I /usr/include/python2.7/ -I/usr/include/libxml2 -I/usr/include/xmlsec1 -lxml2 -lxmlsec1 -lxmlsec1-openssl
+# Compilation options extracted from `python setup.py build´ for Python
+gcc -pthread -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes\
+ -fno-strict-aliasing -Wdate-time -D_FORTIFY_SOURCE=2 -g\
+ -fstack-protector-strong -Wformat -Werror=format-security -fPIC\
+ -I/usr/include/python2.7 -c src/pole/PoleXmlSec.c -o compiled/PoleXmlSec.o\
+ $CFLAGS
+gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro\
+ -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes\
+ -Wdate-time -D_FORTIFY_SOURCE=2 -g -fstack-protector-strong -Wformat\
+ -Werror=format-security -Wl,-z,relro -Wdate-time -D_FORTIFY_SOURCE=2 -g\
+ -fstack-protector-strong -Wformat -Werror=format-security\
+ compiled/PoleXmlSec.o -o compiled/PoleXmlSec.so\
+ $LIBS
+rm -f compiled/compiled/PoleXmlSec.o
 
+# Compile Python files by import
+cp -av src/pole/*.py compiled/
+python -c "import compiled"
+rm -f compiled/*.py
+
+# Compile translations
 python setup.py compile_catalog

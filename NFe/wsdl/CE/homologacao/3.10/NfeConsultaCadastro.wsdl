@@ -124,7 +124,7 @@
   </wsdl:binding>
   <wsdl:service name="CadConsultaCadastro2">
     <wsdl:port binding="tns:CadConsultaCadastro2Soap12" name="CadConsultaCadastro2Soap12">
-      <soap12:address location="https://nfeh.sefaz.ce.gov.br:443/nfe2/services/CadConsultaCadastro2"/>
+      <soap12:address location="http://nfeh.sefaz.ce.gov.br:80/nfe2/services/CadConsultaCadastro2"/>
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>

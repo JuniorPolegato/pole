@@ -3,6 +3,28 @@ from setuptools.command.install import install
 import os
 import ConfigParser
 
+try:
+    import pkgconfig
+    cflags = pkgconfig.cflags('xmlsec1').replace('\\', '')
+    if not cflags:
+        raise
+    libs = pkgconfig.libs('xmlsec1')
+except Exception:
+    import traceback
+    print '-' * 100
+    traceback.print_exc()
+    print '-' * 100
+    import platform
+    cflags = ("-DXMLSEC_CRYPTO=\"openssl\" -D__XMLSEC_FUNCTION__=__FUNCTION__"
+              " -DXMLSEC_NO_GOST=1 -DXMLSEC_NO_XKMS=1"
+              " -DXMLSEC_NO_CRYPTO_DYNAMIC_LOADING=1 -DXMLSEC_OPENSSL_100=1"
+              " -DXMLSEC_CRYPTO_OPENSSL=1"
+              " -I/usr/include/libxml2 -I/usr/include/xmlsec1")
+
+    if platform.uname()[4] == 'x86_64':
+        cflags = "-DXMLSEC_NO_SIZE_T " + cflags
+    libs = "-lxmlsec1-openssl -lxmlsec1 -lssl -lcrypto -lxslt -lxml2"
+
 config = ConfigParser.ConfigParser()
 config.read('setup.cfg')
 locale_dir = config.get("compile_catalog", "directory")
@@ -43,7 +65,7 @@ class xinstall(install):
 
 setup(
     name=domain,
-    version='1.0.0',
+    version='1.1.0',
     author='Junior Polegato',
     author_email='linux@juniorpolegato.com.br',
     packages=[domain],
@@ -65,9 +87,8 @@ setup(
         Extension(
             'pole.PoleXmlSec',
             sources=['src/pole/PoleXmlSec.c'],
-            extra_compile_args=["-I/usr/include/libxml2",
-                                "-I/usr/include/xmlsec1"],
-            extra_link_args=["-lxml2", "-lxmlsec1", "-lxmlsec1-openssl"])],
+            extra_compile_args=cflags.split(),
+            extra_link_args=libs.split())],
     cmdclass={'install': xinstall},
     classifiers=[
         'Development Status :: 5 - Production/Stable',

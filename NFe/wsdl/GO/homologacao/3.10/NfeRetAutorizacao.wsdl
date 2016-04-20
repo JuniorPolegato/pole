@@ -1,0 +1,58 @@
+<?xml version='1.0' encoding='UTF-8'?><!-- Published by JAX-WS RI (http://jax-ws.java.net). RI's version is JAX-WS RI 2.2.11-b150616.1732 svn-revision#a247ba216861f2c0baac9a3657c5690bce0c744d. --><definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/NfeRetAutorizacao" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="NfeRetAutorizacao" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/NfeRetAutorizacao">
+	<types>
+		<xs:schema xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/NfeRetAutorizacao" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/NfeRetAutorizacao" version="1.0" elementFormDefault="qualified">
+			<xs:element name="nfeCabecMsg" type="tns:nfeCabecMsg"/>
+			<xs:element name="nfeDadosMsg">
+				<xs:complexType mixed="true">
+					<xs:sequence>
+						<xs:any/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="nfeRetAutorizacaoLoteResult">
+				<xs:complexType mixed="true">
+					<xs:sequence>
+						<xs:any/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:complexType name="nfeCabecMsg">
+				<xs:sequence>
+					<xs:element minOccurs="0" name="cUF" type="xs:string"/>
+					<xs:element minOccurs="0" name="versaoDados" type="xs:string"/>					
+				</xs:sequence>
+			</xs:complexType>
+		</xs:schema>
+	</types>
+	<message name="NfeRetAutorizacaoService_nfeRetAutorizacaoLoteResponse">
+		<part element="tns:nfeRetAutorizacaoLoteResult" name="nfeRetAutorizacaoLoteResult"/>		
+	</message>
+	<message name="NfeRetAutorizacaoService_nfeRetAutorizacaoLote">
+		<part element="tns:nfeDadosMsg" name="nfeDadosMsg"/>
+		<part element="tns:nfeCabecMsg" name="nfeCabecMsg"/>
+	</message>
+	<portType name="NfeRetAutorizacaoService">
+		<operation name="nfeRetAutorizacaoLote" parameterOrder="nfeCabecMsg nfeDadosMsg">
+			<input message="tns:NfeRetAutorizacaoService_nfeRetAutorizacaoLote"/>
+			<output message="tns:NfeRetAutorizacaoService_nfeRetAutorizacaoLoteResponse"/>
+		</operation>
+	</portType>
+	<binding name="NfeRetAutorizacaoServiceBinding" type="tns:NfeRetAutorizacaoService">
+		<soap12:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="nfeRetAutorizacaoLote">
+			<soap12:operation soapAction="http://www.portalfiscal.inf.br/nfe/wsdl/NfeRetAutorizacao/nfeRetAutorizacaoLote"/>
+			<input>
+				<soap12:body parts="nfeDadosMsg" use="literal"/>
+				<soap12:header message="tns:NfeRetAutorizacaoService_nfeRetAutorizacaoLote" part="nfeCabecMsg" use="literal"/>
+			</input>
+			<output>
+				<soap12:body parts="nfeRetAutorizacaoLoteResult" use="literal"/>				
+			</output>
+		</operation>
+	</binding>
+	<service name="NfeRetAutorizacao">
+		<port binding="tns:NfeRetAutorizacaoServiceBinding" name="NfeRetAutorizacaoServicePort">
+			<soap12:address location="http://homolog.sefaz.go.gov.br:80/nfe/services/v2/NfeRetAutorizacao"/>
+		</port>
+	</service>
+</definitions>
