@@ -168,7 +168,7 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
     print 'dados:', dados
     cfop = dados[5]
     if (cfop in ('5.910', '5.911', '6.910', '6.911') or cfop[0] in ('3', '7') or registros[60] in ('SPAD', 'MGAD') or tipo_pagamento == '- - - - -'):
-        icms_rem, icms_dest, icms_fcp, pis, cofins, difal = '0,00'
+        icms_rem = icms_dest = icms_fcp = pis = cofins = difal = '0,00'
     else:
         icms_rem, icms_dest, icms_fcp, pis, cofins = [cf(v, 'Quebrado 2')[1] for v in dados[:5]]
         difal = cf(sum(dados[:3]), 'Quebrado 2')[1]
