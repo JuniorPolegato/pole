@@ -164,8 +164,8 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
                  [pPIS_presumido, pCOFINS_presumido, cod_nota_fiscal])
     cursor.execute(*sql_difal)
     dados = cursor.fetchone()
-    print 'sql_difal:', sql_difal
-    print 'dados:', dados
+    # print 'sql_difal:', sql_difal
+    # print 'dados:', dados
     cfop = dados[5]
     if (cfop in ('5.910', '5.911', '6.910', '6.911') or cfop[0] in ('3', '7') or registros[60] in ('SPAD', 'MGAD') or tipo_pagamento == '- - - - -'):
         icms_rem = icms_dest = icms_fcp = pis = cofins = difal = '0,00'
