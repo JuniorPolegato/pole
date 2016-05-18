@@ -33,6 +33,8 @@ import importlib
 
 pygtk.require("2.0")
 
+# Resolver problema de imagens não exibidas nos botões
+gtk.settings_get_default().props.gtk_button_images = True
 
 logger = logging.getLogger('pole')
 
@@ -1804,19 +1806,6 @@ class Project(object):
                 combo.add_attribute(celula, "text", 0)
             elif combo.get_entry_text_column() == -1:
                 combo.set_entry_text_column(0)
-        # Resolver problema de imagens não exibidas nos botões
-        # Comente caso queira o comportamento configurado no Gnome, pois
-        #     a partir da versão 2.28 por padrão não mostra, sendo que
-        #     para alterar o padrão edite via
-        #     "Aplicativos->Sistema->Editor de configurações"
-        #     a chave "/desktop/gnome/interface/buttons_have_icons" ou execute
-        #     "gconftool --toggle /desktop/gnome/interface/buttons_have_icons"
-        for botao in [x for x in self.interface.get_objects()
-                      if isinstance(x, gtk.Button)]:
-            try:
-                botao.child.child.get_children()[0].show()
-            except:
-                pass
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Função chamada toda vez que se requer informações de algum

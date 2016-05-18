@@ -185,7 +185,7 @@ def real(caracteres, casas = 2, arrendodamento = 0,
                                                 \a caracteres
     """
     numero = locale.atof(somente_digitos_e_decimal(caracteres,
-                                                 zero_se_vazio_ou_nulo))
+                                                 zero_se_vazio_ou_nulo, casas))
     mult_casas = 10.0 ** casas
     if arrendodamento < 0:
         return math.floor(numero * mult_casas) / (mult_casas)

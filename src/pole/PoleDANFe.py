@@ -175,7 +175,7 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
 
     sql_itens = ("select cod_produto, descricao, classificacao_fiscal ncm,"
                  " situacao_tributaria_A || situacao_tributaria_B, cfop,"
-                 " cod_unidade, quantidade, valor_unitario_liquido,"
+                 " cod_unidade, quantidade, total_liquido / quantidade,"
                  " total_liquido, base_icms, icms, base_substituicao,"
                  " substituicao, ipi, percentual_icms, percentual_ipi"
                  " from item_nota_fiscal"

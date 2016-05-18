@@ -1,3 +1,4 @@
+v1.1.2, 2016-05-18 -- Small fix in PoleGTK, PoleUtli and PoleDANFe.
 v1.1.1, 2016-04-19 -- Small fix in PoleDANFe.
 v1.1.0, 2016-04-19 -- Some fixes.
 v1.0.0, 2016-03-10 -- Initial release.
