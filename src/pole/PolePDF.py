@@ -1,5 +1,5 @@
-#!/bin/env python
-#-*- coding: utf-8 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """PolePDF - Classe PDF em Python que cria um papel e permite adicionar
              células e tabelas encaixando-as ou flutuantes

@@ -1856,14 +1856,14 @@ def read_text(textview, format=True):
     text = re.sub('[\t\r\f\v]', ' ', text)
 
     if format:
-        text = formatar(text, 'Nome Mai')
+        text = formatar(text, 'Livre Mai')
 
     return text
 
 
 def write_text(text, textview, format=True):
     if format:
-        text = formatar(text, 'Nome Mai')
+        text = formatar(text, 'Livre Mai')
 
     text = re.sub('[\t\r\f\v]', ' ', text)
 

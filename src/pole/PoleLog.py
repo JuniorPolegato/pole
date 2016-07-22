@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 """PoleLog - Operações com Log em Python
 
 Arquivo: PoleLog.py
