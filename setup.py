@@ -65,7 +65,7 @@ class xinstall(install):
 
 setup(
     name=domain,
-    version='1.1.3',
+    version='1.1.4',
     author='Junior Polegato',
     author_email='linux@juniorpolegato.com.br',
     packages=[domain],

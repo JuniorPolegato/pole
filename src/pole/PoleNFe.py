@@ -135,12 +135,12 @@ EVENTOS = {
                           'envCCe'),
     'Cancelamento': ('110111', 'eventoCancNFe', False,
                      'envEventoCancNFe'),
-    'Confirmacao da Operacao': ('210200', 'confRecebto', True,
+    'Confirmacao da Operacao': ('210200', 'confRecebto', False,
                                 'envConfRecebto'),
-    'Ciencia da Operacao': ('210210', 'confRecebto', True, 'envConfRecebto'),
-    'Desconhecimento da Operacao': ('210220', 'confRecebto', True,
+    'Ciencia da Operacao': ('210210', 'confRecebto', False, 'envConfRecebto'),
+    'Desconhecimento da Operacao': ('210220', 'confRecebto', False,
                                     'envConfRecebto'),
-    'Operacao nao Realizada': ('210240', 'confRecebto', True,
+    'Operacao nao Realizada': ('210240', 'confRecebto', False,
                                'envConfRecebto')
 }
 
