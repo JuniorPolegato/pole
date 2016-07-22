@@ -80,17 +80,17 @@ UFS_SIGLAS = {'AC': 'Acre',               'PA': 'Pará',
 SEFAZ = {'AC': 'SVRS',     'PA': 'SVAN',
          'AL': 'SVRS',     'PB': 'SVRS',
          'AM': 'AM',       'PE': 'PE',
-         'AP': 'SVRS',     'PI': 'SVAN',
-         'BA': 'BA',       'PR': 'PR',
-         'CE': 'CE',       'RJ': 'SVRS',
-         'DF': 'SVRS',     'RN': 'SVRS',
-         'ES': 'SVRS',     'RO': 'SVRS',
-         'GO': 'GO',       'RR': 'SVRS',
-         'MA': 'SVAN',     'RS': 'RS',
-         'MG': 'MG',       'SC': 'SVRS',
-         'MS': 'MS',       'SE': 'SVRS',
-         'MT': 'MT',       'SP': 'SP',
-                           'TO': 'SVRS'}
+         'AN': 'AN',       'PI': 'SVAN',
+         'AP': 'SVRS',     'PR': 'PR',
+         'BA': 'BA',       'RJ': 'SVRS',
+         'CE': 'CE',       'RN': 'SVRS',
+         'DF': 'SVRS',     'RO': 'SVRS',
+         'ES': 'SVRS',     'RR': 'SVRS',
+         'GO': 'GO',       'RS': 'RS',
+         'MA': 'SVAN',     'SC': 'SVRS',
+         'MG': 'MG',       'SE': 'SVRS',
+         'MS': 'MS',       'SP': 'SP',
+         'MT': 'MT',       'TO': 'SVRS'}
 
 # Não operacional para SVRS para UFs: AL, AP, DF, RJ, RO, RR, SE, TO
 # Não operacional para SVAN para UFs: PA, PI

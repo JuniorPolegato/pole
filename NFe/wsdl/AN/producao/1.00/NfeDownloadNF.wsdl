@@ -70,10 +70,10 @@
   </wsdl:binding>
   <wsdl:service name="NfeDownloadNF">
     <wsdl:port name="NfeDownloadNFSoap" binding="tns:NfeDownloadNFSoap">
-      <soap:address location="https://hom.sefazvirtual.fazenda.gov.br/NfeDownloadNF/NfeDownloadNF.asmx" />
+      <soap:address location="https://www.nfe.fazenda.gov.br/NfeDownloadNF/NfeDownloadNF.asmx" />
     </wsdl:port>
     <wsdl:port name="NfeDownloadNFSoap12" binding="tns:NfeDownloadNFSoap12">
-      <soap12:address location="https://hom.sefazvirtual.fazenda.gov.br/NfeDownloadNF/NfeDownloadNF.asmx" />
+      <soap12:address location="https://www.nfe.fazenda.gov.br/NfeDownloadNF/NfeDownloadNF.asmx" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>
