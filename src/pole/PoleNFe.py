@@ -500,7 +500,7 @@ class Webservice(object):
         else:
             uf_consulta = dict([x[::-1] for x in UFS_IBGE.items()])[chave[:2]]
             ws_consulta = Webservice(self.__cnpj, self.__ambiente,
-                                     uf_consulta, uf_consulta, self.__raiz,
+                                     uf_consulta, None, self.__raiz,
                                      self.__pacote)
         consulta = PoleXML.XML()
         consulta.consSitNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
@@ -805,7 +805,31 @@ class Webservice(object):
         requisicao.downloadNFe.xServ = 'DOWNLOAD NFE'
         requisicao.downloadNFe.CNPJ = self.__cnpj
         requisicao.downloadNFe.chNFe = chave
-        return self.servico('NfeDownloadNF', requisicao)
+        xml_download = self.servico('NfeDownloadNF', requisicao)
+        nfeProc = xml_download.retDownloadNFe.retNFe.procNFe.nfeProc
+        nfeProc.NFe["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
+        nfeProc.protNFe["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
+        procnfe = PoleXML.XML()
+        procnfe.nfeProc["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
+        procnfe.nfeProc["versao"] = nfeProc["versao"]
+        procnfe.nfeProc.NFe = nfeProc.NFe
+        procnfe.nfeProc.protNFe = nfeProc.protNFe
+        return procnfe
+
+    def download_eventos(self, chave):
+        xml_eventos = self.consultar_chave(chave)
+        eventos = PoleXML.procurar(xml_eventos, 'procEventoNFe')
+        retorno = []
+        for ev in eventos:
+            ev.evento["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
+            ev.retEvento["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
+            rev = PoleXML.XML()
+            rev.procEventoNFe["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
+            rev.procEventoNFe["versao"] = ev["versao"]
+            rev.procEventoNFe.evento = ev.evento
+            rev.procEventoNFe.retEvento = ev.retEvento
+            retorno.append(rev)
+        return retorno
 
     def manifestar(self, manifestacao, chave_nfe, justificativa=None):
         manifesto = PoleXML.XML()

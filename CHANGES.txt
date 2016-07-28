@@ -1,3 +1,4 @@
+v1.1.5, 2016-07-28 -- Small fix in PoleNFe to adjust download of events and NFe.
 v1.1.4, 2016-07-22 -- Small fix in PoleNFe for events about NFe.
 v1.1.3, 2016-07-22 -- Small fix in PoleNFe to download NFe.
 v1.1.2, 2016-05-18 -- Small fix in PoleGTK, PoleUtli and PoleDANFe.
