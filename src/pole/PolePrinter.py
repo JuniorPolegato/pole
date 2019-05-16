@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from PoleUtil import formatar
+from PoleUtil import normalize
 
 
 class LX300(object):
     _BRAND = 'Epson'
     _MODEL = 'LX300'
+    _ENCODING = 'CP850'
     _ESC_AT = chr(64)
     _CR = chr(13)
     _LF = chr(10)
@@ -76,7 +77,11 @@ class LX300(object):
         if args:
             text = text.format(*args)
 
-        self._buffer += formatar(text, 'Letras')
+        # if not isinstance(text, unicode):
+        #     text = str(text).decode('utf-8')
+        # self._buffer += text.encode(LX300._ENCODING, 'replace')
+
+        self._buffer += normalize(text)
 
 
 class ImpressoLX300(LX300):
@@ -112,7 +117,8 @@ class ImpressoLX300(LX300):
             picote = abs(self.linhas_folha - total_linhas)
 
         else:
-            picote = abs(self.linhas_folha - (total_linhas % self.linhas_folha))
+            picote = abs(self.linhas_folha -
+                         (total_linhas % self.linhas_folha))
 
         if picote:
             self.line_feed(picote)

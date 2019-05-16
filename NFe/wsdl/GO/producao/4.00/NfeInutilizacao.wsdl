@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='UTF-8'?><!-- Published by JAX-WS RI (http://jax-ws.java.net). RI's version is JAX-WS RI 2.2.11-b150616.1732 svn-revision#a247ba216861f2c0baac9a3657c5690bce0c744d. --><definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="NFeInutilizacao4" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4">
+	<types>
+		<xs:schema xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4" version="1.0" elementFormDefault="qualified">
+			<xs:element name="nfeDadosMsg">
+				<xs:complexType mixed="true">
+					<xs:sequence>
+						<xs:any/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="nfeResultMsg">
+				<xs:complexType mixed="true">
+					<xs:sequence>
+						<xs:any/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:schema>
+	</types>
+	<message name="NFeInutilizacao4Service_nfeInutilizacaoNFResponse">
+		<part element="tns:nfeResultMsg" name="nfeInutilizacaoNFResult"/>
+	</message>
+	<message name="NFeInutilizacao4Service_nfeInutilizacaoNF">
+		<part element="tns:nfeDadosMsg" name="nfeDadosMsg"/>
+	</message>
+	<portType name="NFeInutilizacao4Service">
+		<operation name="nfeInutilizacaoNF">
+			<input message="tns:NFeInutilizacao4Service_nfeInutilizacaoNF"/>
+			<output message="tns:NFeInutilizacao4Service_nfeInutilizacaoNFResponse"/>
+		</operation>
+	</portType>
+	<binding name="NFeInutilizacao4ServiceBinding" type="tns:NFeInutilizacao4Service">
+		<soap12:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="nfeInutilizacaoNF">
+			<soap12:operation soapAction="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4/nfeInutilizacaoNF"/>
+			<input>
+				<soap12:body parts="nfeDadosMsg" use="literal"/>
+			</input>
+			<output>
+				<soap12:body parts="nfeInutilizacaoNFResult" use="literal"/>				
+			</output>
+		</operation>
+	</binding>
+	<service name="NFeInutilizacao4">
+		<port binding="tns:NFeInutilizacao4ServiceBinding" name="NFeInutilizacao4ServicePort">
+			<soap12:address location="http://nfe.sefaz.go.gov.br:80/nfe/services/NFeInutilizacao4"/>
+		</port>
+	</service>
+</definitions>

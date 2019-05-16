@@ -50,8 +50,9 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
                  " nt.FATURAMENTO_A_VISTA, nt.PAGO,  nt.NUM_NOTA, nt.COD_END_TRANSP, nt.BALCAO, nt.ANO, nt.MES, nt.DIA, nt.VALOR_FRETE, nt.NUM_COMANDA, nt.MODELO, nt.SERIE, n.CHAVE_ACESSO,"
                  " n.PROTOCOLO_AUTORIZACAO || ' - ' || TO_CHAR(n.DATA_AUTORIZACAO, 'DD/MM/YYYY HH24:MI'), (select f.login from funcionario f where f.cod_entidade = nt.usuario),"
                  " n.denegado"
-                 " from nota_fiscal nt, nfe n "
-                 " where n.COD_NOTA_FISCAL = " + cod_nota_fiscal + " and nt.COD_NOTA_FISCAL = " + cod_nota_fiscal)
+                 " from nota_fiscal nt"
+                 " left join nfe n on n.COD_NOTA_FISCAL = nt.COD_NOTA_FISCAL"
+                 " where nt.COD_NOTA_FISCAL = " + cod_nota_fiscal)
     #print sql
     cursor.execute(sql)
     registros = cursor.fetchone()
@@ -130,7 +131,8 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
 
     #Codigo de Barras
     barcode = Code128(chave_de_acesso)
-    barcode.barWidth = 0.25 * mm
+    barcode.barWidth = 0.29 * mm
+    barcode.barHeight = 1 * cm
 
     # Número de páginas e dados da tabela
     ts = [('GRID', (0,0), (-1,-1), .5, colors.black),
@@ -148,7 +150,10 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
           ('FONTSIZE', (0,0), (1,-1), fonte_tab_grande.fontSize),
         ]
 
-    colWidths = (1 * cm, 5.51 * cm, .92  * cm, .46  * cm, .6  * cm, .59  * cm, .93 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
+    # colWidths=(1 * cm, 5.51 * cm, .92  * cm, .46  * cm, .6   * cm, .59  * cm, .93 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
+    # colWidths=(1 * cm, 5.51 * cm, .92  * cm, .42  * cm, .58  * cm, .58  * cm, 1   * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
+    # colWidths = (1 * cm, 5.51 * cm, .96  * cm, .46  * cm, .6   * cm, .42  * cm, 1.08 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
+    colWidths = (1.1 * cm, 5.41 * cm, .96  * cm, .46  * cm, .6   * cm, .42  * cm, 1.08 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm)
     colWidths = [width * fonte_tab_pequena.fontSize/5. for width in colWidths]
     colWidths = tuple([colWidths[0], 19 * cm - sum(colWidths) + colWidths[1]] + colWidths[2:])
 
@@ -173,13 +178,17 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
         icms_rem, icms_dest, icms_fcp, pis, cofins = [cf(v, 'Quebrado 2')[1] for v in dados[:5]]
         difal = cf(sum(dados[:3]), 'Quebrado 2')[1]
 
-    sql_itens = ("select cod_produto, descricao, classificacao_fiscal ncm,"
-                 " situacao_tributaria_A || situacao_tributaria_B, cfop,"
-                 " cod_unidade, quantidade, total_liquido / quantidade,"
-                 " total_liquido, base_icms, icms, base_substituicao,"
-                 " substituicao, ipi, percentual_icms, percentual_ipi"
-                 " from item_nota_fiscal"
-                 " where cod_nota_fiscal = :0",
+    sql_itens = ("select i.cod_produto, i.descricao, i.classificacao_fiscal ncm,"
+                 " i.situacao_tributaria_A || i.situacao_tributaria_B, i.cfop,"
+                 " i.cod_unidade, i.quantidade, i.total_liquido / i.quantidade,"
+                 " i.total_liquido, i.base_icms, i.icms, i.base_substituicao,"
+                 " i.substituicao, i.ipi, i.percentual_icms, i.percentual_ipi,"
+                 " p.fci, pi.cod_item cod_item_manuf"
+                 " from item_nota_fiscal i"
+                 " join produto p on p.cod_produto = i.cod_produto"
+                 " left join producao_item pi on pi.cod_item_orc = i.cod_item"
+                 " where i.cod_nota_fiscal = :0"
+                 " order by i.cod_item",
                  [cod_nota_fiscal])
     cursor.execute(*sql_itens)
     dados = cursor.fetchall()
@@ -190,10 +199,17 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
         ncm = mascara_ncm % linha[2]
         if linha[2] > 99:
             ncm = ncm[:4] + '.' + ncm[4:6] + '.' + ncm[6:]
+        # Descrição e FCI se tiver
+        descricao = paragrafo(linha[1], fonte_tab_grande)
+        if linha[16]:
+            descricao = [descricao,
+                         paragrafo('FCI: ' + linha[16] if linha[16] else '',
+                                   fonte_tab_pequena)]
         dados_tabela.append(
             [
-                PoleUtil.formatar_inteiro(linha[ 0]),
-                paragrafo(linha[ 1], fonte_tab_grande),
+                (paragrafo("%i.\n%06i" % (linha[ 0], linha[17]), normal_direita) if linha[17]
+                 else PoleUtil.formatar_inteiro(linha[ 0])),
+                descricao,
                 ncm,
                 linha[ 3],
                 linha[ 4],
@@ -225,41 +241,41 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
         paginas += 1
 
     # Dados Empresa
-    a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
-    a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
+    a1_1 = documento.altura( 7 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
+    a1_2 = documento.altura( 7 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
     a2 = documento.altura( 3.65 * cm, 1 * mm, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-    a3 = documento.altura( 7.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), barcode, paragrafo('\n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
+    a3 = documento.altura( 8.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
     if a1_1 + a1_2 > a2:
         a = a1_1 + a1_2
     else:
         a = a2
     if a < a3:
         a = a3
-    documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
+    documento.celula( 7 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
     documento.celula( 3.65 * cm, a, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página 1 de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-    documento.celula( 7.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
+    documento.celula( 8.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
     # Natureza da Operação flutuante
-    documento.celula( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao, posicao = (1 * cm, 2.6 * cm + a - a1_2))
+    documento.celula( 7 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao, posicao = (1 * cm, 2.6 * cm + a - a1_2))
 
     #Posição Chave de acesso celula flutuante
     chave_de_acesso = [paragrafo('Chave de acesso', pequena_esquerda), paragrafo(' '.join([chave_de_acesso[x*4:x*4+4] for x in range(11)]), fonte_chave_acesso if py_27 else normal_centro)]
-    documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.725 * cm, 4 * cm))
+    documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.225 * cm, 4 * cm))
     #Posição Entrada Saida celula flutuante
     if tipo_nota=='S':
         tipo = "1"
     else:
         tipo = "0"
-    documento.celula(.4* cm,.4 * cm, None, [paragrafo(str(tipo), normal_centro)], posicao=(10.65 * cm, 3.3 * cm))
-    documento.celula(10 * mm, 1 * mm, None, [barcode], posicao=(15.825 * cm, 2.82 * cm), borda = False)
+    documento.celula(.4* cm,.4 * cm, None, [paragrafo(str(tipo), normal_centro)], posicao=(9.1 * cm, 3.3 * cm))
+    documento.celula(10 * mm, 1 * mm, None, [barcode], posicao=(15.325 * cm, 2.82 * cm), borda = False)
 
     #documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo('00000000000000000000000000000000000', normal_esquerda)])
 
     # Inscrição estadual
     documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_empresa)
-    documento.celula( 4.5 * cm, 1 * mm, None, [paragrafo('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda), paragrafo(ie_sub_empresa, normal_direita)])
+    documento.celula( 3.5 * cm, 1 * mm, None, [paragrafo('INSCRIÇÃO ESTADUAL SUBST. TRIB.', pequena_esquerda), paragrafo(ie_sub_empresa, normal_direita)])
     documento.celula( 3.65 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
-    documento.celula( 7.35 * cm, 1 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo(protocolo, normal_esquerda)])
+    documento.celula( 8.35 * cm, 1 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_centro), paragrafo(protocolo, normal_centro)])
 
     # DESTINATARIO REMETENTE
     documento.celula( 19 * cm, 1 * mm, None, [paragrafo('DESTINATÁRIO / REMETENTE', pequena_esquerda)], borda = False)
@@ -457,8 +473,8 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
     # CFOP
     documento.celula(colWidths[ 4], a1, None, [paragrafo('CFOP', pequena_direita)])
 
-    # UNID.
-    documento.celula(colWidths[ 5], a1, None, [paragrafo('UNID.', pequena_direita)])
+    # UN.
+    documento.celula(colWidths[ 5], a1, None, [paragrafo('UN.', pequena_direita)])
 
     # QTD
     documento.celula(colWidths[ 6], a1, None, [paragrafo('QUANT.', pequena_direita)])
@@ -514,40 +530,40 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
         documento.celula(19 * cm, 0.4 * cm, '·' * p, '', borda = False)
 
         # Dados Empresa
-        a1_1 = documento.altura( 8 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
-        a1_2 = documento.altura( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
+        a1_1 = documento.altura( 7 * cm, 1 * mm, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
+        a1_2 = documento.altura( 7 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao)
         a2 = documento.altura( 3.65 * cm, 1 * mm, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-        a3 = documento.altura( 7.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), barcode, paragrafo('\n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
+        a3 = documento.altura( 8.35 * cm, 1 * mm, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e www.nfe.gov.br/portal ou no site da Sefaz Autorizada', pequena_centro)])
         if a1_1 + a1_2 > a2:
             a = a1_1 + a1_2
         else:
             a = a2
         if a < a3:
             a = a3
-        documento.celula( 8 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
+        documento.celula( 7 * cm, a, None, [I, paragrafo('<b>' + razao_social_p1 + '</b>', normal_centro), paragrafo('<b>' + razao_social_p2 + '</b>', pequena_centro), paragrafo(endereco_danfe, pequena_centro)])
         documento.celula( 3.65 * cm, a, None, [paragrafo('<b>DANFE</b>', normal_centro), paragrafo('Documento Auxiliar da Nota Fiscal Eletrônica\n ', pequena_centro), paragrafo('0 - Entrada', pequena_esquerda), paragrafo('1 - Saída\n ', pequena_esquerda), paragrafo(' \n<b>Nº '+numero_nfe+'</b>', normal_esquerda), paragrafo('<b>Série: '+serie_nfe+'</b>', normal_esquerda), paragrafo(' \n<b>Página ' + str(pagina) + ' de ' + str(paginas) + '</b>', normal_centro)], borda = False)
-        documento.celula( 7.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
+        documento.celula( 8.35 * cm, a, None, [paragrafo('Controle do Fisco\n ', pequena_esquerda), paragrafo('\n \n \n \n \n \n \n \n ', pequena_esquerda), paragrafo('Consulta de autenticidade no portal nacional da NF-e\nwww.nfe.fazenda.gov.br ou no site da Sefaz Autorizada', normal_centro)])
 
         # Natureza da Operação flutuante
-        documento.celula( 8 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao, posicao = (1 * cm, 2.6 * cm + a - a1_2))
+        documento.celula( 7 * cm, 1 * mm, 'NATUREZA DA OPERAÇÃO', natureza_operacao, posicao = (1 * cm, 2.6 * cm + a - a1_2))
 
         #Posição Chave de acesso celula flutuante
-        documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.725 * cm, 4 * cm))
+        documento.celula(7.2 * cm,.6 * cm, None, chave_de_acesso, posicao=(12.225 * cm, 4 * cm))
         #Posição Entrada Saida celula flutuante
         if tipo_nota=='S':
             tipo = "1"
         else:
             tipo = "0"
-        documento.celula(.4* cm,.4 * cm, None,[paragrafo(str(tipo), normal_centro)],posicao=(10.65 * cm, 3.3 * cm))
-        documento.celula(10 * mm, 1 * mm, None, [barcode], posicao=(15.825 * cm, 2.82 * cm), borda = False)
+        documento.celula(.4* cm,.4 * cm, None,[paragrafo(str(tipo), normal_centro)],posicao=(9.1 * cm, 3.3 * cm))
+        documento.celula(10 * mm, 1 * mm, None, [barcode], posicao=(15.325 * cm, 2.82 * cm), borda = False)
 
         #documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo('00000000000000000000000000000000000', normal_esquerda)])
 
         # Inscrição estadual
         documento.celula( 3.5 * cm, 1 * mm, 'INSCRIÇÃO ESTADUAL', ie_empresa)
-        documento.celula( 4.5 * cm, 1 * mm, None, [paragrafo('INSCRIÇÃO ESTADUAL DO SUBST. TRIB.', pequena_esquerda), paragrafo(ie_sub_empresa,normal_direita)])
+        documento.celula( 3.5 * cm, 1 * mm, None, [paragrafo('INSCRIÇÃO ESTADUAL SUBST. TRIB.', pequena_esquerda), paragrafo(ie_sub_empresa,normal_direita)])
         documento.celula( 3.65 * cm, 1 * mm, 'CNPJ', cnpj_empresa)
-        documento.celula( 7.35 * cm, 1 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_esquerda), paragrafo(protocolo, normal_esquerda)])
+        documento.celula( 8.35 * cm, 1 * mm, None, [paragrafo('PROTOCOLO DE AUTORIZAÇÃO DE USO', pequena_centro), paragrafo(protocolo, normal_centro)])
 
         # DADOS DO PRODUTO/SERVIÇO
         documento.celula( 19 * cm, 3.8 * mm, None, [paragrafo('DADOS DO PRODUTO/SERVIÇO', pequena_esquerda)], borda = False)
@@ -570,8 +586,8 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
         # CFOP
         documento.celula(colWidths[ 4], a1, None, [paragrafo('CFOP', pequena_direita)])
 
-        # UNID.
-        documento.celula(colWidths[ 5], a1, None, [paragrafo('UNID.', pequena_direita)])
+        # UN.
+        documento.celula(colWidths[ 5], a1, None, [paragrafo('UN.', pequena_direita)])
 
         # QTD
         documento.celula(colWidths[ 6], a1, None, [paragrafo('QUANT.', pequena_direita)])
@@ -603,7 +619,7 @@ def danfe(cod_nota_fiscal, logo=None, diretorio='/tmp'):
         # ALÍQ. IPI
         documento.celula(colWidths[15], a1, None, [paragrafo('ALÍQ. IPI', pequena_direita)])
 
-        tabela, i, altura = documento.tabela(19 * cm, 21 * cm, dados_tabela[itens:],colWidths=(1 * cm, 5.51 * cm, .92  * cm, .42  * cm, .58  * cm, .58  * cm, 1 * cm, 1.08 * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, 1.125  * cm, .58 * cm, .58 * cm), style=ts)
+        tabela, i, altura = documento.tabela(19 * cm, 21 * cm, dados_tabela[itens:],colWidths=colWidths, style=ts)
         documento.celula(19 * cm, 21 * cm, None, (tabela,), borda=False, espacamento=0)
         itens += i
 

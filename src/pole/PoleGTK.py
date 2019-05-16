@@ -13,7 +13,6 @@ Todos os direitos reservados
 """
 
 # Importing PyGTK modules
-import pygtk
 import gtk
 import gobject
 import glib
@@ -30,11 +29,24 @@ import logging
 import traceback
 import pango
 import importlib
-
-pygtk.require("2.0")
+import StringIO
 
 # Resolver problema de imagens não exibidas nos botões
 gtk.settings_get_default().props.gtk_button_images = True
+try:
+    gtk.settings_get_default().props.gtk_menu_images = True
+except Exception:
+    print "Fail setting gtk_menu_images = True"
+
+# Resolver problema de tamanho dos botões de fechar abas
+gtk.rc_parse_string('''
+    style "close-tab-button-style" {
+        GtkWidget::focus-padding = 0
+        GtkWidget::focus-line-width = 0
+        xthickness = 0
+        ythickness = 0
+    }
+    widget "*.close-tab-button" style "close-tab-button-style"''')
 
 logger = logging.getLogger('pole')
 
@@ -43,6 +55,58 @@ cf = PoleUtil.convert_and_format
 # Translation
 _ = PoleUtil._
 
+
+def update_ui():
+    while gtk.events_pending():
+        gtk.main_iteration()
+
+
+def try_function(f):
+    def action(project, *args, **kwargs):
+        try:
+            result = f(project, *args, **kwargs)
+            return result
+        except Exception:
+            PoleLog.log_except()
+            show_exception(project, args)
+            return None
+    return action
+
+
+def new_tab(notebook, tab_label, tab_content, focus=True, tab_return=None):
+    label = gtk.Label(tab_label)
+    image = gtk.Image()
+    image.set_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
+    button = gtk.Button()
+    button.set_relief(gtk.RELIEF_NONE)
+    button.set_focus_on_click(False)
+    button.set_name("close-tab-button")
+    button.set_size_request(20, 20)
+    button.add(image)
+    tab_header = gtk.HBox(spacing=5)
+    tab_header.pack_start(label, True, True, 0)
+    tab_header.pack_end(button, False, False, 0)
+    tab_header.show_all()
+    notebook.append_page(tab_content, tab_header)
+    notebook.set_menu_label_text(tab_content, tab_label)
+    if tab_return is None:
+        tab_return = notebook.get_current_page()
+    if focus:
+        notebook.set_current_page(-1)
+    button.connect('clicked', close_tab, notebook,
+                   tab_header, tab_content, tab_return)
+
+
+def close_tab(button, notebook, tab_header, tab_content, tab_return):
+    page_num = notebook.page_num(tab_content)
+    if (notebook.get_current_page() == page_num
+            and tab_return < notebook.get_n_pages()):
+        notebook.set_current_page(tab_return)
+    notebook.remove_page(page_num)
+    tab_header.destroy()
+    tab_content.destroy()
+
+
 message_titles = {gtk.MESSAGE_INFO: _('Information'),
                   gtk.MESSAGE_WARNING: _('Warning'),
                   gtk.MESSAGE_QUESTION: _('Question'),
@@ -50,12 +114,17 @@ message_titles = {gtk.MESSAGE_INFO: _('Information'),
 
 
 def message(widget, text, message_type=gtk.MESSAGE_INFO, title=None):
+    # Get toplevel window
+    window = None
+    if isinstance(widget, (gtk.Widget, VirtualWidget)):
+        window = widget.get_toplevel()
+
     if message_type == gtk.MESSAGE_QUESTION:
         buttons = gtk.BUTTONS_YES_NO
     else:
         buttons = gtk.BUTTONS_CLOSE
-    flags = flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
-    dialog = gtk.MessageDialog(widget.get_toplevel(), flags,
+    flags = gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT
+    dialog = gtk.MessageDialog(window, flags,
                                message_type, buttons)
     dialog.set_markup(text)
 
@@ -65,6 +134,77 @@ def message(widget, text, message_type=gtk.MESSAGE_INFO, title=None):
     result = dialog.run()
     dialog.destroy()
     return result
+
+
+def input_dialog(widget, text, editor_config=None,
+                 default_text='', title=None):
+    # Get toplevel window
+    window = None
+    if isinstance(widget, (gtk.Widget, VirtualWidget)):
+        window = widget.get_toplevel()
+
+    dialog = gtk.MessageDialog(window,
+                               gtk.DIALOG_MODAL |
+                               gtk.DIALOG_DESTROY_WITH_PARENT,
+                               gtk.MESSAGE_QUESTION, gtk.BUTTONS_OK_CANCEL)
+    dialog.set_markup(text)
+
+    if title is None:
+        title = _("Give the resquested information")
+    dialog.set_title(title)
+
+    ed = Editor()
+    if editor_config in (bool, datetime.datetime, datetime.date,
+                         datetime.time, datetime.timedelta):
+        return_type = editor_config
+        pole_type = None
+    else:
+        if editor_config:
+            ed.config(editor_config)
+        pole_type = ed._Editor__pole_type
+        if pole_type:
+            return_type = PoleUtil.python_tipos[PoleUtil.tipos[pole_type].tipo]
+        else:
+            return_type = editor_config
+
+    if return_type == bool:
+        ed.destroy()
+        del ed
+        ed = gtk.CheckButton()
+        ed.set_active(cf(default_text, bool)[0] if default_text else False)
+    elif return_type in (datetime.datetime, datetime.date,
+                         datetime.time, datetime.timedelta):
+        ed.destroy()
+        del ed
+        ed = DateButton()
+        ed.set_label(default_text)
+        ed.config(editor_config)
+    elif pole_type and PoleUtil.tipos[pole_type].combo:
+        ed.destroy()
+        del ed
+        model = gtk.ListStore(str, return_type)
+        for opc in PoleUtil.tipos[pole_type].mascara[1:]:
+            model.append(((opc[0] + ' - ' + opc[1] if len(opc) > 1
+                           else opc[0]), opc[0]))
+        ed = gtk.ComboBox(model)
+        cell = gtk.CellRendererText()
+        ed.pack_start(cell, True)
+        ed.add_attribute(cell, 'text', 0)
+        set_active_text(ed, default_text, 1)
+    else:
+        ed.set_text(default_text)
+    dialog.get_message_area().pack_start(ed, expand=False, fill=True)
+    dialog.set_default_response(gtk.RESPONSE_OK)
+    dialog.show_all()
+    result = dialog.run()
+    text = (cf(ed.get_active(), bool)[0] if return_type == bool else
+            ed.get_label() if return_type in (datetime.datetime,
+                                              datetime.date, datetime.time,
+                                              datetime.timedelta) else
+            get_active_text(ed, 1) if isinstance(ed, gtk.ComboBox) else
+            ed.get_text())
+    dialog.destroy()
+    return (result, text)
 
 
 def destroy(widget, event=None):
@@ -84,7 +224,7 @@ def info_bar_ex(widget, message, message_type=gtk.MESSAGE_INFO,
     widget.reorder_child(bar, 0)
     bar.show_all()
 
-    glib.timeout_add(timeout, lambda: bar.destroy())
+    glib.timeout_add(timeout, bar.destroy)
 
 
 def info_bar(parent, text, **kwargs):
@@ -126,10 +266,9 @@ def warning_detail(widget, text, detail_info, title='Warning'):
 def detail(widget, text, detail_info, title=None,
            message_type=gtk.MESSAGE_INFO):
     # Get toplevel window
-    if isinstance(widget, gtk.Widget):
+    window = None
+    if isinstance(widget, (gtk.Widget, VirtualWidget)):
         window = widget.get_toplevel()
-    else:
-        window = None
     # Create Message dialog with hidden details
     if title is None:
         title = message_titles[gtk.MESSAGE_ERROR]
@@ -167,11 +306,16 @@ def show_exception(project, args):
     # sec_text = '\n'.join(m[:100] + '…' * (len(m) > 100)
     #                                       for m in exc_message[-3:-1])
     # Get toplevel window
-    if len(args) > 1 and isinstance(args[1], gtk.Widget):
-        obj = args[1]
-    else:
+    obj = None
+    if isinstance(project, (gtk.Widget, VirtualWidget)):
+        obj = project
+    if obj is None:
+        for obj in args:
+            if isinstance(obj, (gtk.Widget, VirtualWidget)):
+                break
+    if obj is None:
         for obj in project.interface.get_objects():
-            if isinstance(obj, gtk.Widget):
+            if isinstance(obj, (gtk.Widget, VirtualWidget)):
                 break
     return error_detail(obj, pri_text, '\n'.join(exc_message), title)
 
@@ -203,9 +347,14 @@ def select_file_or_folder(parent=None, title=None, file_or_folder=None,
 
     for f in filters:
         if isinstance(f, (str, unicode)):
+            f = (f, [f])
+        if isinstance(f, (list, tuple)):
             fx = gtk.FileFilter()
-            fx.set_name(f)
-            fx.add_pattern(f)
+            fx.set_name(f[0])
+            if isinstance(f[-1], (str, unicode)):
+                f.append([f[-1]])
+            for fl in f[-1]:
+                fx.add_pattern(fl)
             f = fx
         filechooser.add_filter(f)
 
@@ -225,7 +374,8 @@ def select_file_or_folder(parent=None, title=None, file_or_folder=None,
                 return path
             if not os.path.exists(path):
                 return path
-            if question(filechooser, 'Sobrescrever arquivo?') == gtk.RESPONSE_YES:
+            if question(filechooser,
+                        _('Overwrite the file?')) == gtk.RESPONSE_YES:
                 return path
 
     finally:
@@ -271,10 +421,9 @@ def load_images_as_icon(path='.'):
             name = file[:file.rindex('.')] if '.' in file else file
             factory.add(name, iconset)
             factory.add_default()
-        except:
+        except Exception:
             PoleLog.log_except()
-        while gtk.events_pending():
-            gtk.main_iteration()
+        update_ui()
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -290,9 +439,7 @@ class PopupWindow(gtk.Window, gtk.Buildable):
     }
 
     def __init__(self, *args):
-        # print 'init 1 popup', self,args
         super(PopupWindow, self).__init__(*args)
-        # print 'init 2 popup', self,args
         self.set_decorated(False)
         self.set_skip_pager_hint(True)
         self.set_skip_taskbar_hint(True)
@@ -302,14 +449,15 @@ class PopupWindow(gtk.Window, gtk.Buildable):
         # For new versions of GTK+
         try:
             self.set_property('has_resize_grip', False)
-        except:
+        except Exception:
             pass
         self.__canceled = False
 
     def do_delete_event(self, event):
         return True
 
-    def run(self, caller, size=None, position=None, center=False, transient_for=None):
+    def run(self, caller, size=None,
+            position=None, center=False, transient_for=None):
         if transient_for:
             toplevel = transient_for.get_toplevel()
         else:
@@ -342,9 +490,10 @@ class PopupWindow(gtk.Window, gtk.Buildable):
         else:
             self.show()
         for i in range(1000):
-            status = gtk.gdk.pointer_grab(window=self.window, owner_events=True,
-                                          event_mask=gtk.gdk.BUTTON_PRESS_MASK,
-                                          cursor=gtk.gdk.Cursor(gtk.gdk.LEFT_PTR))
+            status = gtk.gdk.pointer_grab(
+                window=self.window, owner_events=True,
+                event_mask=gtk.gdk.BUTTON_PRESS_MASK,
+                cursor=gtk.gdk.Cursor(gtk.gdk.LEFT_PTR))
             if status in (gtk.gdk.GRAB_SUCCESS, gtk.gdk.GRAB_ALREADY_GRABBED):
                 break
         if status not in (gtk.gdk.GRAB_SUCCESS, gtk.gdk.GRAB_ALREADY_GRABBED):
@@ -362,18 +511,17 @@ class PopupWindow(gtk.Window, gtk.Buildable):
         self.quit(self, event)
 
     def quit(self, *args):
-        try:
-            popup = args[0]
-        except:
-            popup = self
-        if len(args) == 2 and args[1].type in (gtk.gdk.BUTTON_PRESS, gtk.gdk._2BUTTON_PRESS, gtk.gdk._3BUTTON_PRESS):
-            w, h = popup.get_size()
-            x, y = popup.get_pointer()
-            # print w, h , x, y, self
-            if 0 <= x <= w and 0 <= y <= h:
-                return
-            self.__canceled = True
-        # popup.__loop.quit()
+        popup = args[0] if args else self
+        if len(args) == 2:
+            if args[1] == gtk.RESPONSE_CANCEL:
+                self.__canceled = True
+            elif args[1].type in (gtk.gdk.BUTTON_PRESS, gtk.gdk._2BUTTON_PRESS,
+                                  gtk.gdk._3BUTTON_PRESS):
+                w, h = popup.get_size()
+                x, y = popup.get_pointer()
+                if 0 <= x <= w and 0 <= y <= h:
+                    return
+                self.__canceled = True
         self.__loop.quit()
 
 
@@ -385,7 +533,13 @@ class Calendar(PopupWindow):
     def __init__(self, caller, calendar_type=PoleUtil.DATE):
         super(Calendar, self).__init__()
         self.__caller = caller
-        self.__type = calendar_type
+        self.__pole = None
+        if (isinstance(calendar_type, (str, unicode))
+                and calendar_type in PoleUtil.tipos):
+            self.__pole = calendar_type
+            self.__type = PoleUtil.tipos[calendar_type].casas
+        else:
+            self.__type = calendar_type
         if isinstance(caller, gtk.Entry):
             self.__set_new_date = caller.set_text
             self.__old_date = caller.get_text()
@@ -393,38 +547,46 @@ class Calendar(PopupWindow):
             self.__set_new_date = caller.set_label
             self.__old_date = caller.get_label()
         self.connect("key-press-event", self.__key_press)
-        # If date didn't have a z number, use now
-        z = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-        if not self.__old_date or not sum(map(lambda x: x in z, self.__old_date)):
+        # If date is not valid, use now
+        if not self.__old_date or not re.sub('[^1-9]', '', self.__old_date):
             date = datetime.datetime.now()
             if self.__type == PoleUtil.HOLLERITH:
-                date = PoleUtil.convert_and_format(date, datetime.date, PoleUtil.MONTH)[1]
+                date = cf(date, datetime.date, PoleUtil.MONTH)[1]
         elif self.__type == PoleUtil.HOLLERITH:
             date = self.__old_date
         else:
-            date = PoleUtil.convert_and_format(self.__old_date, datetime.datetime, self.__type)[0]
+            date = cf(self.__old_date, self.__pole if self.__pole
+                      else datetime.datetime, self.__type)[0]
         self.__frame = gtk.Frame()
         self.add(self.__frame)
         self.__frame.set_shadow_type(gtk.SHADOW_IN)
         self.__vbox = gtk.VBox(spacing=5)
+        self.__vbox.set_border_width(5)
         self.__frame.add(self.__vbox)
-        self.__buttons = gtk.HButtonBox()
+        self.__buttons = gtk.Table()
+        # self.__buttons.set_row_spacings(5)
+        # self.__buttons.set_col_spacings(5)
         self.__ok = gtk.Button(stock='gtk-ok')
         self.__ok.child.child.get_children()[0].show()
         self.__arrow = gtk.Image()
         self.__arrow.set_from_stock('gtk-jump-to', gtk.ICON_SIZE_BUTTON)
-        self.__today = gtk.Button(label=(_('_Today'), _('_Now'))[self.__type in (1, 2)])
+        self.__today = gtk.Button(label=(_('_Now') if self.__type in (1, 2)
+                                         else _('_Today')))
         self.__today.set_image(self.__arrow)
         self.__today.child.child.get_children()[0].show()
         self.__cancel = gtk.Button(stock='gtk-cancel')
         self.__cancel.child.child.get_children()[0].show()
+        self.__clear = gtk.Button(stock='gtk-clear')
+        self.__clear.child.child.get_children()[0].show()
+        self.__clear.connect('clicked', self.__clear_return)
         self.__ok.connect('clicked', self.__change_date)
         self.__today.connect('clicked', self.__go_to_now)
         self.__today.connect('button-press-event', self.__double_click)
-        self.__cancel.connect('clicked', self.quit)
-        self.__buttons.pack_start(self.__ok)
-        self.__buttons.pack_start(self.__today)
-        self.__buttons.pack_start(self.__cancel)
+        self.__cancel.connect('clicked', self.quit, gtk.RESPONSE_CANCEL)
+        self.__buttons.attach(self.__today, 0, 1, 0, 1)
+        self.__buttons.attach(self.__clear, 1, 2, 0, 1)
+        self.__buttons.attach(self.__ok, 0, 1, 1, 2)
+        self.__buttons.attach(self.__cancel, 1, 2, 1, 2)
         if self.__type in (PoleUtil.MONTH, PoleUtil.HOLLERITH):
             self.__table = gtk.Table(homogeneous=True)
             toggle = None
@@ -436,14 +598,18 @@ class Calendar(PopupWindow):
                 toggle.connect('button-press-event', self.__double_click)
                 self.__table.attach(toggle, 0, 1, 4, 5)
             for i in range(12, 0, -1):
-                toggle = gtk.RadioButton(toggle, '%02i - %s' % (i, datetime.date(1900,  i, 1).strftime('%B').capitalize()))
+                toggle = gtk.RadioButton(toggle, '%02i - %s' % (
+                    i, datetime.date(1900,  i, 1).strftime('%B').capitalize()))
                 toggle.set_mode(False)
                 toggle.set_relief(gtk.RELIEF_NONE)
                 toggle.get_children()[0].set_alignment(0.0, 0.5)
                 toggle.connect('button-press-event', self.__double_click)
-                self.__table.attach(toggle, (i - 1) / 4, (i - 1) / 4 + 1, (i - 1) % 4, (i - 1) % 4 + 1)
-            month = int(date[:2]) if self.__type == PoleUtil.HOLLERITH else date.month
-            year = int(date[3:]) if self.__type == PoleUtil.HOLLERITH else date.year
+                self.__table.attach(toggle, (i - 1) / 4, (i - 1) / 4 + 1,
+                                    (i - 1) % 4, (i - 1) % 4 + 1)
+            month = (int(date[:2]) if self.__type == PoleUtil.HOLLERITH
+                     else date.month)
+            year = (int(date[3:]) if self.__type == PoleUtil.HOLLERITH
+                    else date.year)
             self.__table.get_children()[month - 1].set_active(True)
             self.__vbox.set_spacing(15)
             self.__vbox.pack_start(self.__table)
@@ -465,7 +631,8 @@ class Calendar(PopupWindow):
             self.__calendar = gtk.Calendar()
             self.__calendar.select_day(date.day)
             self.__calendar.select_month(date.month - 1, date.year)
-            self.__calendar.connect("day-selected-double-click", self.__change_date)
+            self.__calendar.connect("day-selected-double-click",
+                                    self.__change_date)
             self.__vbox.pack_start(self.__calendar, expand=False, fill=False)
         if self.__type == PoleUtil.DATE:
             self.__vbox.pack_start(self.__buttons, expand=False, fill=False)
@@ -475,7 +642,6 @@ class Calendar(PopupWindow):
             self.__vbox_time.pack_start(self.__hbox)
             self.__vbox_time.pack_start(self.__buttons)
             self.__vbox.pack_start(self.__vbox_time, expand=False, fill=False)
-            self.add(self.__vbox)
             self.__label = gtk.Label(_('Time:'))
             self.__label1 = gtk.Label(':')
             self.__label2 = gtk.Label(':')
@@ -495,25 +661,29 @@ class Calendar(PopupWindow):
             self.__hbox.pack_start(self.__minute, expand=False)
             self.__hbox.pack_start(self.__label2, expand=False)
             self.__hbox.pack_start(self.__second, expand=False)
-            self.__hour.get_adjustment().set_all(value=date.hour,
-                                                 lower=0,
+            self.__hour.get_adjustment().set_all(lower=0,
                                                  upper=23,
+                                                 value=23,
                                                  step_increment=1,
                                                  page_increment=5)
-            self.__minute.get_adjustment().set_all(value=date.minute,
-                                                   lower=0,
+            self.__hour.get_adjustment().set_all(value=date.hour)
+            self.__minute.get_adjustment().set_all(lower=0,
                                                    upper=59,
+                                                   value=59,
                                                    step_increment=1,
                                                    page_increment=5)
-            self.__second.get_adjustment().set_all(value=date.second,
-                                                   lower=0,
+            self.__minute.get_adjustment().set_all(value=date.minute)
+            self.__second.get_adjustment().set_all(lower=0,
                                                    upper=59,
+                                                   value=59,
                                                    step_increment=1,
                                                    page_increment=5)
+            self.__second.get_adjustment().set_all(value=date.second)
         self.__updated = False
 
     def run(self, position=None, center=False, transient_for=None):
-        super(Calendar, self).run(self.__caller, (-1, -1), position, center, transient_for)
+        super(Calendar, self).run(self.__caller, (-1, -1), position,
+                                  center, transient_for)
         return self.__updated
 
     def __double_click(self, *args):
@@ -552,12 +722,13 @@ class Calendar(PopupWindow):
                 return
             date = datetime.datetime(int(self.__year.get_value()), month, 1)
         else:
-            date = datetime.datetime(1900, 1, 1)
+            date = datetime.datetime(1, 1, 1)
         if self.__type in (PoleUtil.TIME, PoleUtil.DATE_TIME):
             date = date.replace(hour=int(self.__hour.get_value()),
                                 minute=int(self.__minute.get_value()),
                                 second=int(self.__second.get_value()))
-        new_date = PoleUtil.convert_and_format(date, datetime.datetime, self.__type)[1]
+        new_date = cf(date, self.__pole if self.__pole else datetime.datetime,
+                      self.__type)[1]
         self.__updated = self.__old_date != new_date
         if self.__updated:
             self.__set_new_date(new_date)
@@ -572,6 +743,10 @@ class Calendar(PopupWindow):
             self.quit()
         elif key in (gtk.keysyms.KP_Enter, gtk.keysyms.Return):
             self.__change_date()
+
+    def __clear_return(self, *args):
+        self.__updated = None
+        self.quit()
 
 
 class DateButton(gtk.Button, gtk.Buildable):
@@ -591,42 +766,62 @@ class DateButton(gtk.Button, gtk.Buildable):
         if configs is None or '|' not in configs:
             self.__default_date()
             return
-        configs = [c.replace('0x00', '|') for c in configs.replace('\|', '0x00').split('|', 1)]
+        configs = [c.replace('0x00', '|')
+                   for c in configs.replace('\\|', '0x00').split('|', 1)]
         self.set_tooltip_text(configs[0])
         self.config(configs[1])
 
     def config(self, configs):
-        types = {'DATE': PoleUtil.DATE, 'TIME': PoleUtil.TIME, 'DATE_TIME': PoleUtil.DATE_TIME, 'MONTH': PoleUtil.MONTH, 'HOURS': PoleUtil.HOURS, 'DAYS_HOURS': PoleUtil.DAYS_HOURS, 'HOLLERITH': PoleUtil.HOLLERITH}
+        if configs in (datetime.datetime, datetime.date,
+                       datetime.time, datetime.timedelta):
+            configs = {datetime.datetime: 'DATE_TIME',
+                       datetime.date: 'DATE', datetime.time: 'TIME',
+                       datetime.timedelta: 'DAYS_HOURS'}[configs]
+
+        types = {'DATE': PoleUtil.DATE, 'TIME': PoleUtil.TIME,
+                 'DATE_TIME': PoleUtil.DATE_TIME, 'MONTH': PoleUtil.MONTH,
+                 'HOURS': PoleUtil.HOURS, 'DAYS_HOURS': PoleUtil.DAYS_HOURS,
+                 'HOLLERITH': PoleUtil.HOLLERITH}
         if configs in types.values():
-            self.__default_date()
-            return
-        configs = [x.strip() for x in configs.split(',')]
-        for c in configs:
-            if c.upper() in types:
-                self.__type = types[c.upper()]
-            if c.lower() == 'select_then_tab':
-                self.__select_then_tab = True
+            self.__type = configs
+        else:
+            configs = [x.strip() for x in configs.split(',')]
+            for c in configs:
+                if c in PoleUtil.tipos:
+                    self.__type = PoleUtil.tipos[c].casas
+                elif c.isdigit() and int(c) in types.values():
+                    self.__type = int(c)
+                elif c.upper() in types:
+                    self.__type = types[c.upper()]
+                elif c.lower() == 'select_then_tab':
+                    self.__select_then_tab = True
+
         self.__default_date()
 
     def __default_date(self):
         # If date didn't have at least one of z number, use now
         z = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-        if not self.get_label() or not sum(map(lambda x: x in z, self.get_label())):
-            conv_type = self.__type if self.__type != PoleUtil.HOLLERITH else PoleUtil.MONTH
-            self.set_label(PoleUtil.convert_and_format(datetime.datetime.now(), datetime.date, conv_type)[1])
+        if (not self.get_label() or
+                not sum(map(lambda x: x in z, self.get_label()))):
+            conv_type = (self.__type if self.__type != PoleUtil.HOLLERITH
+                         else PoleUtil.MONTH)
+            self.set_label(cf(datetime.datetime.now(),
+                              datetime.date, conv_type)[1])
 
     def do_clicked(self, *args, **kargs):
         old = self.get_label()
         if self.__type != PoleUtil.HOLLERITH:
             try:
-                x = PoleUtil.convert_and_format(old, datetime.datetime, self.__type)[1]
+                x = cf(old, datetime.datetime, self.__type)[1]
             except ValueError:
-                x = PoleUtil.convert_and_format(datetime.datetime.now(), datetime.datetime, self.__type)[1]
+                x = cf(datetime.datetime.now(),
+                       datetime.datetime, self.__type)[1]
             self.set_label(x)
         changed = Calendar(self, self.__type).run()
-        self.updated = (self.__type != PoleUtil.HOLLERITH and old != x) or changed
+        self.updated = (self.__type != PoleUtil.HOLLERITH and
+                        old != x) or changed
         if self.__select_then_tab:
-            self.__timer = gobject.timeout_add(500, self.__emit_tab)
+            self.__timer = gobject.timeout_add(1, self.__emit_tab)
         # super(DateButton, self).do_clicked(self, *args, **kargs)
 
     def __emit_tab(self):
@@ -676,11 +871,14 @@ class GridRow(object):
 
     def __getitem__(self, index):
         if isinstance(index, slice):
-            index = index.indices(len(self.__grid._Grid__titles) + 2 * self.__with_colors)
-            return (tuple([self.__line[0][i] for i in range(*index)]), tuple([self.__line[1][i] for i in range(*index)]))
+            index = index.indices(len(self.__grid._Grid__titles) +
+                                  2 * self.__with_colors)
+            return (tuple([self.__line[0][i] for i in range(*index)]),
+                    tuple([self.__line[1][i] for i in range(*index)]))
         if type(index) == str:
             if index not in self.__grid._Grid__titles:
-                raise ValueError(_('Invalid or not found column name `' + index + '´.'))
+                raise ValueError(_('Invalid or not found column name `%s´.'
+                                   ) % index)
             index = self.__grid._Grid__titles.index(index)
         return [self.__line[0][index], self.__line[1][index]]
 
@@ -689,27 +887,36 @@ class GridRow(object):
         types = self.__grid._Grid__types
         if type(index) == str:
             if index not in self.__grid._Grid__titles:
-                raise ValueError(_('Invalid or not found column name `' + index + '´.'))
+                raise ValueError(_('Invalid or not found column name `%s´.'
+                                   ) % index)
             index = self.__grid._Grid__titles.index(index)
         if type(index) in (int, long):
             column = self.__grid._Grid__model_pos[index]
             try:
-                formated = PoleUtil.convert_and_format(value, types[index], self.__grid._Grid__decimals[index])
+                formated = self.__grid._Grid__formats[index]
+                formated = cf(value, formated if formated else types[index],
+                              self.__grid._Grid__decimals[index])
             except ValueError or TypeError:
                 PoleLog.log_except()
-                message(self.__grid, _("This value could not be converted or formatted.\n\nThis value is ignored and the previous value will not change."))
+                message(self.__grid, _("This value could not be"
+                                       " converted or formatted.\n\n"
+                                       "This value is ignored and the"
+                                       " previous value will not change."))
                 return
             line = model[self.__path]
-            if types[index] in (datetime.time, datetime.datetime):
-                formated[0] = PoleUtil.convert_and_format(formated[0], float)[0]
+            if types[index] in (datetime.time, datetime.datetime,
+                                datetime.timedelta):
+                formated[0] = cf(formated[0], float)[0]
             elif types[index] == datetime.date:
-                formated[0] = PoleUtil.convert_and_format(formated[0], int)[0]
-            if types[index] in (int, float, long, datetime.date, datetime.time, datetime.datetime):
+                formated[0] = cf(formated[0], int)[0]
+            if types[index] in (int, float, long, datetime.date, datetime.time,
+                                datetime.datetime, datetime.timedelta):
                 line[column], line[column + 1] = formated
             elif types[index] == bool:
                 line[column] = formated[0]
             else:
                 line[column] = formated[1]
+            self.__line[0][index], self.__line[1][index] = formated
         else:
             raise TypeError(_('Invalid type of column index or name `' +
                               type(index) + '´.'))
@@ -719,6 +926,90 @@ class GridRow(object):
 
     def is_expanded(self):
         return self.__grid.row_expanded(self.__path)
+
+
+class ComboBoxEntryCompletion(gtk.ComboBoxEntry, gtk.Buildable):
+    __gtype_name__ = 'ComboBoxEntryCompletion'
+
+    def __init__(self, *args, **kargs):
+        super(ComboBoxEntryCompletion, self).__init__(*args, **kargs)
+        self.__completion = gtk.EntryCompletion()
+        self.__completion.set_model(self.get_model())
+        self.__completion.set_minimum_key_length(1)
+        self.__completion.set_text_column(0)
+        self.__completion.set_match_func(self.match_func)
+        self.__completion.connect('match-selected', self.on_match_selected)
+
+    def do_parser_finished(self, builder):
+        self.child.set_completion(self.__completion)
+        self.__completion.set_model(self.get_model())
+
+    def config(self, configs):
+        configs = [x.strip() for x in configs.split(',')]
+        self.__enter_to_tab = "enter_to_tab" in [x.lower() for x in configs]
+
+        # Creating or using float type from PoleUtil.tipos
+        if "float" in [x[:5] for x in configs]:
+            try:
+                decimals = int([x[5:] for x in configs if x[:5] == "float"][0])
+            except Exception:
+                decimals = PoleUtil.local['frac_digits']
+            pole_type = 'float' + str(decimals)
+            if pole_type not in PoleUtil.tipos:
+                fs = '0.' + '0' * decimals
+                PoleUtil.tipos[pole_type] = PoleUtil.T(
+                    6, 14, decimals, False,
+                    PoleUtil.cs["números"] + PoleUtil.dp + '+-',
+                    "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+        # Else search for type in PoleUtil.tipos
+        else:
+            pole_type = None
+            for config in configs:
+                if config in PoleUtil.tipos:
+                    pole_type = config
+                    break
+
+        if pole_type:
+            type_info = PoleUtil.tipos[pole_type]
+            ptype = PoleUtil.python_tipos[type_info[0]]
+            if ptype == str:
+                mask = [m for m in type_info[5].split(' ') if len(m) > 0]
+                self.__upper = "upper" in mask
+                self.__lower = "lower" in mask
+                self.__normalize = "normalize" in mask
+                self.__limits = [(m[0], m[1], int(m[2:]))
+                                 for m in mask if '>' in m or '<' in m]
+            self.__characters = type_info[4]
+            if '-' in self.__characters:
+                self.__characters = re.sub('-', '', self.__characters) + '-'
+        else:
+            self.__upper = "upper" in configs
+            self.__lower = "lower" in configs
+            self.__normalize = "normalize" in configs
+            self.__limits = None
+            self.__characters = None
+        self.__pole_type = pole_type
+
+    def set_model(self, model):
+        super(ComboBoxEntryCompletion, self).set_model(model)
+        self.__completion.set_model(model)
+
+    def match_func(self, completion, key, iter, column=0):
+        key = PoleUtil.formatar(key, "Livre Mai").replace(' ', '.*')
+        model = completion.get_model()
+        text = PoleUtil.formatar(model.get_value(iter, column), "Livre Mai")
+        return re.search(key, text)
+
+    def on_match_selected(self, completion, model, iter):
+        text = model.get_value(iter, 0)
+        self.set_active_text(text)
+
+    def set_active_text(self, text, column=0):
+        set_active_text(self, text, column, self.__pole_type)
+
+    def get_active_text(self, column=0):
+        return get_active_text(self, column, self.__pole_type,
+                               self.__upper, self.__lower, self.__normalize)
 
 
 class ComboBoxCompletion(gtk.ComboBox, gtk.Buildable):
@@ -769,74 +1060,81 @@ class Editor(gtk.Entry, gtk.Buildable):
         self.__upper = False
         self.__lower = False
         self.__normalize = False
-        self.__float = False
-        self.__decimals = PoleUtil.locale.localeconv()['frac_digits']
-        self.__int = False
-        self.__num = False
         self.__old_text = ''
         self.__characters = None
-        self.__max_length = -1
+        self.__max_length = 0
         self.__pole_type = None
         self.__limits = []
+        self.__insert = False
 
     def do_parser_finished(self, builder):
         configs = self.get_tooltip_text()
         if configs is None or '|' not in configs:
             return
-        configs = [c.replace('0x00', '|') for c in configs.replace('\|', '0x00').split('|', 1)]
+        configs = [c.replace('0x00', '|')
+                   for c in configs.replace('\\|', '0x00').split('|', 1)]
         self.set_tooltip_text(configs[0])
         self.config(configs[1])
 
     def config(self, configs):
         configs = [x.strip() for x in configs.split(',')]
         self.__enter_to_tab = "enter_to_tab" in [x.lower() for x in configs]
-        pole_type = None
-        for config in configs:
-            # print config, config in PoleUtil.tipos
-            if config in PoleUtil.tipos:
-                pole_type = config
-                break
+
+        # Creating or using float type from PoleUtil.tipos
+        if "float" in [x[:5] for x in configs]:
+            try:
+                decimals = int([x[5:] for x in configs if x[:5] == "float"][0])
+            except Exception:
+                decimals = PoleUtil.local['frac_digits']
+            pole_type = 'float' + str(decimals)
+            if pole_type not in PoleUtil.tipos:
+                fs = '0.' + '0' * decimals
+                PoleUtil.tipos[pole_type] = PoleUtil.T(
+                    6, 14, decimals, False,
+                    PoleUtil.cs["números"] + PoleUtil.dp + '+-',
+                    "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+        # Else search for type in PoleUtil.tipos
+        else:
+            pole_type = None
+            for config in configs:
+                if config in PoleUtil.tipos:
+                    pole_type = config
+                    break
+
         if pole_type:
-            type_info = PoleUtil.tipos[config]
-            ptype = PoleUtil.python_tipo[type_info[0]]
-            mask = [m for m in type_info[5].split(' ') if len(m) > 0]
-            if ptype == str:
+            type_info = PoleUtil.tipos[pole_type]
+            ptype = PoleUtil.python_tipos[type_info[0]]
+            if ptype == str and not PoleUtil.tipos[pole_type].combo:
+                mask = [m for m in type_info[5].split(' ') if len(m) > 0]
                 self.__upper = "upper" in mask
                 self.__lower = "lower" in mask
                 self.__normalize = "normalize" in mask
-                self.__limits = [(m[0], m[1], int(m[2:])) for m in mask if '>' in m or '<' in m]
-            elif ptype in [int, long]:
-                self.__int = True
-            elif ptype == float:
-                self.__float = True
+                self.__limits = [(m[0], m[1], int(m[2:]))
+                                 for m in mask if '>' in m or '<' in m]
+            else:
+                self.__upper = "upper" in configs
+                self.__lower = "lower" in configs
+                self.__normalize = "normalize" in configs
+                self.__limits = []
             self.__pole_type = pole_type
-            self.__decimals = type_info[2]
             self.__characters = type_info[4]
-            self.__max_length = type_info[1]
-            if self.get_max_length() == self.__max_length:
-                self.set_max_length(0)
+            if '-' in self.__characters:
+                self.__characters = re.sub('-', '', self.__characters) + '-'
+            # self.__max_length = type_info[1]
+            # if self.get_max_length() == self.__max_length:
+            #     self.set_max_length(0)
+            self.__max_length = self.get_max_length()  # max len from layout
+            self.set_max_length(0)  # no max len for formated
             # self.set_width_chars(type_info[1]) # Depends on layout
             self.set_alignment(type_info[8])
         else:
             self.__upper = "upper" in configs
             self.__lower = "lower" in configs
             self.__normalize = "normalize" in configs
-            self.__float = "float" in [x[:5] for x in configs]
-            if self.__float:
-                try:
-                    self.__decimals = int([x[5:] for x in configs if x[:5] == "float"][0])
-                except Exception:
-                    self.__decimals = PoleUtil.locale.localeconv()['frac_digits']
-            else:
-                self.__decimals = 0
-            self.__int = "int" in configs
-            self.__num = "num" in configs
-        if self.__int or self.__float or self.__num:
-            self.set_alignment(1)
 
     def do_key_press_event(self, event):
-        # print self, event
-        if self.__enter_to_tab and event.keyval in (gtk.keysyms.Return, gtk.keysyms.KP_Enter):
+        if self.__enter_to_tab and event.keyval in (gtk.keysyms.Return,
+                                                    gtk.keysyms.KP_Enter):
             event.keyval = gtk.keysyms.Tab
             # Hardware key code
             keymap = gtk.gdk.keymap_get_default()
@@ -846,57 +1144,68 @@ class Editor(gtk.Entry, gtk.Buildable):
             event.state = level
         else:
             # super(Editor, self).do_key_press_event(self, event)
+            self.__insert = (
+                event.keyval in (gtk.keysyms.v, gtk.keysyms.V)
+                and (event.state & gtk.keysyms.Control_L
+                     or event.state & gtk.keysyms.Control_R)
+                or event.keyval == gtk.keysyms.Insert
+                and (event.state & gtk.keysyms.Shift_L
+                     or event.state & gtk.keysyms.Shift_R))
+
             gtk.Entry.do_key_press_event(self, event)
             return (event.keyval in (gtk.keysyms.Right, gtk.keysyms.Left))
 
     def do_changed(self, *args, **kargs):
-        # print "do_changed", self, args, kargs
-        # print self.__formating, self.get_text(), self.has_focus()
         if self.__formating or self.get_text() == '' or not self.has_focus():
             return
         pos = self.get_position()
         text = self.get_text().decode('utf-8')
-        # print text, self.__int, self.__num, self.__float
         size = len(text)
-        if self.__int or self.__num:
-            text = re.sub('[^0-9]', '', text)
-        elif self.__float:
-            decimal = PoleUtil.locale.localeconv()['decimal_point']
-            text = decimal.join(re.sub('[^0-9]', '', t)
-                                for t in text.split(decimal, 1))
-        else:
-            if self.__normalize:
-                text = unicodedata.normalize('NFKD', text).encode('ascii',
-                                                                  'ignore')
-            if self.__upper:
-                text = text.upper()
-            elif self.__lower:
-                text = text.lower()
+
+        if self.__normalize:
+            text = unicodedata.normalize('NFKD',
+                                         text).encode('ascii', 'ignore')
+        if self.__upper:
+            text = text.upper()
+        elif self.__lower:
+            text = text.lower()
+
+        if self.__pole_type:
+            pole_type = PoleUtil.tipos[self.__pole_type][0]
+            c = text[pos if pos < size else pos - 1]
+            if c == PoleUtil.dp and pole_type == 6:  # decimal point & float
+                text = (text[:pos].replace(c, '') +
+                        c + text[pos + 1:].replace(c, ''))
             if self.__characters:
-                text = ''.join([c for c in text if c in self.__characters])
+                text = re.sub('[^' + self.__characters + ']', '', text)
+            if PoleUtil.tipos[self.__pole_type][0] in (3, 6):  # int or float
+                s = 1 if text[0:1] in ('+', '-') else 0
+                if '-' in text[s:] or '+' in text[s:]:
+                    i = min(x for x in (text[s:].find('+'), text[s:].find('-'))
+                            if x > -1) + s
+                    text = text[i] + text[s:i] + text[i + 1:]
+            if PoleUtil.dp in text and pole_type == 6:  # decimal point & float
+                i = text.index(PoleUtil.dp)
+                text = text[:i + 1] + text[i + 1:].replace(PoleUtil.dp, '')
+
+        elif self.__characters:
+            text = re.sub('[^' + self.__characters + ']', '', text)
+
         self.__formating = True
         self.set_text(text)
-        # print pos, size, len(text), text
-        self.set_position(pos - (size - len(text)))
-        # while gtk.events_pending():
-        #    gtk.main_iteration()
+        if len(text) != size:
+            glib.timeout_add(1, self.set_position, pos - (size - len(text)) + (not self.__insert))
         self.__formating = False
 
     def do_focus_out_event(self, *args, **kargs):
-        # print "do_focus_out_event", self, args, kargs
-        # print self.get_text(), self.__int, self.__float, self.__pole_type
         if self.get_text() == '':
             # super(Editor, self).do_focus_out_event(self, *args, **kargs)
             gtk.Entry.do_focus_out_event(self, *args, **kargs)
             return
         self.__formating = True
-        if self.get_max_length() == self.__max_length:
-            self.set_max_length(0)
-        if self.__int:
-            self.set_text(cf(self.get_text(), int)[1])
-        elif self.__float:
-            self.set_text(cf(self.get_text(), float, self.__decimals)[1])
-        elif self.__pole_type:
+        # if self.get_max_length() == self.__max_length:
+        self.set_max_length(0)
+        if self.__pole_type:
             self.set_text(PoleUtil.formatar(self.get_text(), self.__pole_type))
         self.__formating = False
         # super(Editor, self).do_focus_out_event(*args, **kargs)
@@ -907,8 +1216,8 @@ class Editor(gtk.Entry, gtk.Buildable):
         self.__formating = False
         self.do_changed()
         # super(Editor, self).do_focus_in_event(self, *args, **kargs)
-        if self.get_max_length() == 0:
-            self.set_max_length(self.__max_length)
+        # if self.get_max_length() == 0:
+        self.set_max_length(self.__max_length)
         gtk.Entry.do_focus_in_event(self, *args, **kargs)
 
 
@@ -920,6 +1229,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
         super(Grid, self).__init__(*args)
         # self.set_rules_hint(True)
         # self.set_grid_lines(gtk.TREE_VIEW_GRID_LINES_BOTH)
+        self.set_show_expanders(False)
+        self.__updating = False
 
         self.__titles = []
         self.__types = []
@@ -934,6 +1245,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
 
         self.__model_types = []
 
+        self.__crud = None
         self.edit_callback = None
         self.set_search_equal_func(self.search_func)
         self.connect('button-press-event', self.cell_clicked)
@@ -944,13 +1256,17 @@ class Grid(gtk.TreeView, gtk.Buildable):
 
     def do_parser_finished(self, builder):
         configs = self.get_tooltip_text()
+
         if configs is None or '|' not in configs:
             return
         configs = [c.replace('0x00', '|')
-                   for c in configs.replace('\|', '0x00').split('|')]
-        # self.set_tooltip_text((configs[0], ' ')[configs[0] == ""])
+                   for c in configs.replace('\\|', '0x00').split('|', 1)]
         self.set_tooltip_text(configs[0])
-        configs = [[x.strip() for x in i.split(',')] for i in configs[1:]]
+        self.config(configs[1])
+
+    def config(self, configs):
+        configs = [[x.strip() for x in i.split(',')]
+                   for i in configs.split('|')]
         if configs[0][0].strip()[:10] == 'wrap-width':
             self.__wrap_width = int(configs[0][0].split('=')[1].strip())
             configs = configs[1:]
@@ -972,12 +1288,6 @@ class Grid(gtk.TreeView, gtk.Buildable):
             titles.append(column[0])
             if column[1] == 'bool':
                 types.append(bool)
-            elif column[1] == 'int':
-                types.append(int)
-            elif column[1] == 'long':
-                types.append(long)
-            elif column[1] == 'float':
-                types.append(float)
             elif column[1] == 'str':
                 types.append(str)
             elif column[1] == 'date':
@@ -1020,17 +1330,28 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 else:
                     decimals.append(PoleUtil.HOURS)
             elif column[1] in PoleUtil.tipos:
-                type_info = PoleUtil.tipos[column[1]]
-                types.append(PoleUtil.python_tipo[type_info[0]])
+                if (column[1] == 'float' and len(column) > 2
+                        and column[2].isdigit()):
+                    _decimals = int(column[2])
+                    pole_type = 'float' + str(_decimals)
+                    if pole_type not in PoleUtil.tipos:
+                        fs = '0.' + '0' * _decimals
+                        PoleUtil.tipos[pole_type] = PoleUtil.T(
+                            6, 14, _decimals, False,
+                            PoleUtil.cs["números"] + PoleUtil.dp + '+-',
+                            "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+                else:
+                    pole_type = column[1]
+                type_info = PoleUtil.tipos[pole_type]
+                types.append(PoleUtil.python_tipos[type_info[0]])
                 decimals.append(type_info[2])
                 sizes.append(type_info[1])
-                formats.append(column[1])
+                formats.append(pole_type)
             else:
                 raise TypeError(_('Invalid type `%s´. Expected int, long, bool, float, str, datetime, date, time, month or hours.') % (column[1],))
             if column[1] not in PoleUtil.tipos:
                 sizes.append(None)
                 formats.append(None)
-            c = 2
 
             if len(column) > 2:
                 if column[2].isdigit():
@@ -1038,7 +1359,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
                         decimals.append(int(column[2]))
                 elif column[2] == 'edit':
                     if column[1] not in ('date', 'time', 'datetime', 'month', 'hours') + tuple(PoleUtil.tipos):
-                        decimals.append(PoleUtil.locale.localeconv()['frac_digits'])
+                        decimals.append(PoleUtil.local['frac_digits'])
                     editables.append(True)
                 elif column[2] not in ('DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS', 'DAYS_HOURS'):
                     raise ValueError(_("Invalid value for decimals ou editable `%s´. Expected digits, 'DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS' or 'DAYS_HOURS' for decimals or 'edit' for editable.") % (column[2],))
@@ -1053,13 +1374,13 @@ class Grid(gtk.TreeView, gtk.Buildable):
                     editables.append(False)
             else:
                 if column[1] not in ('date', 'time', 'datetime', 'month', 'hours') + tuple(PoleUtil.tipos):
-                    decimals.append(PoleUtil.locale.localeconv()['frac_digits'])
+                    decimals.append(PoleUtil.local['frac_digits'])
                 editables.append(False)
         self.structure(titles, types, decimals, editables, with_colors, sizes, formats)
 
     def structure(self, titles, types, decimals=None, editables=None, with_colors=False, sizes=None, formats=None, foreing_data=None):
         if not decimals:
-            decimals = [PoleUtil.locale.localeconv()['frac_digits']] * len(titles)
+            decimals = [PoleUtil.local['frac_digits']] * len(titles)
         if not editables:
             editables = [False] * len(titles)
         if not len(titles) == len(types) == len(decimals) == len(editables):
@@ -1105,16 +1426,16 @@ class Grid(gtk.TreeView, gtk.Buildable):
         self.__model_pos = []
         for title, t, editable in zip(titles, types, editables):
             self.__model_pos.append(model_pos)
-            l = gtk.Label(title.decode('string_escape'))
-            l.show()
+            lb = gtk.Label(title.decode('string_escape'))
+            lb.show()
             column = gtk.TreeViewColumn()
-            column.set_widget(l)
+            column.set_widget(lb)
             column.set_resizable(True)
             self.append_column(column)
             if t == bool:
                 cell = gtk.CellRendererToggle()
                 cell.set_property('activatable', editable)
-                cell.connect('toggled', self.__editable_callback, len(self.__model_pos) - 1)
+                cell.connect('toggled', self.__editable_callback, None, len(self.__model_pos) - 1)
                 cell.set_property("xalign", .5)
                 column.pack_start(cell)
                 column.set_property("alignment", .5)
@@ -1128,13 +1449,13 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 cell.connect('edited', self.__editable_callback, len(self.__model_pos) - 1)
                 cell.connect('editing-started', self.__start_editing_callback, len(self.__model_pos) - 1)
                 column.pack_start(cell)
-                column.add_attribute(cell, "text", model_pos + (t in (int, long, float, datetime.date, datetime.time, datetime.datetime)))
+                column.add_attribute(cell, "text", model_pos + (t in (int, long, float, datetime.date, datetime.time, datetime.datetime, datetime.timedelta)))
             column.set_sort_column_id(model_pos)
             if t in (int, long, float):
                 cell.set_property("xalign", 1.)
                 column.set_property("alignment", 1.)
                 model_pos += 1
-            elif t in (datetime.date, datetime.time, datetime.datetime):
+            elif t in (datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
                 cell.set_property("xalign", .5)
                 column.set_property("alignment", .5)
                 model_pos += 1
@@ -1150,27 +1471,45 @@ class Grid(gtk.TreeView, gtk.Buildable):
         column.pack_start(cell)
         if with_colors:
             if t != bool:
-                column.add_attribute(cell, "foreground", len(self.__model_types) - 2)
-            column.add_attribute(cell, "cell-background", len(self.__model_types) - 1)
+                column.add_attribute(cell, "foreground",
+                                     len(self.__model_types) - 2)
+            column.add_attribute(cell, "cell-background",
+                                 len(self.__model_types) - 1)
         self.append_column(column)
 
     def get_structure(self):
-        return (self.__titles, self.__types, self.__decimals, self.__editables, self.__with_colors, self.__sizes, self.__formats, self.__foreing_data)
+        return (self.__titles, self.__types, self.__decimals, self.__editables,
+                self.__with_colors, self.__sizes, self.__formats,
+                self.__foreing_data)
 
-    def __editable_callback(self, renderer, path, *args):
+    @try_function
+    def __editable_callback(self, renderer, path, result, column):
+        if self[path][column][1] == result:
+            return
+        path_cursor = self.get_cursor()[0]
+        if path_cursor:
+            path_cursor = ':'.join(str(i) for i in path_cursor)
+        if path != path_cursor:
+            return
         if isinstance(renderer, gtk.CellRendererToggle):
-            column = args[0]
-            original = self[path][column][0]
-            result = not original
-        else:
-            result = args[0]
-            column = args[1]
-            original = self[path][column][0]
+            result = not self[path][column][0]
         if self.edit_callback is not None:
-            result = self.edit_callback(result, self, path, column, self.__titles[:], self.__types[:], self.__decimals[:], self.__with_colors)
+            result = self.edit_callback(result, self, path, column,
+                                        self.__titles[:], self.__types[:],
+                                        self.__decimals[:], self.__with_colors)
+        elif self.__crud:
+            result = self.crud_update({self.__fields[column]:
+                                       None if result is None or result == ''
+                                       else cf(result, self.__formats[column]
+                                               if self.__formats[column]
+                                               else self.__types[column],
+                                               self.__decimals[column])[0]})
         if result is not None:
             self[path][column] = result
-        return False
+        pos = self.get_cursor()
+        if not pos[0]:
+            pos = (path, pos[1])
+        self.set_cursor_on_cell(*pos)
 
     def __finish_editing(self, editor, event, popup):
         key = event.keyval
@@ -1181,63 +1520,119 @@ class Grid(gtk.TreeView, gtk.Buildable):
             popup.quit()
 
     def __start_editing_callback(self, renderer, editable, path, column):
-        # print '__start_editing_callback'
-        # print 'renderer:', renderer
-        # print 'editable:', editable
-        # print 'path:', path
-        # print 'column:', column
-        # print 'gtk.Entry:', isinstance(editable, gtk.Entry)
-        # print 'gtk.ComboBox:', isinstance(editable, gtk.ComboBox)
-        # print '-' * 100
-
+        self.set_cursor_on_cell(*self.get_cursor())
         x, y = self.get_bin_window().get_origin()
         area = self.get_cell_area(path, self.get_column(column))
         size = (area[2], area[3])
         self.__old_editing_text = new = editable.props.text
-        if self.__types[column] in (datetime.date, datetime.datetime, datetime.time):
+        tx = self.__formats[column]
+        if self.__types[column] in (datetime.date, datetime.datetime,
+                                    datetime.time, datetime.timedelta):
             position = (x + area[0], y + area[1] + area[3])
-            c = Calendar(editable, self.__decimals[column])
-            if c.run(position, transient_for=self):
-                new = cf(editable.props.text, self.__types[column], self.__decimals[column])[1]
+            c = Calendar(editable, tx if tx else self.__decimals[column])
+            r = c.run(position, transient_for=self)
+            if r is None:
+                new = ''
+            elif r:
+                new = editable.props.text
+            c.destroy()
         else:
             position = (x + area[0], y + area[1])
             p = PopupWindow()
-            e = Editor()
-            e.connect('key-press-event', self.__finish_editing, p)
-            tx = self.__formats[column]
-            if tx:
-                e.config(tx)
-                # e.set_max_length(self.__sizes[column])
-            elif self.__types[column] in (int, long):
-                e.config("int")
-            elif self.__types[column] == float:
-                e.config("float" + str(self.__decimals[column]))
+            if (self.__crud and self.__joins and
+                    self.__fields[column].lower() in self.__joins.lower()):
+                area2 = self.get_cell_area(path, self.get_column(column + 1))
+                size = (area[2] + area2[2] + 5, area[3])
+                model = gtk.ListStore(str, self.__types[column])
+                e = ComboBoxEntryCompletion(model)
+                e.do_parser_finished(None)
+                join = re.split(' *(?:(?:inner|left|right) +){0,1}join ',
+                                re.sub(r'\s+', ' ', self.__joins.strip()),
+                                flags=re.I)[1:]
+                join = filter(lambda x: self.__fields[column].lower()
+                              in x.lower(), join)[0]
+                tab, where = re.split(' on ', join, flags=re.I)
+                key = filter(lambda x: x, re.findall(
+                    '([^ ]*) *= *{field}|{field} *= *([^ ]*)'.format(
+                        field=self.__fields[column]),
+                    where, flags=re.I)[0])[0]
+                where = re.sub('[^ ]* *[^ ]* *= *{field} *[^ ]* *|[^ ]* *'
+                               '{field} *= *[^ ]* *[^ ]* *'.format(
+                                    field=self.__fields[column]), '',
+                               where, flags=re.I)
+                where = ' where ' + where if where else ''
+                descr = key + " || ' - ' || " + self.__fields[column + 1]
+                sql = ("select {descr}, {key} from {tab}{where} order by 2".
+                       format(key=key, descr=descr, tab=tab, where=where))
+                cursor = self.__crud.cursor()
+                cursor.execute(sql)
+                gobject.timeout_add(1, load_store, e, cursor)
+                e.child.connect('key-press-event', self.__finish_editing, p)
+            elif tx and PoleUtil.tipos[tx].combo:
+                size = (size[0], size[1] + 5)
+                model = gtk.ListStore(str, self.__types[column])
+                for opc in PoleUtil.tipos[tx].mascara[1:]:
+                    model.append(((opc[0] + ' - ' + opc[1] if len(opc) > 1
+                                   else opc[0]), opc[0]))
+                e = gtk.ComboBox(model)
+                cell = gtk.CellRendererText()
+                e.pack_start(cell, True)
+                e.add_attribute(cell, 'text', 0)
+                gobject.idle_add(e.popup)
+            else:
+                e = Editor()
+                e.connect('key-press-event', self.__finish_editing, p)
+            if not tx or not PoleUtil.tipos[tx].combo:
+                if tx:
+                    e.config(tx)
+                    # e.set_max_length(self.__sizes[column])
+                elif self.__types[column] in (int, long):
+                    e.config("int")
+                elif self.__types[column] == float:
+                    e.config("float" + str(self.__decimals[column]))
             # else:
             #    e.config("upper,normalize")
-            e.set_has_frame(False)
+            e.props.has_frame = False
             e.show()
             p.add(e)
-            e.props.text = self.__old_editing_text
+            if isinstance(e, Editor):
+                e.props.text = self.__old_editing_text
+            else:
+                old = cf(self.__old_editing_text,
+                         tx if tx else self.__types[column],
+                         self.__decimals[column])[0]
+                if isinstance(e, ComboBoxEntryCompletion):
+                    gobject.timeout_add(2, e.set_active_text, old, 1)
+                else:
+                    set_active_text(e, old, 1)
 
             # Out click do cancel
             # if p.run(self, size, position):
-            #    new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
+            #    new = cf(e.props.text, self.__types[column],
+            #             self.__decimals[column])[1]
 
             # Out click do not cancel
             p.run(self, size, position)
+            text = (e.props.text if isinstance(e, Editor) else
+                    e.get_active_text(1) if isinstance(e, ComboBoxCompletion)
+                    else get_active_text(e, 1))
             if tx:
-                new = cf(e.props.text, tx)[1]
+                new = cf(text, tx)[1]
             else:
-                new = cf(e.props.text, self.__types[column], self.__decimals[column])[1]
+                new = cf(text, self.__types[column],
+                         self.__decimals[column])[1]
+            p.destroy()
 
-        # print new, old, new != old
+        # Need out of this function to finish editing mode
+        glib.timeout_add(1, self.__remove_editable, editable, new)
+
+    def __remove_editable(self, editable, new):
         if new != self.__old_editing_text:
-            # print 'editing_done'
             editable.set_text(new)
-            editable.editing_done()
+        editable.editing_done()
         editable.remove_widget()
         editable.destroy()
-        return False
+        self.grab_focus()
 
     def clear(self):
         model = self.get_model()
@@ -1246,23 +1641,31 @@ class Grid(gtk.TreeView, gtk.Buildable):
             return
         raise ValueError(_('No columns structure defined.'))
 
-    def add_data(self, data, to_path_or_iter=None, with_child=False):
+    def add_data(self, data, into_path_or_iter=None,
+                 with_child=False, model=None,
+                 position=None, before=None, after=None):
         if data in (None, [], [[]], ''):
-            return to_path_or_iter
-        model = self.get_model()
+            return into_path_or_iter
+        if model is None:
+            model = self.get_model()
         if not model:
             raise ValueError(_('No columns structure defined.'))
-        if to_path_or_iter is not None:
-            if type(to_path_or_iter) in (str, int, long):
-                iter = model.get_iter_from_string(str(to_path_or_iter))
-            elif type(to_path_or_iter) in (tuple, list):
-                iter = model.get_iter(tuple(to_path_or_iter))
-            elif isinstance(to_path_or_iter, gtk.TreeIter):
-                iter = to_path_or_iter
+        if into_path_or_iter is not None:
+            self.set_show_expanders(True)
+            if type(into_path_or_iter) in (str, int, long):
+                iter = model.get_iter_from_string(str(into_path_or_iter))
+            elif type(into_path_or_iter) in (tuple, list):
+                iter = model.get_iter(tuple(into_path_or_iter))
+            elif isinstance(into_path_or_iter, gtk.TreeIter):
+                iter = into_path_or_iter
             else:
-                raise TypeError(_('Type `' + str(type(to_path_or_iter)).split("'")[1] + '´of path is not valid. Expected str, int, long, tuple, list (path) or gtk.TreeIter.'))
+                raise TypeError(_('Type `' + str(type(into_path_or_iter)).
+                                  split("'")[1] + '´of path is not valid.'
+                                  ' Expected str, int, long, tuple,'
+                                  ' list (path) or gtk.TreeIter.'))
             if not model.iter_is_valid(iter):
-                raise ValueError(_('Path or iter is not valid for this model.'))
+                raise ValueError(_('Path or iter is'
+                                   ' not valid for this model.'))
         else:
             iter = None
         # Inserting a line
@@ -1278,46 +1681,64 @@ class Grid(gtk.TreeView, gtk.Buildable):
         for register in data:
             formated = []
             for t, tx, decimals, field in zip(self.__types, self.__formats, self.__decimals, register):
-                if t in (int, long, float, datetime.date, datetime.time, datetime.datetime):
+                if t in (int, long, float, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
                     try:
-                        f = PoleUtil.convert_and_format(field, tx if tx else t, decimals)
-                        if t in (datetime.time, datetime.datetime):
-                            f[0] = PoleUtil.convert_and_format(f[0], float)[0]
+                        f = cf(field, tx if tx else t, decimals)
+                        if t in (datetime.time, datetime.datetime, datetime.timedelta):
+                            f[0] = cf(f[0], float)[0]
                         elif t == datetime.date:
-                            f[0] = PoleUtil.convert_and_format(f[0], int)[0]
+                            f[0] = cf(f[0], int)[0]
                         formated += f
                     except ValueError or TypeError:
                         PoleLog.log_except()
                         if t in (int, long, float):
                             formated += [t(0), field]
                         else:
-                            formated += [t(1900, 1, 1), field]
+                            formated += [0, field]
                         error = True
                 elif t == bool:
                     try:
-                        formated.append(PoleUtil.convert_and_format(field, tx if tx else t)[0])
+                        formated.append(cf(field, tx if tx else t)[0])
                     except ValueError or TypeError:
                         PoleLog.log_except()
                         formated.append(False)
                         error = True
-                elif t == str and type(field) in (datetime.date, datetime.datetime):
+                elif t == str and type(field) in (datetime.date, datetime.datetime, datetime.time, datetime.timedelta):
                     try:
-                        formated.append(PoleUtil.convert_and_format(field, tx if tx else t)[1])
+                        formated.append(cf(field, tx if tx else t)[1])
                     except (ValueError, TypeError):
                         PoleLog.log_except()
                         formated.append(_('Error!'))
                         error = True
                 else:
-                    formated.append(PoleUtil.convert_and_format(field, tx if tx else t)[1])
+                    formated.append(cf(field, tx if tx else t)[1])
             if self.__with_colors:
                 formated += register[-2:]
 
             # self.freeze_child_notify()
             # self.set_model(None)
 
-            last_iter = model.append(iter, formated)
+            # new_model = gtk.TreeStore(*[m.get_column_type(i)
+            #                             for i in range(m.get_n_columns())])
+            order_by = model.get_sort_column_id()
+            if order_by[0] is not None:
+                model.set_sort_column_id(-2, 0)
+                update_ui()
+
+            if not (position or before or after):
+                last_iter = model.append(iter, formated)
+            elif position:
+                last_iter = model.insert(iter, position, formated)
+            elif before:
+                last_iter = model.insert_before(iter, before, formated)
+            elif after:
+                last_iter = model.insert_after(iter, after, formated)
             if with_child:
                 model.append(last_iter, null_line)
+
+            if order_by[0] is not None:
+                model.set_sort_column_id(*order_by)
+
             # self.set_model(model)
             # self.thaw_child_notify()
 
@@ -1350,29 +1771,37 @@ class Grid(gtk.TreeView, gtk.Buildable):
         error = False
         formated = []
         for t, tx, decimals, field in zip(self.__types, self.__formats, self.__decimals, new_values):
-            if t in (int, long, float, datetime.datetime, datetime.date, datetime.time):
+            if t in (int, long, float, datetime.date, datetime.time, datetime.datetime, datetime.timedelta):
                 try:
-                    formated += PoleUtil.convert_and_format(field, t, decimals)
+                    f = cf(field, tx if tx else t, decimals)
+                    if t in (datetime.time, datetime.datetime, datetime.timedelta):
+                        f[0] = cf(f[0], float)[0]
+                    elif t == datetime.date:
+                        f[0] = cf(f[0], int)[0]
+                    formated += f
                 except ValueError or TypeError:
                     PoleLog.log_except()
-                    formated += [t(0), field]
+                    if t in (int, long, float):
+                        formated += [t(0), field]
+                    else:
+                        formated += [0, field]
                     error = True
             elif t == bool:
                 try:
-                    formated.append(PoleUtil.convert_and_format(field, tx if tx else t)[0])
+                    formated.append(cf(field, tx if tx else t)[0])
                 except ValueError or TypeError:
                     PoleLog.log_except()
                     formated.append(False)
                     error = True
-            elif t == str and type(field) in (datetime.date, datetime.datetime):
+            else:  # elif t == str and type(field) in (datetime.date, datetime.datetime):
                 try:
-                    formated.append(PoleUtil.convert_and_format(field, tx if tx else t)[1])
+                    formated.append(cf(field, tx if tx else t)[1])
                 except (ValueError, TypeError):
                     PoleLog.log_except()
                     formated.append(_('Error!'))
                     error = True
-            else:
-                formated.append(PoleUtil.convert_and_format(field, tx if tx else t)[1])
+            # else:
+            #     formated.append(cf(field, tx if tx else t)[1])
         if self.__with_colors:
             formated += new_values[-2:]
         model[path_or_iter] = formated
@@ -1384,19 +1813,16 @@ class Grid(gtk.TreeView, gtk.Buildable):
         values = []
         formateds = []
         col = 0
-        types = self.__types[:]
-        if self.__with_colors:
-            types += (str, str)
-        for t in types:
-            if t in (datetime.datetime, datetime.date, datetime.time):
-                values.append(PoleUtil.convert_and_format(model_line[col], t)[0])
+        for t, tx, decimals in zip(self.__types, self.__formats, self.__decimals):
+            if t in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
+                values.append(cf(model_line[col+1], tx if tx else t, decimals)[0])
             else:
                 values.append(model_line[col])
-            if t in (int, long, float, datetime.datetime, datetime.date, datetime.time):
+            if t in (int, long, float, datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
                 formateds.append(model_line[col+1])
                 col += 2
             elif t is bool and bool_to_str:
-                formateds.append(PoleUtil.convert_and_format(model_line[col], t)[1])
+                formateds.append(cf(model_line[col], t)[1])
                 col += 1
             else:
                 formateds.append(model_line[col])
@@ -1410,10 +1836,10 @@ class Grid(gtk.TreeView, gtk.Buildable):
         if type(path) == slice:
             model = self.get_model()
             index = path.indices(len(model))
-            return tuple([GridRow(self, i, self.__get_line(i), self.__with_colors) for i in range(*index)])
+            return tuple([GridRow(self, i, self.__get_line(i, True), self.__with_colors) for i in range(*index)])
         if type(path) in (tuple, list) and type(path[0]) in (tuple, list):
-            return tuple([GridRow(self, i, self.__get_line(i), self.__with_colors) for i in path])
-        return GridRow(self, path, self.__get_line(path), self.__with_colors)
+            return tuple([GridRow(self, i, self.__get_line(i, True), self.__with_colors) for i in path])
+        return GridRow(self, path, self.__get_line(path, True), self.__with_colors)
         # Antes era assim
         # if type(path) == slice:
         #    model = self.get_model()
@@ -1452,14 +1878,21 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 self.__export_csv_children(line.iterchildren(), csv,
                                            cols, only_expanded_rows)
 
-    def export_csv(self, filename=None, only_expanded_rows=True):
+    def get_csv(self, only_expanded_rows=True):
         csv = ['\t'.join(self.__titles)]
         cols = len(self.__titles)
         model = self.get_model()
         self.__export_csv_children(model, csv, cols, only_expanded_rows)
-        csv = '\n'.join(csv) + '\n'
+        return '\n'.join(csv) + '\n'
+
+    def export_csv(self, filename=None, only_expanded_rows=True):
+        csv = self.get_csv(only_expanded_rows)
         if filename:
-            open(filename, 'w').write(csv)
+            if isinstance(filename, (file, StringIO.StringIO)):
+                filename.write(csv)
+            else:
+                with open(filename, 'w') as f:
+                    f.write(csv)
         else:
             gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD).set_text(csv)
 
@@ -1480,50 +1913,94 @@ class Grid(gtk.TreeView, gtk.Buildable):
     def wrap_width(self, width):
         self.__wrap_width = width
 
-    def live_load(self, cursor, clean=True, lines=50, parent_lock=None,
-                  to_path_or_iter=None, with_child=False):
+    def live_load(self, cursor, clean=True, lines=100, parent_lock=None,
+                  into_path_or_iter=None, with_child=False, warn=False):
+        if self.__updating:
+            if warn:
+                warning(self, _("Please wait..."))
+            return
+        self.__updating = True
         if clean:
             self.clear()
+
+        model = self.get_model()
+        order_by = model.get_sort_column_id()
+        if order_by[0] is not None:
+            self.set_model(None)
+            model.set_sort_column_id(-2, 0)
+
         records = True
         pos = 0
         if parent_lock and not isinstance(cursor, (tuple, list)):
-            cursor = cursor.fetchall()
+            progress = Processing(parent_lock, _("Getting lines..."))
+            data = []
+            progress.pulse()
+            try:
+                _lines = cursor.fetchmany(lines)
+                while _lines:
+                    data.extend(_lines)
+                    progress.pulse()
+                    del _lines
+                    _lines = cursor.fetchmany(lines)
+                cursor = data
+            finally:
+                del data
+                progress.close()
         total = len(cursor) if isinstance(cursor, (tuple, list)) else 0
         if parent_lock:
             progress = Processing(parent_lock, _("Loading lines..."),
                                   lines, total, True)
         while records:
-            if isinstance(cursor, (tuple, list)):
-                self.add_data(cursor[pos:pos + lines],
-                              to_path_or_iter=to_path_or_iter,
-                              with_child=with_child)
-                pos += lines
-                records = pos < total
-            else:
-                records = cursor.fetchmany(lines)
-                self.add_data(records,
-                              to_path_or_iter=to_path_or_iter,
-                              with_child=with_child)
-            while gtk.events_pending():
-                gtk.main_iteration()
-            if parent_lock:
-                if not progress.pulse():
-                    break
-        if parent_lock:
-            progress.close()
+            try:
+                if isinstance(cursor, (tuple, list)):
+                    self.add_data(cursor[pos:pos + lines],
+                                  into_path_or_iter=into_path_or_iter,
+                                  with_child=with_child, model=model)
+                    pos += lines
+                    records = pos < total
+                else:
+                    records = cursor.fetchmany(lines)
+                    self.add_data(records,
+                                  into_path_or_iter=into_path_or_iter,
+                                  with_child=with_child, model=model)
+                update_ui()
+                if parent_lock:
+                    if not progress.pulse():
+                        break
+            finally:
+                if parent_lock:
+                    progress.close()
+        self.__updating = False
+
+        if order_by[0] is not None:
+            self.set_model(model)
+            model.set_sort_column_id(*order_by)
 
     def selected(self):
+        if self.get_selection().get_mode() == gtk.SELECTION_MULTIPLE:
+            s = self.get_selection().get_selected_rows()[1]
+            if not s:
+                return s
+            return s[0]
         return self.get_selection().get_selected()[1]
 
     def selected_rows(self):
         return self.get_selection().get_selected_rows()[1]
 
-    def select(self, line_or_column, column_value=None):
-        # selection = self.get_selection()
-        if column_value:
-            for l in self[:]:
-                if l[line_or_column][0] == column_value:
-                    self.set_cursor(l.path())
+    def select(self, line_or_column, column_value=Exception, follow=True):
+
+        def _select(children, column_values):
+            for line in children:
+                if all(self[line.iter][c][0] == v for c, v in column_values):
+                    self.set_cursor(line.path)
+                    break
+                _select(line.iterchildren(), column_values)
+
+        if column_value != Exception:
+            if not isinstance(line_or_column, (tuple, list)):
+                line_or_column = [line_or_column]
+                column_value = [column_value]
+            _select(self.get_model(), zip(line_or_column, column_value))
         else:
             if isinstance(line_or_column, gtk.TreeIter):
                 line_or_column = self.get_model().get_path(line_or_column)
@@ -1544,10 +2021,15 @@ class Grid(gtk.TreeView, gtk.Buildable):
             raise ValueError(_('Invalid or not found column name or number `' + str(column) + '´.'))
 
     def search_func(self, model, column, key, iter):
+        if not key:
+            return True
         value = model[iter][column]
+        where = ('start' if key[0] == '<'
+                 else 'end' if key[0] == '>'
+                 else 'in')
+        if where != 'in':
+            key = key[1:]
         if isinstance(value, bool):
-            if not key:
-                return True
             if key[0].upper() in (_('Y'), 'V', '1'):
                 return not value
             if key[0].upper() in (_('N'), ' ', '0'):
@@ -1558,7 +2040,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
             key = re.sub('[^0-9]', '', key)
         elif isinstance(value, float):
             value = str(value)
-            decimal = PoleUtil.locale.localeconv()['decimal_point']
+            decimal = PoleUtil.local['decimal_point']
             if decimal in key:
                 key = '.'.join(re.sub('[^0-9]', '', k)
                                for k in key.split(decimal, 1))
@@ -1567,7 +2049,12 @@ class Grid(gtk.TreeView, gtk.Buildable):
         else:
             value = PoleUtil.normalize(value).lower()
             key = PoleUtil.normalize(key).lower()
-        # return False when match, them I use "not in"
+
+        # return False when match
+        if where == 'start':
+            return key != value[:len(key)]
+        if where == 'end':
+            return key != value[-len(key):]
         return key not in value
 
     def cell_clicked(self, widget, event):
@@ -1576,11 +2063,376 @@ class Grid(gtk.TreeView, gtk.Buildable):
             column = self.get_columns().index(pos[1])
             self.set_search_column(column)
 
+    def crud(self, db_connection, args,
+             create_enabled=True, delete_enable=True):
+        self.__crud = db_connection
+        if not self.__crud:
+            return
+        self.__crud_create_enabled = create_enabled
+        self.__crud_delete_enable = delete_enable
+
+        self.config('|'.join(args['config']))
+        self.__table = args['table']
+        self.__joins = args.get('joins')
+        self.__fields, self.__defaults = zip(*[(field + '@').split('@')[:2]
+                                               for field
+                                               in args['fields']])
+        self.__ignoreds = [
+            field.strip('*+')
+            for field, default in zip(self.__fields, self.__defaults)
+            if '*' in (field.strip('+')[0], field.strip('+')[-1])
+            and not default]
+        self.__requests = [
+            field.strip('*+') for field in self.__fields
+            if '*' not in (field.strip('+')[0], field.strip('+')[-1])]
+        self.__keys = [field.strip('*+') for field in self.__fields
+                       if '+' in (field.strip('*')[0], field.strip('*')[-1])]
+        self.__fields = [field.strip('*+') for field in self.__fields]
+        self.__where = args.get('where')
+        self.__group = args.get('group')
+        self.__order = args.get('order')
+
+        self.__update2 = args.get('update2')
+        if self.__update2:
+            if not isinstance(self.__update2, (tuple, list, dict)):
+                raise Exception(_('CRUD_update2 must be tuple, list or dict.'))
+            if isinstance(self.__update2, dict):
+                self.__update2 = list(self.__update2)
+            elif not isinstance(self.__update2[0], (tuple, list)):
+                if len(self.__update2) % 2 == 1:
+                    self.__update2.append(None)
+                tmp = []
+                for i in range(0, len(self.__update2), 2):
+                    tmp.append((self.__update2[i], self.__update2[i + 1]))
+                self.__update2 = tmp
+
+        self.__nicks = [field.split('.')[0] if '.' in field else ''
+                        for field in self.__fields]
+        split = self.__table.split()
+        self.__main_nick = (split[1]
+                            if len(split) > 1 and split[1] in self.__nicks
+                            else '')
+        self.__main_table = split[0]
+        self.__main_fields_map = [nick == self.__main_nick
+                                  for nick in self.__nicks]
+        self.__main_fields = [
+            field for field, main in zip(self.__fields, self.__main_fields_map)
+            if main]
+        if not self.__keys:
+            self.__keys = self.__main_fields
+        self.__main_where = " and ".join(field + ' = :' + str(n)
+                                         for n, field in
+                                         enumerate(self.__keys))
+        self.__create_fields = [field for field in self.__main_fields
+                                if field not in self.__ignoreds]
+        self.__create_where = " and ".join(field + ' = :' + str(n)
+                                           for n, field in
+                                           enumerate(self.__create_fields))
+
+    def crud_create(self, fixed_values=None):
+        if not self.__crud or not self.__crud_create_enabled:
+            return False
+
+        if fixed_values:
+            values = (list(fixed_values) +
+                      [''] * len(self.__fields))[:len(self.__fields)]
+        else:
+            values = self.selected()
+            if values:
+                values = list(self[values][:][1])
+            else:
+                values = [''] * len(self.__fields)
+
+        for i, (main_field, field, default) in enumerate(
+                zip(self.__main_fields_map, self.__fields, self.__defaults)):
+            if not main_field or field in self.__ignoreds:
+                continue
+            if default:
+                values[i] = None if default.lower() == 'null' else default
+            if field in self.__requests:
+                resp, txt = input_dialog(self, self.__titles[i],
+                                         self.__formats[i] if self.__formats[i]
+                                         else (self.__types[i].__name__ + ' ' +
+                                               str(self.__decimals[i])),
+                                         values[i])
+                if resp != gtk.RESPONSE_OK:
+                    return
+            else:
+                txt = values[i]
+            values[i] = (None if txt is None or txt == '' else
+                         cf(txt, self.__formats[i] if self.__formats[i] else
+                            self.__types[i], self.__decimals[i])
+                         [self.__types[i] == bool])
+        values = [v for v, m, f in zip(values, self.__main_fields_map,
+                                       self.__fields)
+                  if m and f not in self.__ignoreds]
+
+        create_fields = list(self.__create_fields)
+        values2 = list(values)
+        if self.__update2:
+            for f, v in self.__update2:
+                if f not in create_fields:
+                    create_fields.append(f)
+                    values2.append(v)
+
+        sql = ("insert into " + self.__main_table + " " + self.__main_nick +
+               " (" + ", ".join(create_fields) + ") values (:" +
+               ", :".join(str(n) for n in range(len(values2))) + ")")
+
+        cursor = self.__crud.cursor()
+        try:
+            cursor.execute(sql, values2)
+            self.__crud.commit()
+            where, values = self.__crud_null_correction(self.__create_where,
+                                                        values)
+            sql = ("select " + ", ".join(self.__fields) +
+                   " from " + self.__table +
+                   (" " + self.__joins if self.__joins else "") +
+                   " where " + where +
+                   (" group by " + self.__group if self.__group else ""))
+            cursor.execute(sql, values)
+            try:
+                self.select(self.add_data(cursor.fetchall()[-1]))
+            except Exception:
+                PoleLog.log_except()
+        except Exception:
+            self.__crud.rollback()
+            cursor.close()
+            raise
+
+        cursor.close()
+
+    def crud_read(self, where=None):
+        if not self.__crud:
+            return False
+
+        line_key_value = self.selected()
+        if line_key_value:
+            line_key_value = self[line_key_value][0][0]
+
+        if not where:
+            where = self.__where
+        if isinstance(where, (gtk.Entry, gtk.Label, gtk.Button)):
+            where = where.get_text().strip()
+
+        if where:
+            trans_joins = {'e': 'and', 'ou': 'or', 'em': 'in'}
+
+            for title, field in zip(self.__titles, self.__fields):
+                where = where.replace('{' + title + '}', field)
+            splits = [''] + re.split(r'\s+', where)
+            if len(splits) % 4 != 0:
+                error_detail(
+                    self, _("Invalid filter!"),
+                    _("The filter must be in the format:\n\n"
+                      "[{column}|field|expression] operator value"
+                      " [junction [{column}|field|expression] operator value"
+                      " ...]\n\n"
+                      "WARNING: Spacings are required as above!\n\n"
+                      "Ex1: {Code} <100 and {Description} = \"*AC*\"\n"
+                      "Ex2: {Description} = null\n"
+                      "Ex3: len({Description}) < 5\n"
+                      "Ex4: substr({Date},4,4) = '2018'\n"
+                      "Ex5: to_number(substr({Date},4,4)) <= 2017\n\n"
+                      "See SQL expressions in:\n"
+                      "http://pgdocptbr.sourceforge.net/pg80/functions.html"))
+                return
+            where = []
+
+            i = 0
+            while i < len(splits):
+                j = splits[i].lower()
+                j = (trans_joins[j] if j in trans_joins else j)
+                i += 1
+                field, op, value = splits[i:i + 3]
+                i += 3
+                if value[-1] == ')':
+                    p = ')'
+                    value = value[:-1]
+                else:
+                    p = ''
+                if value.lower() in ('null', 'nulo'):
+                    op = 'is' if op == '=' else 'is not'
+                    value = 'null'
+                elif value[0] in ('"', "'"):
+                    while value[-1] != value[0] and value[-2] != '\\':
+                        value += p + splits[i]
+                        i += 1
+                        if value[-1] == ')':
+                            p = ')'
+                            value = value[:-1]
+                        else:
+                            p = ''
+                    if '*' in value:
+                        op = 'like' if op == '=' else 'not like'
+                        value = value.replace('%', '%%')
+                        value = (re.sub(r'([^\\])\*', r'\1%', value).
+                                 replace('\\*', '*').replace('\\"', '"').
+                                 replace("\\'", "'"))
+                        value = "'" + value[1:-1].replace("'", "''") + "'"
+                elif op != 'in' and PoleUtil.dp in value:
+                        value = str(cf(value, float, 15)[1])
+                where.extend([j, field, op, value, p])
+            where = ' '.join(where)
+
+        sql = ("select " + ", ".join(self.__fields) +
+               " from " + self.__table +
+               (" " + self.__joins if self.__joins else "") +
+               (" where " + where if where else "") +
+               (" group by " + self.__group if self.__group else "") +
+               (" order by " + self.__order if self.__order else ""))
+        self.clear()
+        cursor = self.__crud.cursor()
+        cursor.execute(sql)
+        self.live_load(cursor, parent_lock=self)
+        cursor.close()
+        if line_key_value:
+            self.select(0, line_key_value)
+
+    def crud_update(self, update_fields_values):
+        return self.crud_delete('update', update_fields_values)
+
+    def __crud_null_correction(self, where, args):
+        args = self.__crud_bool_time_correction(args)
+        for i in range(len(args) - 1, -1, -1):
+            if args[i] is None or args[i] == '':
+                del args[i]
+                where = where.replace('= :%i' % i, 'is null')
+        return where, args
+
+    def __crud_bool_time_correction(self, values):
+        return [cf(v, bool)[1] if isinstance(v, bool) else
+                cf(v, datetime.datetime)[0] if isinstance(v, datetime.time)
+                else v for v in values]
+
+    def crud_delete(self, mode='delete', update_fields_values={}):
+        if not self.__crud or (mode == 'delete'
+                               and not self.__crud_delete_enable):
+            return
+
+        line = self.selected()
+        if not line:
+            return
+
+        if question(self, _("Do you really want to %s?") %
+                    _(mode)) != gtk.RESPONSE_YES:
+            return
+
+        sql_args = [None if showed == '' else value
+                    for field, value, showed in
+                    zip(self.__fields, *self[line][:]) if field in self.__keys]
+
+        where, args = self.__crud_null_correction(self.__main_where, sql_args)
+
+        if mode == 'update':
+            update_fields, update_values = [list(x) for x in
+                                            zip(*update_fields_values.items())]
+            if self.__update2:
+                for f, v in self.__update2:
+                    if f not in update_fields:
+                        update_fields.append(f)
+                        update_values.append(v)
+            update_values = self.__crud_bool_time_correction(update_values)
+        else:
+            update_fields, update_values = [[], []]
+
+        n_main_fields = len(self.__main_fields)
+
+        sql = (mode + " " + self.__main_table + " " + self.__main_nick +
+               (" set " + ", ".join(field + " = :" + str(n + n_main_fields)
+                                    for n, field in enumerate(update_fields))
+                if mode == 'update' else "") +
+               " where " + where)
+
+        cursor = self.__crud.cursor()
+        try:
+            cursor.execute(sql, update_values + args)
+            lines = cf(cursor.rowcount, int)[1]
+            self.__crud.rollback()
+        except Exception:
+            self.__crud.rollback()
+            cursor.close()
+            raise
+
+        if lines == '0':
+            error(self, _('No lines found to %s!') % _(mode))
+            return
+
+        if question(self, _("Do you want to %s %s line(s)?") %
+                    (_(mode), lines)) != gtk.RESPONSE_YES:
+            return
+
+        try:
+            cursor.execute(sql, update_values + args)
+            self.__crud.commit()
+        except Exception:
+            self.__crud.rollback()
+            cursor.close()
+            raise
+
+        if mode == 'update':
+            for field, value in update_fields_values.items():
+                if field not in self.__keys:
+                    continue
+                sql_args[self.__keys.index(field)] = value
+            where, args = self.__crud_null_correction(self.__main_where,
+                                                      sql_args)
+            sql = ("select " + ", ".join(self.__fields) +
+                   " from " + self.__table +
+                   (" " + self.__joins if self.__joins else "") +
+                   " where " + where +
+                   (" group by " + self.__group if self.__group else ""))
+            cursor.execute(sql, args)
+            self.update_line(self.selected(), cursor.fetchone())
+            cursor.close()
+        else:
+            path, column = self.get_cursor()
+            path = list(path)
+            if len(path) > 1 and path[-1] == 0:
+                del path[-1]
+            elif path[-1] > 0:
+                path[-1] -= 1
+            path = tuple(path)
+            self.remove(self.selected())
+            self.set_cursor_on_cell(path, column)
+
+    @try_function
+    def do_key_press_event(self, ev):
+        # Start editing when pressed F2
+        if ev.keyval in (gtk.keysyms.F2, gtk.keysyms.KP_F2):
+            self.set_cursor(*self.get_cursor(), start_editing=True)
+
+        # If not CRUD enabled, go out
+        elif not self.__crud:
+            pass
+
+        # Create / Insert
+        elif ev.keyval in (gtk.keysyms.Insert, gtk.keysyms.equal,
+                           gtk.keysyms.plus, gtk.keysyms.KP_Insert,
+                           gtk.keysyms.KP_Add):
+            self.crud_create()
+
+        # Read / Select
+        elif ev.keyval in (gtk.keysyms.F5, ):
+            self.crud_read()
+
+        # Update
+        # In __editable_callback function
+
+        # Delete
+        elif ev.keyval in (gtk.keysyms.Delete, gtk.keysyms.minus,
+                           gtk.keysyms.underscore, gtk.keysyms.KP_Subtract,
+                           gtk.keysyms.KP_Delete):
+            self.crud_delete()
+
+        gtk.TreeView.do_key_press_event(self, ev)
+        return True
+
 
 class Processing(gtk.Window):
     def __init__(self, parent, title, step=None,
                  finish=None, stop_button=False):
-        self.update_ui()
+        update_ui()
         super(Processing, self).__init__()
         self.set_title(title)
         self.__bar = gtk.ProgressBar()
@@ -1610,14 +2462,10 @@ class Processing(gtk.Window):
         self.__stop = False
 
         self.show_all()
-        self.update_ui()
+        update_ui()
 
     def stop_press(self, args):
         self.__stop = True
-
-    def update_ui(self):
-        while gtk.events_pending():
-            gtk.main_iteration()
 
     def pulse(self):
         if self.__step:
@@ -1628,12 +2476,12 @@ class Processing(gtk.Window):
             self.__bar.set_text(formatar(new_frac*100, "Porcentagem 2"))
         else:
             self.__bar.pulse()
-        self.update_ui()
+        update_ui()
         return not self.__stop
 
     def close(self):
         self.destroy()
-        self.update_ui()
+        update_ui()
 
 
 def load_module(parent_project, parent_main_window, module_name, title, main_window_name, data=None):
@@ -1682,6 +2530,7 @@ def load_module(parent_project, parent_main_window, module_name, title, main_win
         parent_main_window.present()
     return data
 
+
 # Replace GTK classes in XML Glade by PoleGTK classes where propertie
 # name start with third element in (GtkClass, PoleGtkClass, start of name)
 NEW_CLASSES = (
@@ -1712,7 +2561,9 @@ def build_interface(xml_file_or_xml_string=None):
         xml = xml.replace('<object class="' + gtk_class + '" id="' + start_of_name,
                           '<object class="' + pole_class + '" id="' + start_of_name)
     # Solving troble with can_focus false
-    dont_have_can_focus = ('ListStore', 'Adjustment', 'TextBuffer', 'Action', 'TreeViewColumn', 'CellRendererPixbuf', 'CellRendererText')
+    dont_have_can_focus = ('ListStore', 'Adjustment', 'TextBuffer', 'Action',
+                           'TreeViewColumn', 'CellRendererPixbuf',
+                           'CellRendererText')
     pos = xml.find('<object class="')
     while pos != -1:
         have_can_focus = True
@@ -1722,7 +2573,8 @@ def build_interface(xml_file_or_xml_string=None):
                 break
         if have_can_focus:
             pos = xml.find('>', pos) + 1
-            xml = xml[:pos] + '<property name="can_focus">False</property>' + xml[pos:]
+            xml = (xml[:pos] +
+                   '<property name="can_focus">False</property>' + xml[pos:])
         pos = xml.find('<object class="', pos + 70)
     # Solving problem with null to gchararray convertion in columns values
     pos = xml.find('<col ')
@@ -1736,11 +2588,11 @@ def build_interface(xml_file_or_xml_string=None):
     return ui
 
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # ##
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Classe que intermedia um widget do GTK+ para facilitar acesso a consultar e
 #     alterar valores de propriedades dos widgets, tal como as propriedades das
-#     classes em Python, se comportando como um widget virtual. Dessa forma, não
-#     precisa usar as funções GTK widget.set_propriedade(valor) ou
+#     classes em Python, se comportando como um widget virtual. Dessa forma,
+#     não precisa usar as funções GTK widget.set_propriedade(valor) ou
 #     widget.get_propriedade(), basta usar widget.propriedade = valor ou
 #     widget.propriedade, respectivamente. Para obter o próprio widget,
 #     use widget.widget
@@ -1756,25 +2608,27 @@ class VirtualWidget(object):
         try:
             obj = object.__getattribute__(self, "widget")
             return object.__getattribute__(obj, attr)
-        except:
+        except Exception:
             try:
                 return object.__getattribute__(obj, "get_" + attr)()
-            except:
+            except Exception:
                 return object.__getattribute__(obj, attr)
 
     def __setattr__(self, attr, value):
         try:
             obj = object.__getattribute__(self, "widget")
+            if isinstance(obj, gtk.Notebook) and attr == 'current_page':
+                raise 'Call set_current_page for gtk.Notebook'
             object.__getattribute__(obj, attr)
             obj.__setattr__(attr, value)
-        except:
+        except Exception:
             try:
                 func = object.__getattribute__(obj, "set_" + attr)
                 if isinstance(value, (list, tuple)):
                     func(*value)
                 else:
                     func(value)
-            except:
+            except Exception:
                 object.__setattr__(obj, attr, value)
 
     def __getitem__(self, index):
@@ -1782,7 +2636,6 @@ class VirtualWidget(object):
 
     def __setitem__(self, index, value):
         object.__getattribute__(self, "widget")[index] = value
-
 
 
 class Project(object):
@@ -1800,11 +2653,11 @@ class Project(object):
         # Comente ou altere para a coluna desejada
         for combo in [x for x in self.interface.get_objects()
                       if isinstance(x, gtk.ComboBox)]:
-            if not combo.get_has_entry():
+            if not combo.get_has_entry() and not combo.get_cells():
                 celula = gtk.CellRendererText()
                 combo.pack_start(celula, False)
                 combo.add_attribute(celula, "text", 0)
-            elif combo.get_entry_text_column() == -1:
+            elif combo.get_has_entry() and combo.get_entry_text_column() == -1:
                 combo.set_entry_text_column(0)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1838,18 +2691,6 @@ class Project(object):
         return object.__getattribute__(self, attribute)
 
 
-def try_function(f):
-    def action(project, *args, **kwargs):
-        try:
-            result = f(project, *args, **kwargs)
-            return result
-        except Exception:
-            PoleLog.log_except()
-            show_exception(project, args)
-            return None
-    return action
-
-
 def read_text(textview, format=True):
     buffer = textview.get_buffer()
     text = strip(buffer.get_text(*buffer.get_bounds()))
@@ -1871,39 +2712,94 @@ def write_text(text, textview, format=True):
     buffer.set_text(strip(text))
 
 
-def set_active_text(combo, text, column=0):
+def set_active_text(combo, text, column=0, pole_type=None):
     model = combo.get_model()
     for index, line in enumerate(model):
-        if line[column] == text:
+        if (pole_type
+                and cf(line[column], pole_type)[0] == cf(text, pole_type)[0]
+                or line[column] == text):
             combo.set_active(index)
+            if isinstance(combo.child, gtk.Entry):
+                combo.child.select_region(0, -1)
             return
     combo.set_active(-1)
 
 
-def get_active_text(combo, column=0):
+def get_active_text(combo, column=0,
+                    pole_type=None, upper=None, lower=None, normalize=None):
     index = combo.get_active()
+    if index < 0:
+        return None
     model = combo.get_model()
-    return model[index][column]
+    value = model[index][column]
+    if pole_type:
+        value = cf(value, pole_type)[1]
+    else:
+        if normalize:
+            value = PoleUtil.normalize(value)
+        if upper:
+            value = value.upper()
+        elif lower:
+            value = value.lower()
+    return value
 
 
 def load_store(combo, cursor, active=True):
     model = combo.get_model()
     model.clear()
+    # model = gtk.ListStore(*[model.get_column_type(i)
+    #                         for i in range(model.get_n_columns())])
+    combo.set_model(None)
     for row in cursor:
         model.append(row)
+    if active:
+        combo.set_active(0)
+    if isinstance(cursor, (tuple, list, dict)):
+        for row in cursor:
+            model.append(row)
+    else:
+        data = cursor.fetchmany()
+        while data:
+            for row in data:
+                model.append(row)
+            update_ui()
+            data = cursor.fetchmany()
+    combo.set_model(model)
     if active:
         combo.set_active(0)
 
 
 def hide_window(widget):
-    if widget.is_toplevel():
-        return widget.hide_on_delete()
-    else:
-        toplevel = widget.get_toplevel()
-        toplevel.hide()
+    # if widget.is_toplevel():
+    #     return widget.hide_on_delete()
+    # else:
+    toplevel = widget.get_toplevel()
+    toplevel.hide()
+
+
+def copy_to_clipboard(text, modal_to=None):
+    gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD).set_text(text)
+    if modal_to:
+        info(modal_to, _("Data copied to memory!"))
 
 
 if __name__ == '__main__':
+    '''                       "Data,date,edit",
+                           "Hora,time,edit",
+                           "Data e hora,datetime,edit",
+                           "Mês,month,edit",
+                           "Horas,hours,edit",
+                           "Data e hora 2,datetime,DATE_TIME,edit",
+                           "Data 2,datetime,DATE,edit",
+                           "Hora 2,datetime,TIME,edit",
+                           "Mês 2,datetime,MONTH,edit",
+                           "Horas 2,datetime,HOURS,edit",
+                           "Dias e horas 2,datetime,DAYS_HOURS,edit",
+                           "Horas 3,hours,DATE_TIME,edit",
+                           "Horas 4,hours,DATE,edit",
+                           "Horas 5,hours,TIME,edit",
+    '''
+
     teste_ui = """<?xml version="1.0"?>
 <interface>
   <requires lib="gtk+" version="2.16"/>
@@ -2003,7 +2899,8 @@ if __name__ == '__main__':
             </child>
             <child>
               <object class="GtkButton" id="button5">
-                <property name="label" translatable="yes">14/08/1978 09:35:42</property>
+                <property name="label"
+                 translatable="yes">14/08/1978 09:35:42</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -2044,7 +2941,8 @@ if __name__ == '__main__':
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <signal name="clicked" handler="calendar"/>
-                <property name="tooltip_text" translatable="yes">Teste do botão de data
+                <property name="tooltip_text" translatable="yes">
+Teste do botão de data
 |MONTH</property>
               </object>
               <packing>
@@ -2090,7 +2988,7 @@ if __name__ == '__main__':
             print info(args[0], 'Teste de erro')
             print warning(args[0], 'Teste de erro')
             print question(args[0], 'Teste de erro?')
-            print error('', 'Teste de erro')
+            print error(args[0], 'Teste de erro')
         except Exception:
             class X(object):
                 def __init__(self):
@@ -2100,21 +2998,42 @@ if __name__ == '__main__':
         # print args
         # dados: matriz de dados
         # Pode vir de um select ou um arquivo
-        dados = (("12.345.678", "Junior", "3.000,12", 1, 1, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime(1900, 1, 2, 11, 59, 59), datetime.datetime(1900, 1, 2), datetime.datetime.now(), datetime.datetime.now(), None, 'red'),
-                 ("abc", "Teste", "XYZ", "True", 2, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'magenta'),
-                 ("1....2,34", "Teste 2", "3.5.0.0,4.6", "False", 3, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'cyan'),
-                 (2.9, 123456.54321, 3.9999, 5, 4, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'yellow'),
-                 ("1234", "Carlos", "3.500", True, 5, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'green'),
-                 ("4.321", "Osvaldo", "4000,34", False, 6, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'white'),
-                 ("1234.567", "Leonardo", "5.000,33", 0, 7, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'pink'),
-                 ("1234.567", "Leonardo Sim", "5.000,33", "Sim", 8, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), 'yellow', 'blue'),
-                 ("1234.567", "Leonardo Não", "5.000,33", "Não", 9, datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), datetime.datetime.now(), None, 'royal blue'))
+        now = datetime.datetime.now()
+        dados = (("12.345.678", "Junior", "3.000,12", 1, 1, now, now, now, now,
+                  datetime.datetime(1, 1, 2, 11, 59, 59),
+                  datetime.datetime(1, 1, 2), now, now, None, 'red'),
+                 ("abc", "Teste", "XYZ", "True", 2, now, now, now, now, now,
+                  now, now, now, None, 'magenta'),
+                 ("1....2,34", "Teste 2", "3.5.0.0,4.6", "False", 3, now, now,
+                  now, now, now, now, now, now, None, 'cyan'),
+                 (2.9, 123456.54321, 3.9999, 5, 4, now, now, now, now, now,
+                  now, now, now, None, 'yellow'),
+                 ("1234", "Carlos", "3.500", True, 5, now, now, now, now, now,
+                  now, now, now, None, 'green'),
+                 ("4.321", "Osvaldo", "4000,34", False, 6, now, now, now, now,
+                  now, now, now, now, None, 'white'),
+                 ("1234.567", "Leonardo", "5.000,33", 0, 7, now, now, now, now,
+                  now, now, now, now, None, 'pink'),
+                 ("1234.567", "Leonardo Sim", "5.000,33", "Sim", 8, now, now,
+                  now, now, now, now, now, now, 'yellow', 'blue'),
+                 ("1234.567", "Leonardo Não", "5.000,33", "Não", 9, now, now,
+                  now, now, now, now, now, now, None, 'royal blue'))
         grade = ui.get_object('gr_treeview1')
         grade.clear()
         grade.add_data(dados)
 
-    def fx(self, text, pos, path, model_pos, model, titles, types, decimals):
-        return PoleUtil.convert_and_format(text, types[pos], decimals[pos])
+    def fx(text, grid, path, column, titles, types, decimals, with_colors):
+        print '****** fx *******'
+        print 'text:', text
+        print 'grid:', grid
+        print 'path:', path
+        print 'column:', column
+        print 'titles:', titles
+        print 'types:', types
+        print 'decimals:', decimals
+        print 'with_colors:', with_colors
+        print 'return:', cf(text, types[column], decimals[column])
+        return text  # cf(text, types[column], decimals[column])[0]
 
     def update(*args):
         # print args
@@ -2125,7 +3044,9 @@ if __name__ == '__main__':
         # print grade[5][2]
         # print grade[5]['Valor']
         # print grade[5][-1]
-        grade.get_column(2).get_cell_renderers()[0].set_property('editable', not grade.get_column(2).get_cell_renderers()[0].get_property('editable'))
+        grade.get_column(2).get_cell_renderers()[0].set_property(
+            'editable', not grade.get_column(
+                2).get_cell_renderers()[0].get_property('editable'))
         grade[1] = ['N'] * 100
         # print grade[6]['Mês']
         grade[6]['Mês'] = grade[6]['Mês'][0] + grade[6]['Valor'][0]
@@ -2176,7 +3097,7 @@ if __name__ == '__main__':
     ui = build_interface(teste_ui)
     ui.connect_signals({'click': click, 'quit': gtk.main_quit,
                         'update_click': update, 'calendar': calendar})
-    ui.get_object('gr_treeview1').format_callback = fx
+    ui.get_object('gr_treeview1').edit_callback = fx
     completar = ui.get_object('liststore1')
     completar.append(('Teste1', 1))
     completar.append(('Teste2', 2))
@@ -2201,7 +3122,7 @@ if __name__ == '__main__':
     rolagem.add(grade)
 
     botao = gtk.Button("Preencher")
-    botao.child.child.get_children()[0].show()
+    # botao.child.child.get_children()[0].show()
     vbox.pack_start(botao, False)
 
     # Mostar a interface
@@ -2211,7 +3132,7 @@ if __name__ == '__main__':
     # Operar sobre a grade criada como se fosse do gtk.Builder
     titulos = ("Código", "Nome", "Bônus", "Último")
     tipos = (int, str, float, bool)
-    grade.columns(titulos, tipos)
+    grade.structure(titulos, tipos)
 
     # Eventos
     janela.connect("delete_event", gtk.main_quit)

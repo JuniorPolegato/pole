@@ -37,7 +37,7 @@ gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro\
  -fstack-protector-strong -Wformat -Werror=format-security\
  compiled/PoleXmlSec.o -o compiled/PoleXmlSec.so\
  $LIBS
-rm -f compiled/compiled/PoleXmlSec.o
+rm -f compiled/PoleXmlSec.o
 
 # Compile Python files by import
 cp -av src/pole/*.py compiled/

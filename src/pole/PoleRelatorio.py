@@ -283,7 +283,6 @@ def gerar_pdf(paisagem, data_inicial, data_final, titulo_relatorio,
             pdf.celula(*celula)
     # Caso solicitado a finalização, salva o pdf e mostrar para o usuário
     if finalizar:
-        pdf.salvar()
         pdf.mostrar()
     # Retorna o pdf criado
     return pdf

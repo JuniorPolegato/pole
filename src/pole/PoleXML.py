@@ -26,6 +26,7 @@ except ImportError as err:
 
 # Constantes
 MARCA_XML = '<?xml version="1.0" encoding="utf-8"?>'
+FILHOS = 0
 FILHO = -1
 TEXTO = -2
 RAIZ = -3
@@ -50,9 +51,13 @@ class XML(object):
         # print '__posicionar', filho, i
         procura = self.__filhos
         retorno = self.__xmls
-        if i == 0 or abs(i) > procura.count(filho):
+        todos = filho is None or filho == ''
+        if i == 0 or abs(i) > (len(procura) if todos
+                               else procura.count(filho)):
             raise ValueError("%iº `%s´ não encontrado em `%s´!" %
                              (i, filho, self.__nome))
+        if todos:
+            return retorno[i - 1]
         if i < 0:
             i = -i
             procura = procura[::-1]
@@ -526,7 +531,8 @@ def nss(no):
     return xml_nss
 
 
-def exportar(xml, endentacao=4, nivel=0, com_marca_xml=True, escapado=True):
+def exportar(xml, endentacao=4, nivel=0,
+             com_marca_xml=True, escapado=True, herdar_namespaces=True):
     '''Exporta um XML com alguns ajustes,
     sendo que endentação negativa fica tudo numa linha só, sem quebra.'''
     def _exportar(xml, endentacao, nivel):
@@ -584,13 +590,13 @@ def exportar(xml, endentacao=4, nivel=0, com_marca_xml=True, escapado=True):
         _escape = escape
     else:
         _escape = str
-    xml_nss = nss(xml)
+    xml_nss = nss(xml) if herdar_namespaces else {}
     exportado = _exportar(xml, endentacao, nivel)
     if xml_nss and exportado and exportado[0] == '<':
-        p = min(exportado.find('>'), exportado.find('/'))
-        if ' ' in exportado:
-            p = min(p, exportado.find(' '))
-        xml_nss = ''.join(' %s="%s"' % x for x in xml_nss.items())
+        p1 = exportado.find('>')
+        p = min(p1, exportado.find(' ')) if ' ' in exportado else p1
+        xml_nss = ''.join(' %s="%s"' % x for x in xml_nss.items()
+                          if ' ' + x[0] + '=' not in exportado[p:p1])
         exportado = exportado[:p] + xml_nss + exportado[p:]
     if com_marca_xml:
         return (' ' * endentacao * nivel * (endentacao > 0) +
@@ -603,9 +609,11 @@ def serializar(xml):
 
 
 def procurar(xml, nome_no, atributos=None, todos=False):
+    if not isinstance(nome_no, (list, tuple, dict)):
+        nome_no = [nome_no]
     retorno = []
     for nome_filho, xml_filho in zip(xml._XML__filhos, xml._XML__xmls):
-        if nome_filho == nome_no:
+        if nome_filho in nome_no:
             if not atributos:
                 retorno.append(xml_filho)
                 continue
@@ -669,7 +677,10 @@ def _xsd_to_xml(xsd, xml, escolha=''):
                 type_name = filho['type'].rsplit(':', 1)[-1]
                 y['tipo'] = type_name
                 if type_name in complex_types:
-                    y += complex_types[type_name]
+                    assert complex_types[type_name], Exception(
+                        "For type `" + xsd('', PAI)['name'] + "´ yet not found"
+                        " the complex type: " + type_name)
+                    y += importar('<x>'+str(complex_types[type_name])+'</x>').x
             _xsd_to_xml(filho, y)
             continue
         if nome == 'restriction':
@@ -693,9 +704,10 @@ def _xsd_to_xml(xsd, xml, escolha=''):
         _xsd_to_xml(filho, xml, escolha)
 
 
-def xsd_complex_types(xsd):
+def xsd_complex_types(xsd, debug=False):
     global complex_types
     lista = procurar(xsd, 'complexType', ['name'])
+    complex_types.update({x['name']: None for x in lista})
     for complex_type in lista:
         # print complex_type['name']
         xml = XML()
@@ -704,7 +716,9 @@ def xsd_complex_types(xsd):
             # print repr(xml)
             # print '-' * 100
             complex_types[complex_type['name']] = xml
-        except Exception:
+        except Exception as e:
+            if debug:
+                print e
             del xml
             lista.append(complex_type)
 
@@ -718,3 +732,15 @@ def xsd_to_xml(xsd):
     xml(root_name, FILHO)['xmlns'] = xsd.schema['targetNamespace']
     _xsd_to_xml(xsd.schema.element, xml(root_name, 1))
     return xml
+
+
+def eliminar_vazios(xml):
+    if not isinstance(xml, XML):
+        return str(xml) == ''
+    if not xml(''):
+        return True
+    for i in range(xml(''), 0, -1):
+        remover = eliminar_vazios(xml('', i))
+        if remover:
+            xml - ('', i)
+    return xml('') == 0

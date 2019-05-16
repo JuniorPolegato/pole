@@ -33,6 +33,8 @@ print 'Produção' if ambiente == pole.nfe.PRODUCAO else 'Homologação'
 print '*' * 100
 for cnpj, uf in cnpj_uf:
     print uf, cnpj
+    if uf == 'GO':  # Está demorando muito para não responder nada
+        continue
     try:
         webservice = pole.nfe.Webservice(cnpj_certificado,
                                          ambiente, uf=uf, pacote='PL')

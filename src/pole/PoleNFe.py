@@ -17,7 +17,7 @@ import os
 import sys
 import time
 import datetime
-import pytz
+import zlib
 
 # Módulos SUDS utilizados no programa
 import suds.client
@@ -130,18 +130,19 @@ SEFAZ_CONTINGENCIA = {'AC': 'SVC-AN', 'AL': 'SVC-AN', 'AM': 'SVC-RS',
                       'SE': 'SVC-AN', 'SP': 'SVC-AN', 'TO': 'SVC-AN'}
 
 EVENTOS = {
-    # 'Envento': ('Cód. Evento', 'xsd', evento maiúsculo, 'xsd de envio')
+    # 'Envento': ('Cód. Evento', 'xsd', evento maiúsculo, 'xsd de envio', uf)
     'Carta de Correcao': ('110110', 'CCe', False,
-                          'envCCe'),
+                          'envCCe', None),
     'Cancelamento': ('110111', 'eventoCancNFe', False,
-                     'envEventoCancNFe'),
+                     'envEventoCancNFe', None),
     'Confirmacao da Operacao': ('210200', 'confRecebto', False,
-                                'envConfRecebto'),
-    'Ciencia da Operacao': ('210210', 'confRecebto', False, 'envConfRecebto'),
+                                'envConfRecebto', 'AN'),
+    'Ciencia da Operacao': ('210210', 'confRecebto', False,
+                            'envConfRecebto', 'AN'),
     'Desconhecimento da Operacao': ('210220', 'confRecebto', False,
-                                    'envConfRecebto'),
+                                    'envConfRecebto', 'AN'),
     'Operacao nao Realizada': ('210240', 'confRecebto', False,
-                               'envConfRecebto')
+                               'envConfRecebto', 'AN')
 }
 
 TODAS = 0
@@ -235,9 +236,9 @@ class HTTPSConnection(httplib.HTTPConnection):
             self.sock = sock
             self._tunnel()
         self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file,
-                                    ssl_version=ssl.PROTOCOL_TLSv1,  # SSLv23,
-                                    ca_certs=self.ca_certs,
-                                    cert_reqs=ssl.CERT_REQUIRED)
+                                    ssl_version=ssl.PROTOCOL_TLSv1_2,  # SSLv23
+                                    ca_certs=self.ca_certs)  # ,
+        #                             cert_reqs=ssl.CERT_REQUIRED)
 
 
 class https_ssl(urllib2.HTTPSHandler):
@@ -282,7 +283,11 @@ def __plain(self, indent=0):
         tns = self.parent.parent.nsdeclarations().split('xmlns:tns="')[1]
         tns = ' xmlns="%s"' % tns.split('"')[0]
         ns += tns
-    if qname[:4] == 'tns:':
+    if qname[:4] == 'ns0:':
+        ns0 = self.parent.parent.nsdeclarations().split('xmlns:ns0="')[1]
+        ns0 = ' xmlns="%s"' % ns0.split('"')[0]
+        ns += ns0
+    if qname[:4] in ('tns:', 'ns0:'):
         qname = qname[4:]
     result.append('<%s' % qname)
     result.append(ns)
@@ -322,77 +327,88 @@ def __str_indent(self, indent=0):
     result.append('</%s>' % self.qname())
     result = ''.join(result)
     return result
+
+
 E.str_indent = __str_indent
 E.str = __plain
 
 
 class Webservice(object):
-    '''Classe que realiza todas operações com o Webservice para tratamento da NFe.
-       Parâmetros:
-       ambiemte: inteiro (ou constante) 1 (PRODUCAO) ou 2 (HOMOLOGACAO)
-       cnpj: CNPJ a ser procurado nos diretórios, ou uma string identificadora
-       uf: UF a ser procurada nos diretórios e nas lista constante UFS_IBGE
-       pacote: string com nome do diretório que contém o "Package Language"
-       raiz: diretório que vai conter a estrutura de diretórios e arquivos para
-             o Webservice, sendo padrão ${HOME}/NFe
-       ${HOME}/NFe
-       |---> certificadoras
-       |     |---> certificado1.crt
-       |     |---> certificado2.crt
-       |     \---> ...
-       |---> cnpjs
-       |     |---> cnpj_ou_identificador_1
-       |     |     |---> certificado_digital
-       |     |     |     |---> chave.pem
-       |     |     |     \---> certificado.pem
-       |     |     |---> homologacao
-       |     |     |     |---> nfe           ---> XMLs assinados e protocolados
-       |     |     |     |---> danfe         ---> PDFs
-       |     |     |     |---> inutilizacao  ---> XMLs assinados e protocolados
-       |     |     |     \---> cancelamento  ---> XMLs assinados e protocolados
-       |     |     \---> producao
-       |     |           |---> nfe
-       |     |           |---> danfe
-       |     |           |---> inutilizacao
-       |     |           \---> cancelamento
-       |     |---> cnpj_ou_identificador_2
-       |     |     \---> ...
-       |     \---> ...
-       |---> wsdl
-       |     |---> sefaz_1
-       |     |     |---> homologacao
-       |     |     |     |---> 1.00
-       |     |     |     |     |---> NfeDistribuicaoDFe.wsdl
-       |     |     |     |     |---> RecepcaoEvento.wsdl
-       |     |     |     |---> 2.00
-       |     |     |     |     |---> NfeConsultaCadastro.wsdl
-       |     |     |     |     |---> NfeConsultaProtocolo.wsdl
-       |     |     |     |     |---> NfeInutilizacao.wsdl
-       |     |     |     |     |---> NfeRecepcao.wsdl
-       |     |     |     |     |---> NfeRetRecepcao.wsdl
-       |     |     |     |     |---> NfeStatusServico.wsdl
-       |     |     |     |     \---> RecepcaoEvento.wsdl
-       |     |     |     \---> 3.10
-       |     |     |           |---> NfeAutorizacao.wsdl
-       |     |     |           |---> NfeConsultaCadastro.wsdl
-       |     |     |           |---> NfeConsultaProtocolo.wsdl
-       |     |     |           |---> NfeInutilizacao.wsdl
-       |     |     |           |---> NfeRetAutorizacao.wsdl
-       |     |     |           |---> NfeStatusServico.wsdl
-       |     |     |           \---> RecepcaoEvento.wsdl
-       |     |     \---> producao
-       |     |           |---> ... (estrutura tal como homologacao)
-       |     |           \---> ...
-       |     |---> sefaz_2
-       |     |     \---> ... (tal como sefaz_1)
-       |     \---> ... (outras sefaz)
-       \---> xsd
-             |---> PL (geralmente link simbólico para o PL mais atual)
-             |     |---> nfe_v2.00.xsd
-             |     |---> ... (incluir link simbólicos para os eventos)
-             |     \---> tiposBasico_v1.03.xsd
-             \---> ... (outras versões de pacotes)
-'''
+    r'''Classe que realiza todas operações com o
+        Webservice para tratamento da NFe.
+        Parâmetros:
+        ambiemte: inteiro (ou constante) 1 (PRODUCAO) ou 2 (HOMOLOGACAO)
+        cnpj: CNPJ a ser procurado nos diretórios, ou uma string identificadora
+        uf: UF a ser procurada nos diretórios e nas lista constante UFS_IBGE
+        pacote: string com nome do diretório que contém o "Package Language"
+        raiz: diretório que vai conter a estrutura de diretórios e arquivos
+              para o Webservice, sendo padrão ${HOME}/NFe
+        ${HOME}/NFe
+        |---> certificadoras
+        |     |---> certificado1.crt
+        |     |---> certificado2.crt
+        |     \---> ...
+        |---> cnpjs
+        |     |---> cnpj_ou_identificador_1
+        |     |     |---> certificado_digital
+        |     |     |     |---> chave.pem
+        |     |     |     \---> certificado.pem
+        |     |     |---> homologacao
+        |     |     |     |---> nfe          ---> XMLs assinados e protocolados
+        |     |     |     |---> danfe        ---> PDFs
+        |     |     |     |---> inutilizacao ---> XMLs assinados e protocolados
+        |     |     |     \---> cancelamento ---> XMLs assinados e protocolados
+        |     |     \---> producao
+        |     |           |---> nfe
+        |     |           |---> danfe
+        |     |           |---> inutilizacao
+        |     |           \---> cancelamento
+        |     |---> cnpj_ou_identificador_2
+        |     |     \---> ...
+        |     \---> ...
+        |---> wsdl
+        |     |---> sefaz_1
+        |     |     |---> homologacao
+        |     |     |     |---> 1.00
+        |     |     |     |     |---> NfeDistribuicaoDFe.wsdl
+        |     |     |     |     |---> RecepcaoEvento.wsdl
+        |     |     |     |---> 2.00
+        |     |     |     |     |---> NfeConsultaCadastro.wsdl
+        |     |     |     |     |---> NfeConsultaProtocolo.wsdl
+        |     |     |     |     |---> NfeInutilizacao.wsdl
+        |     |     |     |     |---> NfeRecepcao.wsdl
+        |     |     |     |     |---> NfeRetRecepcao.wsdl
+        |     |     |     |     |---> NfeStatusServico.wsdl
+        |     |     |     |     \---> RecepcaoEvento.wsdl
+        |     |     |     \---> 3.10
+        |     |     |           |---> NfeAutorizacao.wsdl
+        |     |     |           |---> NfeConsultaCadastro.wsdl
+        |     |     |           |---> NfeConsultaProtocolo.wsdl
+        |     |     |           |---> NfeInutilizacao.wsdl
+        |     |     |           |---> NfeRetAutorizacao.wsdl
+        |     |     |           |---> NfeStatusServico.wsdl
+        |     |     |           \---> RecepcaoEvento.wsdl
+        |     |     |     \---> 4.00
+        |     |     |           |---> NfeAutorizacao.wsdl
+        |     |     |           |---> NfeConsultaCadastro.wsdl
+        |     |     |           |---> NfeConsultaProtocolo.wsdl
+        |     |     |           |---> NfeInutilizacao.wsdl
+        |     |     |           |---> NfeRetAutorizacao.wsdl
+        |     |     |           |---> NfeStatusServico.wsdl
+        |     |     |           \---> RecepcaoEvento.wsdl
+        |     |     \---> producao
+        |     |           |---> ... (estrutura tal como homologacao)
+        |     |           \---> ...
+        |     |---> sefaz_2
+        |     |     \---> ... (tal como sefaz_1)
+        |     \---> ... (outras sefaz)
+        \---> xsd
+              |---> PL (geralmente link simbólico para o PL mais atual)
+              |     |---> nfe_v2.00.xsd
+              |     |---> ... (incluir link simbólicos para os eventos)
+              |     \---> tiposBasico_v1.03.xsd
+              \---> ... (outras versões de pacotes)
+         '''
 
     def __init__(self, cnpj, ambiente=PRODUCAO, uf='SP', sefaz=None, raiz=None,
                  pacote='PL', contingencia=False):
@@ -415,6 +431,7 @@ class Webservice(object):
         else:
             self.__raiz = raiz
         self.__pacote = pacote
+        self.__contingencia = contingencia
         # Caminho do certificado digital
         self.__chave = ('%s/cnpjs/%s/certificado_digital/chave.pem'
                         % (self.__raiz, self.__cnpj))
@@ -431,7 +448,9 @@ class Webservice(object):
 
     def servico(self, nome_wsdl, xml, nome_xsd=None, versao_wsdl=None):
         # Validar xml para envio
-        if not self.validar(xml, nome_xsd):
+        if not self.validar(xml.nfeDadosMsg
+                            if xml('', 1)('', PoleXML.NOME) == 'nfeDadosMsg'
+                            else xml, nome_xsd):
             erros = "Erro(s) no XML: "
             for erro in self.erros:
                 erros += erro['type_name'] + ': ' + erro['message']
@@ -464,11 +483,16 @@ class Webservice(object):
         suds.bindings.binding.envns = (
             'soap12', 'http://www.w3.org/2003/05/soap-envelope')
         # Cria uma função do primeiro serviço, primeira URL (port)
-        # e primeiro método, visto que são únicos
-        funcao = suds.client.Method(wsdl, wsdl.wsdl.
-                                    services[0].ports[0].methods.values()[0])
+        # e primeiro método que não seja Zip,
+        # visto que agora não são únicos, tem um Zip que não será usado
+        methods = wsdl.wsdl.services[0].ports[0].methods.values()
+        method = methods[1] if methods[0].name[-3:] == 'Zip' else methods[0]
+        funcao = suds.client.Method(wsdl, method)
         # Configura os headers http para SOAP 1.2, o cabeçalho e retorno em XML
-        wsdl.set_options(soapheaders=self.__cabecalho(wsdl, versao_xml),
+        # soapheaders = (None if versao_xml in ('4.00', '1.01')
+        #                else self.__cabecalho(wsdl, versao_xml))
+        soapheaders = None
+        wsdl.set_options(soapheaders=soapheaders,
                          headers={'Content-Type':
                                   'application/soap+xml; charset=utf-8'},
                          retxml=True)
@@ -483,12 +507,14 @@ class Webservice(object):
         suds.bindings.binding.envns = ns_anterior
         # Retornar o resultado na forma da classe XML,
         # somente o corpo do envelope Soap
-        return PoleXML.importar(resultado).Envelope.Body('', 1)
+        ret = PoleXML.XML()
+        ret += PoleXML.importar(resultado).Envelope.Body('', 1)
+        return ret
 
     def status(self):
         consulta = PoleXML.XML()
         consulta.consStatServ['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        consulta.consStatServ['versao'] = '3.10'
+        consulta.consStatServ['versao'] = '4.00'
         consulta.consStatServ.tpAmb = self.__ambiente
         consulta.consStatServ.cUF = UFS_IBGE[self.__uf]
         consulta.consStatServ.xServ = 'STATUS'
@@ -504,11 +530,14 @@ class Webservice(object):
                                      self.__pacote)
         consulta = PoleXML.XML()
         consulta.consSitNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        consulta.consSitNFe['versao'] = '3.10'
+        consulta.consSitNFe['versao'] = '4.00'
         consulta.consSitNFe.tpAmb = self.__ambiente
         consulta.consSitNFe.xServ = 'CONSULTAR'
         consulta.consSitNFe.chNFe = chave
-        return ws_consulta.servico('NfeConsultaProtocolo', consulta)
+        retorno = ws_consulta.servico('NfeConsultaProtocolo', consulta)
+        if chave[:2] != UFS_IBGE[self.__uf]:
+            del ws_consulta
+        return retorno
 
     def consultar_num_nota(self, num_nota):
         for ano in range(datetime.date.today().year % 100, 5, -1):
@@ -567,7 +596,7 @@ class Webservice(object):
             numero_final = numero_inicial
         inutilizacao = PoleXML.XML()
         inutilizacao.inutNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        inutilizacao.inutNFe['versao'] = '3.10'
+        inutilizacao.inutNFe['versao'] = '4.00'
         # Id = Código da UF + Ano (2 posições) + CNPJ + modelo + série +
         # nro inicial e nro final, precedida do literal “ID”
         inutilizacao.inutNFe.infInut['Id'] = ('ID%s%02i%s55%03i%09i%09i' %
@@ -590,26 +619,29 @@ class Webservice(object):
 
     def enviar_envento(self, descr_evento, chave_nfe, data_hora_evento,
                        qtd_mesmo_evento, xml_adicional):
+        cod, xsd_evento, ev_maiusculo, xsd_envio, uf = EVENTOS[descr_evento]
+        if not uf:
+            uf = self.__uf
+        if uf == self.__uf:
+            ws_envio = self
+        else:
+            ws_envio = Webservice(self.__cnpj, self.__ambiente,
+                                  uf, None, self.__raiz, self.__pacote,
+                                  self.__contingencia)
         dh = cf(data_hora_evento, datetime.datetime)[0]
-        cod_evento, xsd_evento, ev_maiusculo, xsd_envio = EVENTOS[descr_evento]
-        # tz = time.altzone if time.daylight else time.timezone
-        # tz = '%c%02i:%02i' % ('-' if tz > 0 else '+', tz/3600, tz/60%60)
-        # dh = dh.strftime('%Y-%m-%dT%H:%M:%S') + tz
-        tz = pytz.timezone(open('/etc/timezone').read().strip())
-        dh = tz.localize(dh).strftime('%Y-%m-%dT%H:%M:%S%z')
+        dh = PoleUtil.tz.localize(dh).strftime('%Y-%m-%dT%H:%M:%S%z')
         dh = dh[:-2] + ':' + dh[-2:]
         evento = PoleXML.XML()
         ev = evento.Evento if ev_maiusculo else evento.evento
         ev['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         ev['versao'] = '1.00'
-        ev.infEvento['Id'] = 'ID%s%s%02i' % (cod_evento, chave_nfe,
-                                             qtd_mesmo_evento)
-        ev.infEvento.cOrgao = UFS_IBGE[self.__uf]
+        ev.infEvento['Id'] = 'ID%s%s%02i' % (cod, chave_nfe, qtd_mesmo_evento)
+        ev.infEvento.cOrgao = UFS_IBGE[uf]
         ev.infEvento.tpAmb = self.__ambiente
         ev.infEvento.CNPJ = self.__cnpj
         ev.infEvento.chNFe = chave_nfe
         ev.infEvento.dhEvento = dh
-        ev.infEvento.tpEvento = cod_evento
+        ev.infEvento.tpEvento = cod
         ev.infEvento.nSeqEvento = qtd_mesmo_evento
         ev.infEvento.verEvento = '1.00'
         ev.infEvento.detEvento['versao'] = '1.00'
@@ -629,7 +661,7 @@ class Webservice(object):
         # idLote = microsegundo/10 do envio - 15 dígitos no máximo
         envio.envEvento.idLote = str(int(time.time() * 100000))
         envio.envEvento.evento = ev(1)
-        recibo = self.servico('RecepcaoEvento', envio, xsd_envio)
+        recibo = ws_envio.servico('RecepcaoEvento', envio, xsd_envio, '4.00')
         retorno = PoleXML.XML()
         retorno.procEventoNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
         retorno.procEventoNFe['versao'] = '1.00'
@@ -638,6 +670,10 @@ class Webservice(object):
             retorno.procEventoNFe.retEvento = recibo.retEnvEvento.retEvento
         else:
             retorno.procEventoNFe.retEnvEvento = recibo.retEnvEvento
+
+        if uf != self.__uf:
+            del ws_envio
+
         return retorno
 
     def enviar_carta_correcao(self, qtd_carta_correcao, correcao, chave_nfe,
@@ -675,7 +711,7 @@ class Webservice(object):
         # Cria envelope de lote para a NFe
         lote_nfe = PoleXML.XML()
         lote_nfe.enviNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        lote_nfe.enviNFe['versao'] = '3.10'
+        lote_nfe.enviNFe['versao'] = '4.00'
         id_lote = datetime.datetime.now().strftime('%y%m%d%H%M%S%f')[:15]
         lote_nfe.enviNFe.idLote = id_lote
         lote_nfe.enviNFe.indSinc = '0'
@@ -706,9 +742,9 @@ class Webservice(object):
         #     2 - Credenciado com obrigatoriedade para todas operações
         #     3 - Credenciado com obrigatoriedade parcial
         #     4 - a SEFAZ não fornece a informação
-        # Especificar a versão, pois no XML é 2.00 e o wsdl é 3.10
+        # Especificar a versão, pois no XML pode ser 2.00 e o wsdl 4.00
         retorno = self.servico('NfeConsultaCadastro', consulta,
-                               versao_wsdl='3.10')
+                               versao_wsdl='4.00')
         self.__sefaz = sefaz
         return retorno
 
@@ -716,7 +752,7 @@ class Webservice(object):
         # Cria a estrutra consulta pelo número do recibo e faz a consulta
         consulta = PoleXML.XML()
         consulta.consReciNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        consulta.consReciNFe['versao'] = '3.10'
+        consulta.consReciNFe['versao'] = '4.00'
         consulta.consReciNFe.tpAmb = self.__ambiente
         consulta.consReciNFe.nRec = recibo
         return self.servico('NfeRetAutorizacao', consulta)
@@ -731,7 +767,7 @@ class Webservice(object):
         recibo = str(retorno.retEnviNFe.infRec.nRec)
         consulta = PoleXML.XML()
         consulta.consReciNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        consulta.consReciNFe['versao'] = '3.10'
+        consulta.consReciNFe['versao'] = '4.00'
         consulta.consReciNFe.tpAmb = self.__ambiente
         consulta.consReciNFe.nRec = recibo
         cStat = '105'  # 105 = Lote em processamento
@@ -797,26 +833,16 @@ class Webservice(object):
         return PoleXML.verificar_assinatura(filho_id, 'Id', self.__raiz +
                                             '/certificadoras/v1_v2_v3.crt')
 
-    def download_nfe(self, chave):  # usar uf = 'AN' (ambiente nacional)
-        requisicao = PoleXML.XML()
-        requisicao.downloadNFe['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        requisicao.downloadNFe['versao'] = '1.00'
-        requisicao.downloadNFe.tpAmb = self.__ambiente
-        requisicao.downloadNFe.xServ = 'DOWNLOAD NFE'
-        requisicao.downloadNFe.CNPJ = self.__cnpj
-        requisicao.downloadNFe.chNFe = chave
-        xml_download = self.servico('NfeDownloadNF', requisicao)
-        nfeProc = xml_download.retDownloadNFe.retNFe.procNFe.nfeProc
-        nfeProc.NFe["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
-        nfeProc.protNFe["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
-        procnfe = PoleXML.XML()
-        procnfe.nfeProc["xmlns"] = "http://www.portalfiscal.inf.br/nfe"
-        procnfe.nfeProc["versao"] = nfeProc["versao"]
-        procnfe.nfeProc.NFe = nfeProc.NFe
-        procnfe.nfeProc.protNFe = nfeProc.protNFe
-        return procnfe
+    def download_nfe(self, chave):
+        ret = self.consultar_distribuicao_dfe(chave=chave)
+        doc = ret.nfeDistDFeInteresseResult.retDistDFeInt.loteDistDFeInt.docZip
+        if doc('', PoleXML.FILHOS) == 0:
+            return None
+        nfe = PoleXML.XML()
+        nfe += doc
+        return nfe
 
-    def download_eventos(self, chave):
+    def lista_eventos(self, chave):
         xml_eventos = self.consultar_chave(chave)
         eventos = PoleXML.procurar(xml_eventos, 'procEventoNFe')
         retorno = []
@@ -838,20 +864,33 @@ class Webservice(object):
         return self.enviar_envento(manifestacao, chave_nfe,
                                    datetime.datetime.now(), 1, manifesto)
 
-    def consultar_nfes_destinadas(self, consultar=TODAS,
-                                  sem_cnpj_base=False, ultimo_nsu=0):
-        consulta = PoleXML.XML()
-        consulta.consNFeDest['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
-        consulta.consNFeDest['versao'] = '1.01'
-        consulta.consNFeDest.tpAmb = self.__ambiente
-        consulta.consNFeDest.xServ = 'CONSULTAR NFE DEST'
-        consulta.consNFeDest.CNPJ = self.__cnpj
-        consulta.consNFeDest.indNFe = consultar
-        consulta.consNFeDest.indEmi = +sem_cnpj_base
-        consulta.consNFeDest.ultNSU = ultimo_nsu
-        retorno = self.servico('NfeConsultaDest', consulta)
-        while (retorno.retConsNFeDest.cStat == '138' and
-               retorno.retConsNFeDest.indCont == '1'):
-            consulta.consNFeDest.ultNSU = retorno.consNFeDest.ultNSU
-            retorno += self.servico('NfeConsultaDest', consulta)
+    def consultar_distribuicao_dfe(self, ultimo_nsu=0, nsu=None, chave=None):
+        # Usar sefaz = 'AN' (ambiente nacional)
+        if self.__sefaz == 'AN':
+            ws = self
+        else:
+            ws = Webservice(self.__cnpj, self.__ambiente, self.__uf, 'AN',
+                            self.__raiz, self.__pacote, self.__contingencia)
+        requisicao = PoleXML.XML()
+        distDFeInt = requisicao.nfeDadosMsg.distDFeInt
+        distDFeInt['xmlns'] = 'http://www.portalfiscal.inf.br/nfe'
+        distDFeInt['versao'] = '1.01' if chave else '1.35'
+        distDFeInt.tpAmb = self.__ambiente
+        distDFeInt.cUFAutor = UFS_IBGE[self.__uf]
+        distDFeInt.CNPJ = self.__cnpj
+        if chave:
+            distDFeInt.consChNFe.chNFe = chave
+        elif nsu:
+            distDFeInt.consNSU.NSU = "%015i" % nsu
+        else:
+            distDFeInt.distNSU.ultNSU = "%015i" % ultimo_nsu
+        retorno = ws.servico('NfeDistribuicaoDFe', requisicao,
+                             versao_wsdl='1.00')
+        lote = retorno.nfeDistDFeInteresseResult.retDistDFeInt.loteDistDFeInt
+        for num_doc in range(1, lote('docZip', 0) + 1):
+            doc = PoleXML.importar(
+                zlib.decompress(str(lote.docZip(num_doc)).decode('base64'),
+                                16 + zlib.MAX_WBITS))  # for gZip header
+            lote.docZip = None, num_doc
+            lote.docZip += doc, num_doc
         return retorno

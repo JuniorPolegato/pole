@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='UTF-8'?><!-- Published by JAX-WS RI (http://jax-ws.java.net). RI's version is JAX-WS RI 2.2.11-b150616.1732 svn-revision#a247ba216861f2c0baac9a3657c5690bce0c744d. --><definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRetAutorizacao4" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="NFeRetAutorizacao4" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRetAutorizacao4">
+	<types>
+		<xs:schema xmlns:tns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRetAutorizacao4" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRetAutorizacao4" version="1.0" elementFormDefault="qualified">
+			<xs:element name="nfeDadosMsg">
+				<xs:complexType mixed="true">
+					<xs:sequence>
+						<xs:any/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="nfeResultMsg">
+				<xs:complexType mixed="true">
+					<xs:sequence>
+						<xs:any/>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:schema>
+	</types>
+	<message name="NFeRetAutorizacao4Service_nfeRetAutorizacaoLoteResponse">
+		<part element="tns:nfeResultMsg" name="nfeRetAutorizacaoLoteResult"/>		
+	</message>
+	<message name="NFeRetAutorizacao4Service_nfeRetAutorizacaoLote">
+		<part element="tns:nfeDadosMsg" name="nfeDadosMsg"/>
+	</message>
+	<portType name="NFeRetAutorizacao4Service">
+		<operation name="nfeRetAutorizacaoLote">
+			<input message="tns:NFeRetAutorizacao4Service_nfeRetAutorizacaoLote"/>
+			<output message="tns:NFeRetAutorizacao4Service_nfeRetAutorizacaoLoteResponse"/>
+		</operation>
+	</portType>
+	<binding name="NFeRetAutorizacao4ServiceBinding" type="tns:NFeRetAutorizacao4Service">
+		<soap12:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="nfeRetAutorizacaoLote">
+			<soap12:operation soapAction="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRetAutorizacao4/nfeRetAutorizacaoLote"/>
+			<input>
+				<soap12:body parts="nfeDadosMsg" use="literal"/>
+			</input>
+			<output>
+				<soap12:body parts="nfeRetAutorizacaoLoteResult" use="literal"/>				
+			</output>
+		</operation>
+	</binding>
+	<service name="NFeRetAutorizacao4">
+		<port binding="tns:NFeRetAutorizacao4ServiceBinding" name="NFeRetAutorizacao4ServicePort">
+			<soap12:address location="http://nfe.sefaz.go.gov.br:80/nfe/services/NFeRetAutorizacao4"/>
+		</port>
+	</service>
+</definitions>
