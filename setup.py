@@ -78,6 +78,7 @@ setup(
     description=('A micro framework for PyGtk, PDF, XML, Utilities'
                  ' and Brazilan NFe.'),
     long_description=open('README.md').read(),
+    long_description_content_type="text/plain",
     keywords=['pole', 'pygtk', 'gtk', 'gtk+', 'nfe', 'xml', 'pdf', 'util'],
     # install_requires=['cairo >= 1.1.0', 'cx_Oracle >= 5.1.0',
     #                   'dateutil >= 0.1.0', 'gtk2 >= 2.16.0',
