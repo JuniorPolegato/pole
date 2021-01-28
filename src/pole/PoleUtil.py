@@ -807,7 +807,7 @@ def formatar_rg(rg, uf):
     pass
 
 
-def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=None, html_ou_arquivo_html=None,
+def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=None, html_ou_arquivo_html=None, conteudo=None,
                  nome_da_maquina_local=None, confirmar_recebimento=True, arquivos_anexos=None, alias=None,
                  seguranca=None, arquivo_chave=None, arquivo_certificado=None, timeout=10):
     # Nome da máquina local
@@ -834,7 +834,9 @@ def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=
         remetente_autenticacao = re.sub(r'.*<(.*)>', r'\1', remetente)
         conexao.login(remetente_autenticacao, senha)
     # Coloca um texto e html básicos caso não seja especificado o texto e nem o html
-    if not texto and not html_ou_arquivo_html:
+    if conteudo:
+        pass
+    elif not texto and not html_ou_arquivo_html:
         texto = 'Corpo da mensagem não especificado.'
         html = '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
@@ -897,15 +899,19 @@ def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=
     locale.setlocale(locale.LC_ALL, 'C')
     data = 'Date: ' + datetime.datetime.now().strftime('%a, %d %b %Y %H:%M:%S ') + fuso + '\r\n'
     locale.setlocale(locale.LC_ALL, '')
+
+    de = alias if alias else remetente
+
     if not confirmar_recebimento:
         confirmacao = ''
     elif confirmar_recebimento is True:
-        confirmacao = 'Disposition-Notification-To: ' + remetente + '\r\n'
+        confirmacao = 'Disposition-Notification-To: ' + de + '\r\n'
     else:
         confirmacao = 'Disposition-Notification-To: ' + confirmar_recebimento + '\r\n'
 
-    de = alias if alias else remetente
     # Compor a mensagem com o cabeçalho, texto, html e arquivos em anexo
+    boundary = (conteudo.split("\n", 1)[0].strip()[2:] if conteudo and conteudo[:2] == "--"
+                else "SnVuaW9yIFBvbGVnYXRvIG14")
     cabecalho = (confirmacao +
                  data +
                  'From: ' + de + '\r\n'
@@ -913,28 +919,28 @@ def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=
                  'MIME-Version: 1.0\r\n'
                  'To: ' + ',\r\n    '.join(destinatarios) + '\r\n'
                  'Subject: ' + assunto + '\r\n'
-                 'Content-Type: multipart/mixed;\r\n'
-                 '    boundary="SnVuaW9yIFBvbGVnYXRvIG14"\r\n'
+                 'Content-Type: multipart/' +
+                 ('mixed' if arquivos_anexos else 'alternative') + ';\r\n'
+                 '    boundary="' + boundary + '"\r\n'
                  '\r\n')
-    texto_html = ('This is a multi-part message in MIME format.\r\n'
-                  '--SnVuaW9yIFBvbGVnYXRvIG14\r\n'
-                  'Content-Type: multipart/alternative;\r\n'
-                  '    boundary="SnVuaW9yIFBvbGVnYXRv"\r\n'
-                  '\r\n'
-                  '--SnVuaW9yIFBvbGVnYXRv\r\n'
-                  'Content-Type: text/plain; charset=UTF-8; format=flowed\r\n'
-                  'Content-Transfer-Encoding: 8bit\r\n'
-                  '\r\n'
-                  + texto + '\r\n'
-                  '\r\n'
-                  '--SnVuaW9yIFBvbGVnYXRv\r\n'
-                  'Content-Type: text/html; charset=UTF-8\r\n'
-                  'Content-Transfer-Encoding: 7bit\r\n'
-                  '\r\n'
-                  + html + '\r\n'
-                  '\r\n'
-                  '--SnVuaW9yIFBvbGVnYXRv--\r\n'
-                  '\r\n')
+    texto_html = conteudo if conteudo else (
+        'This is a multi-part message in MIME format.\r\n'
+        '--' + boundary + '\r\n'
+        'Content-Type: multipart/alternative;\r\n'
+        '    boundary="' + boundary + '"\r\n'
+        '\r\n'
+        '--' + boundary + '\r\n'
+        'Content-Type: text/plain; charset=UTF-8; format=flowed\r\n'
+        'Content-Transfer-Encoding: 8bit\r\n'
+        '\r\n'
+        + texto + '\r\n'
+        '\r\n'
+        '--' + boundary + '\r\n'
+        'Content-Type: text/html; charset=UTF-8\r\n'
+        'Content-Transfer-Encoding: 7bit\r\n'
+        '\r\n'
+        + html + '\r\n'
+        '\r\n')
     # Aqui vem os anexos em base64
     mimetypes.init()
     if arquivos_anexos:
@@ -949,15 +955,15 @@ def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=
             # print "Anexando:", anexo, " - ", tipo[0]
             # print conteudo
             # print base64.encodestring(conteudo)
-            anexos += ['--SnVuaW9yIFBvbGVnYXRvIG14\r\n'
+            anexos += ['--' + boundary + '\r\n'
                        'Content-Type: ' + tipo[0] + ';\r\n'
                        '    name="' + re.sub(r'.*/', r'', anexo) + '"\r\n'
                        'Content-Transfer-Encoding: base64\r\n'
                        '\r\n'
                        + base64.encodestring(conteudo)]
-        anexos = '\r\n'.join(anexos) + '--SnVuaW9yIFBvbGVnYXRvIG14--\r\n'
+        anexos = '\r\n'.join(anexos) + '--' + boundary + '--\r\n'
     else:
-        anexos = '--SnVuaW9yIFBvbGVnYXRvIG14--\r\n'
+        anexos = '--' + boundary + '--\r\n'
 
     # Enviar a mensagem
     # print 'Enviando...'
@@ -1150,6 +1156,8 @@ MONTH = 3
 HOURS = 4
 DAYS_HOURS = 5
 HOLLERITH = 6
+HOURS_MIN = 7
+DAYS_HOURS_MIN = 8
 
 # Julian Day delta from "-4713-11-24 12:00:00" to "0001-01-01 00:00:00"
 JD = 1721425.5
@@ -1164,7 +1172,7 @@ except Exception:  # If fail, like on Windows, try to discovery via strftime("%x
     DATE_FORMAT = dh.strftime("%x").replace('2013', '%Y').replace('13', '%y').replace('12', '%m').replace('31', '%d')
     DATE_FORMAT = re.sub('[^%a-zA-Z]', '/', DATE_FORMAT)
 
-# Create timezone
+# Create timezone - use: tz.localize(<datetime>)
 try:
     import tzlocal
     tz = tzlocal.get_localzone()
@@ -1273,7 +1281,7 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
         fmt = DATE_FORMAT + ' ' + TIME_FORMAT
 
     # Converting date and/or time content
-    if type(content) in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
+    if type(content) in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta) and return_type != datetime.timedelta:
         if return_type == bool:
             raise TypeError(_('Invalid return_type of type `bool´ when datetime content was specified.'))
         if return_type == datetime.date and type(content) == datetime.time:
@@ -1290,13 +1298,16 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
             elif return_type == datetime.date or return_type == datetime.datetime and decimals == DATE:
                 value = return_type(content.year, content.month, content.day)
                 formated = strftime(value, fmt.split(' ')[0].split('T')[0])
-            elif return_type == datetime.time or return_type == datetime.datetime and decimals == TIME:
+            elif return_type == datetime.time or return_type == datetime.datetime and decimals in (TIME, HOURS, DAYS_HOURS, HOURS_MIN, DAYS_HOURS_MIN):
                 if return_type == datetime.time:
                     value = datetime.time(content.hour, content.minute, content.second, content.microsecond, tzinfo=content.tzinfo)
                 else:
                     value = datetime.datetime(1, 1, 1, content.hour, content.minute, content.second, content.microsecond, tzinfo=content.tzinfo)
-                formated = strftime(content, fmt.split(' ')[1] if ' ' in fmt else fmt.split('T')[1])
-            elif decimals in (HOURS, DAYS_HOURS):
+                tfmt = fmt.split(' ')[1] if ' ' in fmt else fmt.split('T')[1]
+                formated = strftime(content, tfmt)
+                if decimals in (HOURS_MIN, DAYS_HOURS_MIN):
+                    formated = ':'.join(formated.split(':')[:2])
+            elif decimals in (HOURS, DAYS_HOURS, HOURS_MIN, DAYS_HOURS_MIN):
                 if return_type == datetime.time:
                     value = datetime.time(content.hour, content.minute, content.second, content.microsecond)
                 elif type(content) == datetime.time:
@@ -1317,6 +1328,8 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
                 else:
                     value = content
                 formated = strftime(value, fmt)
+            if formated[-1:] == ':':  # timezone
+                formated = formated[:-3] + ':' + formated[-3:-1]
             if return_type == str:
                 return (formated, formated)
             return [value, formated]
@@ -1336,7 +1349,7 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
             content = delta.days + (delta.seconds + delta.microseconds / 1000000.) / 86400  # (24*60*60)
 
     # Formating date and/or time outputs
-    if return_type in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta):
+    if return_type in (datetime.datetime, datetime.date, datetime.time):
         first = fmt[1]
         if type(content) in (str, unicode):  # vide locale format with locale.nl_langinfo(locale.D_FMT)
             content = content.strip()
@@ -1346,7 +1359,9 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
             now = datetime.datetime.now()
             if ' ' in content:
                 date, hour = content.split(' ', 1)
-            elif return_type == datetime.time or return_type == datetime.datetime and decimals == 1:
+            elif 'T' in content:
+                date, hour = content.split('T', 1)
+            elif return_type == datetime.time or return_type == datetime.datetime and decimals in (TIME, HOURS, DAYS_HOURS, HOURS_MIN, DAYS_HOURS_MIN):
                 hour = content
                 date = ''
             else:
@@ -1452,11 +1467,14 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
                     date = date.date()
                 return [date, strftime(date, fmt.split(' ')[0].split('T')[0])]  # was delta.days
             # value = delta.days + (delta.seconds + delta.microseconds / 1000000.)/(24*60*60)
-            if return_type == datetime.time or return_type == datetime.datetime and decimals == 1:
+            if return_type == datetime.time or return_type == datetime.datetime and decimals in (TIME, HOURS, DAYS_HOURS, HOURS_MIN, DAYS_HOURS_MIN):
                 if return_type == datetime.time:
                     date = date.time()
                 tfmt = fmt.split(' ')[1] if ' ' in fmt else fmt.split('T')[1]
-                return [date, strftime(date, tfmt)]  # was value - int(value)
+                formated = strftime(date, tfmt)
+                if decimals in (HOURS_MIN, DAYS_HOURS_MIN):
+                    formated = ':'.join(formated.split(':')[:2])
+                return [date, formated]  # was value - int(value)
             # if return_type == datetime.datetime:
             return [date, strftime(date, fmt)]  # was value
         elif type(content) in (int, long, float, datetime.timedelta):
@@ -1480,11 +1498,14 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
                 if return_type == datetime.date:
                     date = date.date()
                 return [date, strftime(date, fmt.split(' ')[0].split('T')[0])]
-            if return_type == datetime.time or return_type == datetime.datetime and decimals == TIME:
+            if return_type == datetime.time or return_type == datetime.datetime and decimals in (TIME, HOURS, DAYS_HOURS, HOURS_MIN, DAYS_HOURS_MIN):
                 if return_type == datetime.time:
                     date = date.time()
                 tfmt = fmt.split(' ')[1] if ' ' in fmt else fmt.split('T')[1]
-                return [date, strftime(date, tfmt)]
+                formated = strftime(date, tfmt)
+                if decimals in (HOURS_MIN, DAYS_HOURS_MIN):
+                    formated = ':'.join(formated.split(':')[:2])
+                return [date, formated]
             # if return_type == datetime.datetime:
             return [date, strftime(date, fmt)]
         raise TypeError('Content type `' + str(type(content)).split("'")[1] + '´ can\'t be converted to datetime, date or time.')
@@ -1519,7 +1540,7 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
             value = (content.upper() in bs_up[0])
             return [value, content]
         else:
-            value = bool(locale.atof(content))
+            value = bool(locale.atof(content)) if content else False
     else:
         value = content  # .strip()  # Retirar espaços é uma boa?
 
@@ -1529,17 +1550,40 @@ def convert_and_format(content, return_type, decimals=locale.localeconv()['frac_
 
     # Formating with locale support
     elif return_type == datetime.timedelta:
-        if not value:
-            value = datetime.timedelta(0)
-        days = value.days + (value.days < 0)
-        seconds = value.seconds * (1, -1)[value.days < 0]
-        hours = seconds / 3600
-        minutes = (seconds - hours * 3600) / 60
-        seconds -= hours * 3600 + minutes * 60
-        if decimals == HOURS:
-            formated = '%02i:%02i:%02i' % (days * 24 + hours, minutes, seconds)
+        if value and isinstance(value, (str, unicode)):
+            neg = value[0] == '-' * -1
+            if ' ' in value:
+                days, value = value[-neg:].split(' ', 1)
+                days = neg * int(days)
+                value = [neg * int(y) for y in (value + ':00:00').split(':')]
+            else:
+                days = 0
+                value = [neg * int(y)
+                         for y in (value[-neg:] + ':00:00').split(':')]
+                hours, minutes, seconds = value[:3]
+            value = datetime.timedelta(days=days, hours=hours,
+                                       minutes=minutes, seconds=seconds)
         else:
+            if not value:
+                value = datetime.timedelta(0)
+            seconds = value.days * 86400 + value.seconds
+            neg = -1 if seconds < 0 else 1
+            seconds *= neg
+            days = seconds / 86400
+            seconds %= 86400
+            hours = seconds / 3600
+            minutes = (seconds % 3600) / 60
+            seconds %= 60
+        if decimals == DAYS_HOURS:
             formated = '%i %02i:%02i:%02i' % (days, hours, minutes, seconds)
+        elif decimals == DAYS_HOURS_MIN:
+            formated = '%i %02i:%02i' % (days, hours, minutes)
+        elif decimals == HOURS_MIN:
+            formated = '%02i:%02i' % (days * 24 + hours, minutes)
+        else:
+            formated = '%02i:%02i:%02i' % (days * 24 + hours, minutes, seconds)
+        if neg == -1:
+            formated = '-' + formated
     elif return_type == float:
         if decimals < 0:
             formated = locale.currency(value, True, True)
@@ -1704,7 +1748,7 @@ ops = {
                         ['AL', 'Alagoas'], ['AM', 'Amazonas'], ['AP', 'Amapá'],
                         ['BA', 'Bahia'], ['CE', 'Ceará'],
                         ['DF', 'Distrito Federal'], ['ES', 'Espírito Santo'],
-                        ['GO', 'Goiás'], ['MA', 'Maranhão'],
+                        ['EX', 'Exterior'], ['GO', 'Goiás'], ['MA', 'Maranhão'],
                         ['MG', 'Minas Gerais'], ['MS', 'Mato Grosso do Sul'],
                         ['MT', 'Mato Grosso'], ['PA', 'Pará'],
                         ['PB', 'Paraíba'], ['PE', 'Pernambuco'],
@@ -1865,19 +1909,29 @@ tipos = {
     "Data"                                    : T(     9,        10,    0, False, cs["data"]                  , "dd/mm/yyyy"                                                   ,     1, 0,         50),
     "Data 2"                                  : T(     9,         8,    0, False, cs["data"]                  , "dd/mm/yy"                                                     ,     1, 0,         50),
     "Data e Hora"                             : T(    11,        19,    2, False, cs["data e hora"]           , "dd/mm/yyyy hh:nn:ss"                                          ,     1, 0,         50),
+    "Data e Hora 2"                           : T(    11,        19,    2, False, cs["data e hora"]           , "dd/mm/yyyy hh:nn"                                             ,     1, 0,         50),
     "Data 2 e Hora"                           : T(    11,        17,    2, False, cs["data e hora"]           , "dd/mm/yy hh:nn:ss"                                            ,     1, 0,         50),
+    "Data 2 e Hora 2"                         : T(    11,        17,    2, False, cs["data e hora"]           , "dd/mm/yy hh:nn"                                               ,     1, 0,         50),
     "Data e Hora Zona"                        : T(    11,        19,    2, False, cs["data e hora"]           , "dd/mm/yyyy hh:nn:ss z"                                        ,     1, 0,         50),
+    "Data e Hora 2 Zona"                      : T(    11,        19,    2, False, cs["data e hora"]           , "dd/mm/yyyy hh:nn z"                                           ,     1, 0,         50),
     "Data 2 e Hora Zona"                      : T(    11,        17,    2, False, cs["data e hora"]           , "dd/mm/yy hh:nn:ss z"                                          ,     1, 0,         50),
+    "Data 2 e Hora 2 Zona"                    : T(    11,        17,    2, False, cs["data e hora"]           , "dd/mm/yy hh:nn z"                                             ,     1, 0,         50),
     "Data SPED"                               : T(     9,         8,    0, False, cs["data"]                  , "ddmmyyyy"                                                     ,     1, 0,         50),
     "Data 2 SPED"                             : T(     9,         6,    0, False, cs["data"]                  , "ddmmyy"                                                       ,     1, 0,         50),
     "Data e Hora SPED"                        : T(    11,        14,    2, False, cs["data e hora"]           , "ddmmyyyyhhnnss"                                               ,     1, 0,         50),
+    "Data e Hora 2 SPED"                      : T(    11,        14,    2, False, cs["data e hora"]           , "ddmmyyyyhhnn"                                                 ,     1, 0,         50),
     "Data 2 e Hora SPED"                      : T(    11,        12,    2, False, cs["data e hora"]           , "ddmmyyhhnnss"                                                 ,     1, 0,         50),
+    "Data 2 e Hora 2 SPED"                    : T(    11,        12,    2, False, cs["data e hora"]           , "ddmmyyhhnn"                                                   ,     1, 0,         50),
     "Data XML"                                : T(     9,        10,    0, False, cs["data"]                  , "yyyy-mm-dd"                                                   ,     1, 0,         50),
     "Data 2 XML"                              : T(     9,         8,    0, False, cs["data"]                  , "yy-mm-dd"                                                     ,     1, 0,         50),
     "Data e Hora XML"                         : T(    11,        19,    2, False, cs["data e hora"] + 'T'     , "yyyy-mm-ddThh:nn:ss"                                          ,     1, 0,         50),
+    "Data e Hora 2 XML"                       : T(    11,        19,    2, False, cs["data e hora"] + 'T'     , "yyyy-mm-ddThh:nn"                                             ,     1, 0,         50),
     "Data 2 e Hora XML"                       : T(    11,        17,    2, False, cs["data e hora"] + 'T'     , "yy-mm-ddThh:nn:ss"                                            ,     1, 0,         50),
-    "Data e Hora Zona XML"                    : T(    11,        19,    2, False, cs["data e hora"] + 'T'     , "yyyy-mm-ddThh:nn:ssz"                                         ,     1, 0,         50),
-    "Data 2 e Hora Zona XML"                  : T(    11,        17,    2, False, cs["data e hora"] + 'T'     , "yy-mm-ddThh:nn:ssz"                                           ,     1, 0,         50),
+    "Data 2 e Hora 2 XML"                     : T(    11,        17,    2, False, cs["data e hora"] + 'T'     , "yy-mm-ddThh:nn"                                               ,     1, 0,         50),
+    "Data e Hora Zona XML"                    : T(    11,        19,    2, False, cs["data e hora"] + 'T'     , "yyyy-mm-ddThh:nn:ssz:"                                        ,     1, 0,         50),
+    "Data e Hora 2 Zona XML"                  : T(    11,        19,    2, False, cs["data e hora"] + 'T'     , "yyyy-mm-ddThh:nnz:"                                           ,     1, 0,         50),
+    "Data 2 e Hora Zona XML"                  : T(    11,        17,    2, False, cs["data e hora"] + 'T'     , "yy-mm-ddThh:nn:ssz:"                                          ,     1, 0,         50),
+    "Data 2 e Hora 2 Zona XML"                : T(    11,        17,    2, False, cs["data e hora"] + 'T'     , "yy-mm-ddThh:nnz:"                                             ,     1, 0,         50),
     "Dinheiro"                                : T(     6,        14,    0, False, cs["números"] + dp + '+-'   , mascara_dinheiro()                                             ,     1, 0,        100),
     "Dinheiro 1"                              : T(     6,        14,    1, False, cs["números"] + dp + '+-'   , mascara_dinheiro(1)                                            ,     1, 0,        100),
     "Dinheiro 2"                              : T(     6,        14,    2, False, cs["números"] + dp + '+-'   , mascara_dinheiro(2)                                            ,     1, 0,        100),
@@ -1933,7 +1987,7 @@ tipos = {
     "Letras Mai Acentuadas e Números"         : T(     1,       256,    0, False, cs["letras e números"]      , "upper"                                                        ,     1, 1,          0),
     "Letras Mai Acentuadas Números e Espaços" : T(     1,       256,    0, False, cs["letras e números"] + " ", "upper"                                                        ,     1, 1,          0),
     "Livre Mai Acentuado"                     : T(     1,       256,    0, False, ""                          , "upper"                                                        ,     1, 1,          0),
-    "Números"                                 : T(     1,       256,    0, False, cs["números"]               , "0;0;0"                                                        ,     1, 1,        100),
+    "Números"                                 : T(     1,       256,    0, False, cs["números"]               , ""                                                             ,     1, 1,        100),
     "Números e Espaços"                       : T(     1,       256,    0, False, cs["números"] + " "         , ""                                                             ,     1, 1,        100),
     "Números e Vírgulas"                      : T(     1,       256,    0, False, cs["números"] + ","         , ""                                                             ,     1, 1,        100),
     "Números e Pontos"                        : T(     1,       256,    0, False, cs["números"] + "."         , ""                                                             ,     1, 1,        100),
@@ -2010,8 +2064,22 @@ tipos = {
     "int"                                     : T(     3,        12,    0, False, cs["números"] + "-+"        , "0,;-0,;0"                                                     ,     1, 1,        100),
     "long"                                    : T(     3,        12,    0, False, cs["números"] + "-+"        , "0,;-0,;0"                                                     ,     1, 1,        100),
     "float"                                   : T(     6,        14,   fd, False, cs["números"] + dp + '+-'   , "{0},;-{0},;{0}".format(fs)                                    ,     1, 3,        100),
-
 }
+
+def new_float_type(tx):
+    if tx[:5] == "float":
+        try:
+            decimals = int(tx[5:])
+        except Exception:
+            decimals = local['frac_digits']
+        tx = 'float' + str(decimals)
+        if tx not in tipos:
+            fs = '0.' + '0' * decimals
+            tipos[tx] = T(6, 14, decimals, False,
+                          cs["números"] + dp + '+-',
+                          "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+    return tx
+
 # Try to add dolars, if can't get via locale, set $0.00, with comma thousand separator
 try:
     dolares = {
