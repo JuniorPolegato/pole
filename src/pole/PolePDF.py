@@ -52,7 +52,7 @@ BAIXO = 1
 
 # ' ' = '\xc2\xa0' = nbsp em utf-8
 
-XML_ESCAPE = (('lt', '<'), ('gt', '>'), ('amp', '&'),
+XML_ESCAPE = (('amp', '&'), ('lt', '<'), ('gt', '>'),
               ('quot', '"'), ('nbsp', ' '))
 
 FORM_ESCAPE = (('<b>', '\0b\0'), ('</b>', '\0/b\0'),

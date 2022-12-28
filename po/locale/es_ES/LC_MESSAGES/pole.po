@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pole 1.0.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2019-05-16 08:39-0300\n"
+"POT-Creation-Date: 2019-08-21 08:52-0300\n"
 "PO-Revision-Date: 2016-03-11 17:23-0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es_ES\n"
@@ -18,96 +18,212 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.6.0\n"
 
-#: src/pole/PoleGTK.py:110
-msgid "Information"
+#: src/pole/PoleGTK.py:61
+msgid "and"
+msgstr ""
+
+#: src/pole/PoleGTK.py:61
+msgid "or"
+msgstr ""
+
+#: src/pole/PoleGTK.py:69
+msgid "not\\s*in"
+msgstr ""
+
+#: src/pole/PoleGTK.py:70
+msgid "is\\s*not\\s*null"
+msgstr ""
+
+#: src/pole/PoleGTK.py:71
+msgid "is\\s*not"
+msgstr ""
+
+#: src/pole/PoleGTK.py:72
+msgid "is\\s*null"
+msgstr ""
+
+#: src/pole/PoleGTK.py:73
+msgid "not\\s*like"
+msgstr ""
+
+#: src/pole/PoleGTK.py:74
+msgid "not\\s*between"
+msgstr ""
+
+#: src/pole/PoleGTK.py:75
+msgid "will\\s*be"
+msgstr ""
+
+#: src/pole/PoleGTK.py:76
+msgid "will\\s*not\\s*be"
+msgstr ""
+
+#: src/pole/PoleGTK.py:77
+msgid "was\\s*not"
+msgstr ""
+
+#: src/pole/PoleGTK.py:78
+msgid "was"
+msgstr ""
+
+#: src/pole/PoleGTK.py:78
+msgid "in"
+msgstr ""
+
+#: src/pole/PoleGTK.py:78
+msgid "is"
+msgstr ""
+
+#: src/pole/PoleGTK.py:79
+msgid "like"
+msgstr ""
+
+#: src/pole/PoleGTK.py:79
+msgid "between"
+msgstr ""
+
+#: src/pole/PoleGTK.py:88
+msgid "this\\s*month"
+msgstr ""
+
+#: src/pole/PoleGTK.py:91
+msgid "next\\s*month"
+msgstr ""
+
+#: src/pole/PoleGTK.py:94
+msgid "last\\s*month"
+msgstr ""
+
+#: src/pole/PoleGTK.py:98
+msgid "this\\s*year"
+msgstr ""
+
+#: src/pole/PoleGTK.py:101
+msgid "next\\s*year"
+msgstr ""
+
+#: src/pole/PoleGTK.py:104
+msgid "last\\s*year"
+msgstr ""
+
+#: src/pole/PoleGTK.py:108
+msgid "this\\s*week"
 msgstr ""
 
 #: src/pole/PoleGTK.py:111
+msgid "next\\s*week"
+msgstr ""
+
+#: src/pole/PoleGTK.py:114
+msgid "last\\s*week"
+msgstr ""
+
+#: src/pole/PoleGTK.py:118
+msgid "yesterday"
+msgstr ""
+
+#: src/pole/PoleGTK.py:120
+msgid "today"
+msgstr ""
+
+#: src/pole/PoleGTK.py:122
+msgid "tomorrow"
+msgstr ""
+
+#: src/pole/PoleGTK.py:125
+msgid "now"
+msgstr ""
+
+#: src/pole/PoleGTK.py:196 src/pole/PoleGTK.py:2397
+msgid "Information"
+msgstr ""
+
+#: src/pole/PoleGTK.py:197
 msgid "Warning"
 msgstr ""
 
-#: src/pole/PoleGTK.py:112
+#: src/pole/PoleGTK.py:198
 msgid "Question"
 msgstr ""
 
-#: src/pole/PoleGTK.py:113
+#: src/pole/PoleGTK.py:199
 msgid "Error"
 msgstr ""
 
-#: src/pole/PoleGTK.py:153
+#: src/pole/PoleGTK.py:239
 msgid "Give the resquested information"
 msgstr ""
 
-#: src/pole/PoleGTK.py:282
+#: src/pole/PoleGTK.py:368
 msgid "Details"
 msgstr ""
 
-#: src/pole/PoleGTK.py:328
+#: src/pole/PoleGTK.py:414
 msgid "Select folder"
 msgstr ""
 
-#: src/pole/PoleGTK.py:332
+#: src/pole/PoleGTK.py:418
 msgid "Select file to save to"
 msgstr ""
 
-#: src/pole/PoleGTK.py:336
+#: src/pole/PoleGTK.py:422
 msgid "Select file"
 msgstr ""
 
-#: src/pole/PoleGTK.py:378
+#: src/pole/PoleGTK.py:464
 msgid "Overwrite the file?"
 msgstr ""
 
-#: src/pole/PoleGTK.py:573
+#: src/pole/PoleGTK.py:659
 msgid "_Now"
 msgstr ""
 
-#: src/pole/PoleGTK.py:574
+#: src/pole/PoleGTK.py:660
 msgid "_Today"
 msgstr ""
 
-#: src/pole/PoleGTK.py:618
+#: src/pole/PoleGTK.py:704
 msgid "Year:"
 msgstr ""
 
-#: src/pole/PoleGTK.py:645
+#: src/pole/PoleGTK.py:731
 msgid "Time:"
 msgstr ""
 
-#: src/pole/PoleGTK.py:880 src/pole/PoleGTK.py:890
+#: src/pole/PoleGTK.py:966 src/pole/PoleGTK.py:976
 #, python-format
 msgid "Invalid or not found column name `%s´."
 msgstr ""
 
-#: src/pole/PoleGTK.py:901
+#: src/pole/PoleGTK.py:987
 msgid ""
 "This value could not be converted or formatted.\n"
 "\n"
 "This value is ignored and the previous value will not change."
 msgstr ""
 
-#: src/pole/PoleGTK.py:922
+#: src/pole/PoleGTK.py:1008
 msgid "Invalid type of column index or name `´."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1282
+#: src/pole/PoleGTK.py:1349
 msgid ""
 "Invalid values column format, expected max of 4 values: name, type[, "
 "decimal][,edit]."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1287
+#: src/pole/PoleGTK.py:1354
 msgid "Invalid column parameters. Expected color or title,type[,decimals][,edit]."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1351
+#: src/pole/PoleGTK.py:1412
 #, python-format
 msgid ""
 "Invalid type `%s´. Expected int, long, bool, float, str, datetime, date, "
 "time, month or hours."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1365
+#: src/pole/PoleGTK.py:1426
 #, python-format
 msgid ""
 "Invalid value for decimals ou editable `%s´. Expected digits, 'DATE', "
@@ -115,34 +231,34 @@ msgid ""
 "'edit' for editable."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1369
+#: src/pole/PoleGTK.py:1430
 msgid "Expected just one `edit´ for editable."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1372
+#: src/pole/PoleGTK.py:1433
 #, python-format
 msgid "Invalid value for editable `%s´. Expected `edit´ for editable, just one."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1642 src/pole/PoleGTK.py:1652 src/pole/PoleGTK.py:1754
+#: src/pole/PoleGTK.py:1706 src/pole/PoleGTK.py:1716 src/pole/PoleGTK.py:1818
 msgid "No columns structure defined."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1663 src/pole/PoleGTK.py:1763
+#: src/pole/PoleGTK.py:1727 src/pole/PoleGTK.py:1827
 msgid ""
 "Type `´of path is not valid. Expected str, int, long, tuple, list (path) "
 "or gtk.TreeIter."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1667
+#: src/pole/PoleGTK.py:1731
 msgid "Path or iter is not valid for this model."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1711 src/pole/PoleGTK.py:1801
+#: src/pole/PoleGTK.py:1775 src/pole/PoleGTK.py:1865
 msgid "Error!"
 msgstr ""
 
-#: src/pole/PoleGTK.py:1746 src/pole/PoleGTK.py:1809
+#: src/pole/PoleGTK.py:1810 src/pole/PoleGTK.py:1873
 msgid ""
 "Some values could not be converted or formatted!\n"
 "\n"
@@ -150,98 +266,169 @@ msgid ""
 "false."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1765 src/pole/PoleGTK.py:1767
+#: src/pole/PoleGTK.py:1829 src/pole/PoleGTK.py:1831
 msgid "Path or iter is not valid."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1920
+#: src/pole/PoleGTK.py:1984
 msgid "Please wait..."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1935
+#: src/pole/PoleGTK.py:1999
 msgid "Getting lines..."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1951
+#: src/pole/PoleGTK.py:2015
 msgid "Loading lines..."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2012
+#: src/pole/PoleGTK.py:2084
 msgid "Invalid or not found column name `´."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2021
+#: src/pole/PoleGTK.py:2093
 msgid "Invalid or not found column name or number `´."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2033 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
+#: src/pole/PoleGTK.py:2105 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
 msgid "Y"
 msgstr ""
 
-#: src/pole/PoleGTK.py:2035 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
+#: src/pole/PoleGTK.py:2107 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
 msgid "N"
 msgstr ""
 
-#: src/pole/PoleGTK.py:2098
-msgid "CRUD_update2 must be tuple, list or dict."
+#: src/pole/PoleGTK.py:2370
+msgid "Filter help"
 msgstr ""
 
-#: src/pole/PoleGTK.py:2226
-msgid "Invalid filter!"
-msgstr ""
-
-#: src/pole/PoleGTK.py:2227
+#: src/pole/PoleGTK.py:2371
 msgid ""
 "The filter must be in the format:\n"
 "\n"
-"[{column}|field|expression] operator value [junction "
-"[{column}|field|expression] operator value ...]\n"
+"{{column}}|field|expression operator value\n"
+"[junction {{column}}|field|expression operator value ...]\n"
 "\n"
-"WARNING: Spacings are required as above!\n"
+"Operators:\n"
+"{signs}\n"
+"{ops}\n"
 "\n"
-"Ex1: {Code} <100 and {Description} = \"*AC*\"\n"
-"Ex2: {Description} = null\n"
-"Ex3: len({Description}) < 5\n"
-"Ex4: substr({Date},4,4) = '2018'\n"
-"Ex5: to_number(substr({Date},4,4)) <= 2017\n"
+"Junctions:\n"
+"{joins}\n"
+"\n"
+"Date keywords:\n"
+"{dates}\n"
+"\n"
+"Examples:\n"
+"{{Code}} < 100 and {{Description}} = \"CABO*AC*5?MM*\"\n"
+"{{Description}} = null\n"
+"{{Date}} is not null\n"
+"length({{Description}}) < 5\n"
+"substr({{Date}}, 4, 4) = '2018'\n"
+"to_number(substr({{Date}}, 4, 4)) <= 2017\n"
+"{{Date}} is today\n"
+"{{Date}} was yesterday\n"
+"trunc({{Date}}) = '18/04/2019'\n"
 "\n"
 "See SQL expressions in:\n"
 "http://pgdocptbr.sourceforge.net/pg80/functions.html"
 msgstr ""
 
-#: src/pole/PoleGTK.py:2317
-#, python-format
-msgid "Do you really want to %s?"
+#: src/pole/PoleGTK.py:2416
+msgid "Filter mistake!"
 msgstr ""
 
-#: src/pole/PoleGTK.py:2358
+#: src/pole/PoleGTK.py:2431
 #, python-format
-msgid "No lines found to %s!"
+msgid "String mistake! %s at %i."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2361
-#, python-format
-msgid "Do you want to %s %s line(s)?"
+#: src/pole/PoleGTK.py:2447
+msgid "Left side mistake!"
 msgstr ""
 
-#: src/pole/PoleGTK.py:2500
+#: src/pole/PoleGTK.py:2485
+msgid "Between operator fail!"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2493 src/pole/PoleGTK.py:2523
+msgid "Right side mistake!"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2503 src/pole/PoleGTK.py:2534
+msgid "null"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2596
+#, python-format
+msgid "Do you really want %s?"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2597
+msgid "to update"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2598
+msgid "to delete"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2640
+#, python-format
+msgid "No lines found for %s!"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2640 src/pole/PoleGTK.py:2644
+msgid "to "
+msgstr ""
+
+#: src/pole/PoleGTK.py:2643
+#, python-format
+msgid "Do you want %s %s line(s)?"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2720
+msgid "Field:"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2720
+msgid "Empty"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2722
+msgid "Default"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2744
+msgid "Field"
+msgstr ""
+
+#: src/pole/PoleGTK.py:2753
+msgid "Value"
+msgstr ""
+
+#: src/pole/PoleGTK.py:3027
+#, python-format
+msgid "Restore original data for %s?"
+msgstr ""
+
+#: src/pole/PoleGTK.py:3156
 msgid "Error: Parent project has no window."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2508
+#: src/pole/PoleGTK.py:3164
 msgid "Error: Module has no window."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2548
+#: src/pole/PoleGTK.py:3205
 #, python-format
 msgid "Invalid argument \"xml_file_or_xml_string\" of type `%s´. Expected str."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2557
+#: src/pole/PoleGTK.py:3214
 msgid "Invalid content. Expected XML data."
 msgstr ""
 
-#: src/pole/PoleGTK.py:2783
+#: src/pole/PoleGTK.py:3441
 msgid "Data copied to memory!"
 msgstr ""
 
@@ -387,5 +574,306 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "Invalid or not found column name `%i´."
+#~ msgstr ""
+
+#~ msgid "CRUD_update2 must be tuple, list or dict."
+#~ msgstr ""
+
+#~ msgid "Do you really want to %s?"
+#~ msgstr ""
+
+#~ msgid "No lines found to %s!"
+#~ msgstr ""
+
+#~ msgid "Do you want to %s %s line(s)?"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "[{column}|field|expression] operator value [junction"
+#~ " [{column}|field|expression] operator value ...]"
+#~ "\n"
+#~ "\n"
+#~ "WARNING: Spacings are required as above!\n"
+#~ "\n"
+#~ "Ex1: {Code} <100 and {Description} = \"*AC*\"\n"
+#~ "Ex2: {Description} = null\n"
+#~ "Ex3: len({Description}) < 5\n"
+#~ "Ex4: substr({Date},4,4) = '2018'\n"
+#~ "Ex5: to_number(substr({Date},4,4)) <= 2017\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid "not is"
+#~ msgstr ""
+
+#~ msgid "not in"
+#~ msgstr ""
+
+#~ msgid "is not"
+#~ msgstr ""
+
+#~ msgid "not like"
+#~ msgstr ""
+
+#~ msgid "not between"
+#~ msgstr ""
+
+#~ msgid "not\\s+in"
+#~ msgstr ""
+
+#~ msgid "is\\s+not"
+#~ msgstr ""
+
+#~ msgid "not\\s+like"
+#~ msgstr ""
+
+#~ msgid "not\\s+between"
+#~ msgstr ""
+
+#~ msgid "in\\s*this\\s*week"
+#~ msgstr ""
+
+#~ msgid "in\\s*next\\s*week"
+#~ msgstr ""
+
+#~ msgid "in\\s*last\\s*week"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "[{column}|field|expression] operator value [junction"
+#~ " [{column}|field|expression] operator value ...]"
+#~ "\n"
+#~ "\n"
+#~ "Ex1: {Code} < 100 and {Description} = \"*AC*\"\n"
+#~ "Ex2: {Description} = null\n"
+#~ "Ex3: len({Description}) < 5\n"
+#~ "Ex4: substr({Date},4,4) = '2018'\n"
+#~ "Ex5: to_number(substr({Date},4,4)) <= 2017\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{column}|field|expression operator value [junction"
+#~ " {column}|field|expression operator value  ...]"
+#~ "\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{Code} < 100 and {Description} = \"*AC*\"\n"
+#~ "{Description} = null\n"
+#~ "{Date} is not null\n"
+#~ "length({Description}) < 5\n"
+#~ "substr({Date},4,4) = '2018'\n"
+#~ "to_number(substr({Date},4,4)) <= 2017\n"
+#~ "{Date} is today\n"
+#~ "{Date} was yesterday\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{{column}}|field|expression operator value [junction"
+#~ " {column}|field|expression operator value  ...]"
+#~ "\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{Code} < 100 and {Description} = \"*AC*\"\n"
+#~ "{Description} = null\n"
+#~ "{Date} is not null\n"
+#~ "length({Description}) < 5\n"
+#~ "substr({Date},4,4) = '2018'\n"
+#~ "to_number(substr({Date},4,4)) <= 2017\n"
+#~ "{Date} is today\n"
+#~ "{Date} was yesterday\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid "Invalid filter!"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{{column}}|field|expression operator value [junction"
+#~ " {{column}}|field|expression operator value  ...]"
+#~ "\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{{Code}} < 100 and {{Description}} = \"*AC*\"\n"
+#~ "{{Description}} = null\n"
+#~ "{{Date}} is not null\n"
+#~ "length({{Description}}) < 5\n"
+#~ "substr({{Date}},4,4) = '2018'\n"
+#~ "to_number(substr({{Date}},4,4)) <= 2017\n"
+#~ "{{Date}} is today\n"
+#~ "{{Date}} was yesterday\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{{column}}|field|expression operator value\n"
+#~ "[junction {{column}}|field|expression operator value...]\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{{Code}} < 100 and {{Description}} = \"*AC*\"\n"
+#~ "{{Description}} = null\n"
+#~ "{{Date}} is not null\n"
+#~ "length({{Description}}) < 5\n"
+#~ "substr({{Date}},4,4) = '2018'\n"
+#~ "to_number(substr({{Date}},4,4)) <= 2017\n"
+#~ "{{Date}} is today\n"
+#~ "{{Date}} was yesterday\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{{column}}|field|expression operator value\n"
+#~ "[junction {{column}}|field|expression operator value...]\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{{Code}} < 100 and {{Description}} = \"CABO*AC*5?MM*\"\n"
+#~ "{{Description}} = null\n"
+#~ "{{Date}} is not null\n"
+#~ "length({{Description}}) < 5\n"
+#~ "substr({{Date}},4,4) = '2018'\n"
+#~ "to_number(substr({{Date}},4,4)) <= 2017\n"
+#~ "{{Date}} is today\n"
+#~ "{{Date}} was yesterday\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{{column}}|field|expression operator value\n"
+#~ "[junction {{column}}|field|expression operator value ...]\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{{Code}} < 100 and {{Description}} = \"CABO*AC*5?MM*\"\n"
+#~ "{{Description}} = null\n"
+#~ "{{Date}} is not null\n"
+#~ "length({{Description}}) < 5\n"
+#~ "substr({{Date}},4,4) = '2018'\n"
+#~ "to_number(substr({{Date}},4,4)) <= 2017\n"
+#~ "{{Date}} is today\n"
+#~ "{{Date}} was yesterday\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The filter must be in the format:\n"
+#~ "\n"
+#~ "{{column}}|field|expression operator value\n"
+#~ "[junction {{column}}|field|expression operator value ...]\n"
+#~ "\n"
+#~ "Operators:\n"
+#~ "{signs}\n"
+#~ "{ops}\n"
+#~ "\n"
+#~ "Junctions:\n"
+#~ "{joins}\n"
+#~ "\n"
+#~ "Date keywords:\n"
+#~ "{dates}\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "{{Code}} < 100 and {{Description}} = \"CABO*AC*5?MM*\"\n"
+#~ "{{Description}} = null\n"
+#~ "{{Date}} is not null\n"
+#~ "length({{Description}}) < 5\n"
+#~ "substr({{Date}}, 4, 4) = '2018'\n"
+#~ "to_number(substr({{Date}}, 4, 4)) <= 2017\n"
+#~ "{{Date}} is today\n"
+#~ "{{Date}} was yesterday\n"
+#~ "trunc({{Date}}) = '14/08/2019'\n"
+#~ "\n"
+#~ "See SQL expressions in:\n"
+#~ "http://pgdocptbr.sourceforge.net/pg80/functions.html"
 #~ msgstr ""
 

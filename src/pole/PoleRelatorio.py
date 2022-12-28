@@ -164,8 +164,8 @@ def gerar_pdf(paisagem, data_inicial, data_final, titulo_relatorio,
     # Transforma em parágrafo cada valor de cada campo, utilizando caracter adequado para booleano
     if dados_tabela:
         # Caracteres para bool: ✔⊠☑✅✓❌❎⨯☒⬚❏⬜'
-        dados_tabela = [[paragrafo(('✔' if campo else '❏') if type(campo) == bool else campo, estilo)
-                                 for campo, estilo in zip(remove_columns(linha, cabecalhos_excluidos), estilos)]
+        dados_tabela = [[paragrafo(('✔' if campo else '❏') if type(campo) == bool else campo, _estilo)
+                                 for campo, _estilo in zip(remove_columns(linha, cabecalhos_excluidos), estilos)]
                                  for linha in dados_tabela]
     else:
         dados_tabela = []
@@ -198,19 +198,20 @@ def gerar_pdf(paisagem, data_inicial, data_final, titulo_relatorio,
         else:
             totalizado.append('')
     # Totalização de percentual
-    for n, t in enumerate(totalizacao):
-        if t.lower()[:4] in ('perc', 'porc'):
-            t, a, b = t.rsplit(' ', 2)
+    for n, (p, t, c) in enumerate(zip(totalizacao, tipos, casas)):
+        if p.lower()[:4] in ('perc', 'porc'):
+            p, a, b = p.split(' ', 2)
+            sub = 100
+            if ' ' in b:
+                b, sub = b.split(' ', 1)
             a = cf(totalizado[int(a)], float)[0]
             b = cf(totalizado[int(b)], float)[0]
-            if t.lower()[:4] == 'perc':
-                t = 'Porcentagem %i' % PoleUtil.locale.localeconv()['frac_digits']
-            totalizado[n] = formatar((a / b) * 100 - 100, t)
+            totalizado[n] = cf((a / b) * 100 - cf(sub, float)[0], t, c)[1]
     if sum(map(lambda x: x != '', totalizado)):
         # Linha separadora com "Totais" na primeira coluna
         dados_tabela.append([PolePDF.paragrafo("Totais", PolePDF.normal_esquerda)] + [''] * (len(tipos) - 1))
         # Inclusão do totalizado no final dos dados
-        dados_tabela.append([paragrafo(t, e) for t, e in zip(totalizado, estilos)])
+        dados_tabela.append([paragrafo(tot, e) for tot, e in zip(totalizado, estilos)])
     # Separação dos dados de cada página
     tabelas = []
     while len(dados_tabela):

@@ -641,37 +641,46 @@ def procurar(xml, nome_no, atributos=None, todos=False):
     return retorno
 
 
+simple_types = {}
 complex_types = {}
 grupo_escolha = 0
 
 
-def add_attrs(dest, orig, filtro):
+def add_attrs(dest, orig, filtro=None):
     pai = orig('', PAI)
     herdar = ['sequence']
-    pai = (pai('', ATRIBUTOS) if pai('', NOME) in herdar
+    pai = (pai('', ATRIBUTOS) if pai and pai('', NOME) in herdar
            else [])
+    dest_atributos = dest('', ATRIBUTOS)
+    dest_atributos = zip(*dest_atributos)[0] if dest_atributos else []
     for a, v in orig('', ATRIBUTOS) + pai:
-        if a in filtro:
-            dest[a] = v
+        if not filtro or a in filtro:
+            if a == 'tipo' and a in dest_atributos:
+                dest[a] = dest[a] + '|' + v
+            elif a not in dest_atributos:
+                dest[a] = v
 
 
-def _xsd_to_xml(xsd, xml, escolha=''):
-    global grupo_escolha
-    for num in range(1, xsd('', 0) + 1):
-        filho = xsd('', num)
+def _xsd_to_xml(xsd, xml, escolha='', inicial=1):
+    global grupo_escolha, complex_types, simple_types
+    for num in range(inicial, xsd('', 0) + 1):
+        filho = xsd('', num) if num else xsd
         if isinstance(filho, (str, unicode)):
-            xml['texto'] = filho
-            return
+            if xml['texto']:
+                xml['texto'] += ' § ' + filho
+            else:
+                xml['texto'] = filho
+            continue
         nome = filho('', NOME)
-        if nome in ['element', 'any', 'attribute']:
+        if nome in ['element', 'any', 'attribute'] or escolha == 'simpleType':
             nome_filho = (filho['name'] if filho['name']
                           else filho['ref'].rsplit(':', 1)[-1] if filho['ref']
                           else nome)
             if nome == 'attribute':
                 nome_filho = '_' + nome_filho
-            y = xml(nome_filho, FILHO)
+            y = xml(nome_filho, FILHO) if num else xml
             add_attrs(y, filho, ['minOccurs', 'maxOccurs', 'use'])
-            if escolha:
+            if escolha and escolha != 'simpleType':
                 y['grpEscolha'] = escolha
             if filho['type']:
                 type_name = filho['type'].rsplit(':', 1)[-1]
@@ -681,10 +690,20 @@ def _xsd_to_xml(xsd, xml, escolha=''):
                         "For type `" + xsd('', PAI)['name'] + "´ yet not found"
                         " the complex type: " + type_name)
                     y += importar('<x>'+str(complex_types[type_name])+'</x>').x
-            _xsd_to_xml(filho, y)
+                elif type_name in simple_types:
+                    assert simple_types[type_name], Exception(
+                        "For type `" + xsd('', PAI)['name'] + "´ yet not found"
+                        " the simple type: " + type_name)
+                    add_attrs(y, simple_types[type_name])
+            if inicial:
+                _xsd_to_xml(filho, y)
+            if escolha == 'simpleType':
+                escolha = ''
             continue
         if nome == 'restriction':
             xml['tipo'] = filho['base'].rsplit(':', 1)[-1]
+            if xml['tipo'] in simple_types and simple_types[xml['tipo']]:
+                add_attrs(xml, simple_types[xml['tipo']])
             enumeration = []
             for num_restr in range(1, filho('', 0) + 1):
                 f_restr = filho('', num_restr)
@@ -702,35 +721,62 @@ def _xsd_to_xml(xsd, xml, escolha=''):
         else:
             escolha = ''
         _xsd_to_xml(filho, xml, escolha)
+        escolha = ''
+
+
+def xsd_simple_types(xsd, debug=False):
+    global simple_types
+    lista = procurar(xsd, 'simpleType', ['name'])
+    simple_types.update({x['name']: None
+                         for x in lista if x not in simple_types})
+    for simple_type in lista:
+        xml = XML()
+        _xsd_to_xml(simple_type, xml, escolha='simpleType', inicial=0)
+        simple_types[simple_type['name']] = xml
 
 
 def xsd_complex_types(xsd, debug=False):
     global complex_types
     lista = procurar(xsd, 'complexType', ['name'])
-    complex_types.update({x['name']: None for x in lista})
-    for complex_type in lista:
-        # print complex_type['name']
+    complex_types.update({x['name']: None
+                          for x in lista if x not in complex_types})
+    fim = len(lista) * 2
+    for n, complex_type in enumerate(lista):
         xml = XML()
         try:
             _xsd_to_xml(complex_type, xml)
-            # print repr(xml)
-            # print '-' * 100
             complex_types[complex_type['name']] = xml
         except Exception as e:
             if debug:
                 print e
             del xml
             lista.append(complex_type)
+        if n == fim:
+            break
+
+
+def xsd_include(xsd):
+    diretorio = xsd.rsplit(os.sep, 1)[0]
+    xml = importar(xsd)
+    includes = procurar(xml, 'include')
+    for i in includes:
+        i += xsd_include(os.path.join(diretorio, i['schemaLocation']))
+    return xml
 
 
 def xsd_to_xml(xsd):
+    global simple_types, complex_types, grupo_escolha
+    simple_types = {}
+    complex_types = {}
+    grupo_escolha = 0
     if not isinstance(xsd, XML):
-        xsd = importar(xsd)
+        xsd = xsd_include(xsd)
+    xsd_simple_types(xsd)
     xsd_complex_types(xsd)
     root_name = xsd.schema.element['name']
     xml = XML()
     xml(root_name, FILHO)['xmlns'] = xsd.schema['targetNamespace']
-    _xsd_to_xml(xsd.schema.element, xml(root_name, 1))
+    _xsd_to_xml(xsd.schema.element, xml(root_name, 1), inicial=0)
     return xml
 
 

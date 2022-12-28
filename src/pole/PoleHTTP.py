@@ -111,7 +111,7 @@ class Conexao(object):
         return dados
 
     def obter_dados(self, caminho='', dados=None, atualiza_referer=True,
-                    mais_cabecalhos=None, seguir=True):
+                    mais_cabecalhos={}, seguir=True):
         if not caminho:
             caminho = self.caminho
         if not self.conexao:

@@ -284,7 +284,10 @@ def __plain(self, indent=0):
         tns = ' xmlns="%s"' % tns.split('"')[0]
         ns += tns
     if qname[:4] == 'ns0:':
-        ns0 = self.parent.parent.nsdeclarations().split('xmlns:ns0="')[1]
+        p = self.parent
+        while p and 'xmlns:ns0="' not in p.nsdeclarations():
+            p = p.parent
+        ns0 = p.nsdeclarations().split('xmlns:ns0="')[1]
         ns0 = ' xmlns="%s"' % ns0.split('"')[0]
         ns += ns0
     if qname[:4] in ('tns:', 'ns0:'):

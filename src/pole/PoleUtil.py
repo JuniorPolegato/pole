@@ -64,7 +64,7 @@ p = sys.prefix
 s = os.path.sep
 locale_dir_levels = [[], ['..'], ['..', '..'], ['..', '..', '..']]
 locale_dir_names = [['po'], ['pole', 'po']]
-locale_dirs = [l + n for l in locale_dir_levels for n in locale_dir_names]
+locale_dirs = [loc + n for loc in locale_dir_levels for n in locale_dir_names]
 locale_dirs += [[p], [p, 'share'], [p, 'local'], [p, 'local', 'share'],
                 [p, 'usr'], [p, 'usr', 'share'], [p, 'usr', 'local'],
                 [p, 'usr', 'local', 'share'],
@@ -708,7 +708,10 @@ def validar_ie(ie, uf):
         dv1 = modulo_11(digitos_ie[:-2])
         dv2 = modulo_11(digitos_ie[:-2] + dv1)
         ie_esperada = digitos_ie[:-2] + dv1 + dv2
-    elif uf in ('AL', 'AM', 'CE', 'ES', 'GO', 'MA', 'MT', 'MS', 'PA', 'PB', 'PI', 'RN', 'RO', 'SC', 'SE', 'TO', 'RS'):
+    elif uf in ('RO'):
+        dv = modulo_11(digitos_ie[:-1], retorno=('0', '1'))
+        ie_esperada = digitos_ie[:-1] + dv
+    elif uf in ('AL', 'AM', 'CE', 'ES', 'GO', 'MA', 'MT', 'MS', 'PA', 'PB', 'PI', 'RN', 'SC', 'SE', 'TO', 'RS'):
         dv = modulo_11(digitos_ie[:-1])
         ie_esperada = digitos_ie[:-1] + dv
     elif uf == 'AP':
@@ -927,28 +930,31 @@ def enviar_email(servidor, remetente, senha, destinatarios, assunto=None, texto=
         'This is a multi-part message in MIME format.\r\n'
         '--' + boundary + '\r\n'
         'Content-Type: multipart/alternative;\r\n'
-        '    boundary="' + boundary + '"\r\n'
+        '    boundary="' + boundary + 'X"\r\n'
         '\r\n'
-        '--' + boundary + '\r\n'
+        '--' + boundary + 'X\r\n'
         'Content-Type: text/plain; charset=UTF-8; format=flowed\r\n'
         'Content-Transfer-Encoding: 8bit\r\n'
         '\r\n'
         + texto + '\r\n'
         '\r\n'
-        '--' + boundary + '\r\n'
+        '--' + boundary + 'X\r\n'
         'Content-Type: text/html; charset=UTF-8\r\n'
         'Content-Transfer-Encoding: 7bit\r\n'
         '\r\n'
         + html + '\r\n'
-        '\r\n')
+        '\r\n'
+        '--' + boundary + 'X--\r\n')
     # Aqui vem os anexos em base64
     mimetypes.init()
     if arquivos_anexos:
         anexos = []
         for anexo in arquivos_anexos:
-            arquivo = open(anexo)
-            conteudo = arquivo.read()
-            arquivo.close()
+            if isinstance(anexo, (list, tuple)):
+                anexo, conteudo = anexo
+            else:
+                with open(anexo) as arquivo:
+                    conteudo = arquivo.read()
             tipo = mimetypes.guess_type(anexo)
             if not tipo[0]:
                 tipo = ('application/binary', None)
@@ -1643,7 +1649,7 @@ def last_day(date):
     return date
 
 
-def get_printers():
+def get_printers(server='localhost'):
     printers = []
     if sys.platform == 'cli':
         PoleLog.log(_('It is not possible get printers from %s plataform or operating system.' % sys.platform))
@@ -1652,9 +1658,9 @@ def get_printers():
         import subprocess
         # chose an implementation, depending on os
         if os.name == 'posix':
-            printers = [line.split()[0] for line in subprocess.Popen("lpstat -a", shell=True, bufsize=1024, stdout=subprocess.PIPE).stdout.read().strip().split('\n')]
+            printers = [line.split()[0] for line in subprocess.Popen("lpstat -h '%s' -a" % server, shell=True, bufsize=1024, stdout=subprocess.PIPE).stdout.read().strip().split('\n')]
             try:
-                default = subprocess.Popen("lpstat -d", shell=True, bufsize=1024, stdout=subprocess.PIPE).stdout.read().strip().split()[-1]
+                default = subprocess.Popen("lpstat -h '%s' -d" % server, shell=True, bufsize=1024, stdout=subprocess.PIPE).stdout.read().strip().split()[-1]
                 printers.remove(default)
                 printers.insert(0, default)
             except Exception:
@@ -2519,6 +2525,11 @@ def crc16(data):
         x ^= x >> 4
         crc = (crc << 8 & USL) ^ (x << 12 & USL) ^ (x << 5 & USL) ^ (x & USL)
     return "%04x" % crc
+
+
+def printf(*args):
+    print ' '.join(str(x) for x in args)
+    sys.stdout.flush()
 
 
 class cached_property(object):

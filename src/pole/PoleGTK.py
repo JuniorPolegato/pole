@@ -30,6 +30,8 @@ import traceback
 import pango
 import importlib
 import StringIO
+import subprocess
+from collections import namedtuple
 
 # Resolver problema de imagens não exibidas nos botões
 gtk.settings_get_default().props.gtk_button_images = True
@@ -55,6 +57,90 @@ cf = PoleUtil.convert_and_format
 # Translation
 _ = PoleUtil._
 
+# Joins for SQL filter
+trans_joins = {_('and'): 'and', _('or'): 'or'}
+re_joins = reduce(lambda a, b: a + b, trans_joins.items())
+
+# Operators for SQL filter
+sign_ops = (('=', '='), ('<>', '!='), ('≠', '!='),
+            ('>=', '>='), ('=>', '>='), ('≥', '>='),
+            ('<=', '<='), ('=<', '<='), ('≤', '<='),
+            ('!=', '!='), ('<', '<'), ('>', '>'))
+trans_ops = ((_('was'), 'was'), (_('in'), 'in'), (_('is'), 'is'),
+             (_(r'is\s*not\s*null'), r'is\s*not\s*null'),
+             (_(r'is\s*not'), r'is\s*not'),
+             (_(r'is\s*null'), r'is\s*null'),
+             (_(r'not\s*like'), r'not\s*like'),
+             (_(r'not\s*between'), r'not\s*between'),
+             (_(r'will\s*be'), r'will\s*be'),
+             (_(r'will\s*not\s*be'), r'will\s*not\s*be'),
+             (_(r'was\s*not'), r'was\s*not'),
+             (_(r'not\s*in'), r'not\s*in'),
+             (_('like'), 'like'), (_('between'), 'between'))
+re_ops = reduce(lambda a, b: a + b, trans_ops)
+trans_ops = dict(tuple((k.replace(r'\s*', ''), v.replace(r'\s*', ' '))
+                       for k, v in trans_ops) + tuple(
+                       (v.replace(r'\s*', ''), v.replace(r'\s*', ' '))
+                       for k, v in trans_ops) + sign_ops)
+sign_ops = tuple(a for a, b in sign_ops)
+
+# Date keywords
+trans_dts = ((_(r'this\s*month'), r'this\s*month',
+              "between trunc(sysdate, 'MONTH')"
+              " and add_months(trunc(sysdate, 'MONTH'), 1) - 0.00001"),
+             (_(r'next\s*month'), r'next\s*month',
+              "between add_months(trunc(sysdate, 'MONTH'), 1)"
+              " and add_months(trunc(sysdate, 'MONTH'), 2) - 0.00001"),
+             (_(r'last\s*month'), r'last\s*month',
+              "between add_months(trunc(sysdate, 'MONTH'), -1)"
+              " and trunc(sysdate, 'MONTH') - 0.00001"),
+
+             (_(r'this\s*year'), r'this\s*year',
+              "between trunc(sysdate, 'YEAR')"
+              " and add_months(trunc(sysdate, 'YEAR'), 12) - 0.00001"),
+             (_(r'next\s*year'), r'next\s*year',
+              "between add_months(trunc(sysdate, 'YEAR'), 12)"
+              " and add_months(trunc(sysdate, 'YEAR'), 24) - 0.00001"),
+             (_(r'last\s*year'), r'last\s*year',
+              "between add_months(trunc(sysdate, 'YEAR'), -12)"
+              " and trunc(sysdate, 'YEAR') - 0.00001"),
+
+             (_(r'this\s*week'), r'this\s*week',
+              "between trunc(sysdate) - to_char(sysdate, 'd') + 1"
+              " and trunc(sysdate) - to_char(sysdate, 'd') + 7.99999"),
+             (_(r'next\s*week'), r'next\s*week',
+              "between trunc(sysdate) - to_char(sysdate, 'd') + 8"
+              " and trunc(sysdate) - to_char(sysdate, 'd') + 14.99999"),
+             (_(r'last\s*week'), r'last\s*week',
+              "between trunc(sysdate) - to_char(sysdate, 'd') - 6"
+              " and trunc(sysdate) - to_char(sysdate, 'd') + 0.99999"),
+
+             (_(r'yesterday'), r'yesterday',
+              "between trunc(sysdate) - 1 and trunc(sysdate) - 0.00001"),
+             (_(r'today'), r'today',
+              "between trunc(sysdate) and trunc(sysdate) + 0.99999"),
+             (_(r'tomorrow'), r'tomorrow',
+              "between trunc(sysdate) + 1 and trunc(sysdate) + 1.99999"),
+
+             (_(r'now'), r'now', "sysdate"))
+
+re_dts = reduce(lambda a, b: a + b, zip(*zip(*trans_dts)[:2]))
+trans_dts = dict(reduce(lambda a, b: a + b,
+                        (((a.replace(r'\s*', ''), c),
+                          (b.replace(r'\s*', ''), c))
+                         for a, b, c in trans_dts)))
+
+# group 0 => string quote
+# group 1 => operator
+# group 2 => keyword separator at start
+# group 3 => keyword
+# group 4 => keyword separator at end
+re_filter = re.compile(r'(["\'])|'
+                       r'(' + r'|'.join(sign_ops) + ')|'
+                       r'([^\.\w]|\A)'
+                       r'(' + r'|'.join(re_dts + re_ops + re_joins) + r')'
+                       r'([^\.\w]|\Z)', flags=re.I)
+
 
 def update_ui():
     while gtk.events_pending():
@@ -67,6 +153,8 @@ def try_function(f):
             result = f(project, *args, **kwargs)
             return result
         except Exception:
+            if args and isinstance(args[0], (gtk.Widget, VirtualWidget)):
+                change_mouse_pointer(args[0], None)
             PoleLog.log_except()
             show_exception(project, args)
             return None
@@ -137,7 +225,7 @@ def message(widget, text, message_type=gtk.MESSAGE_INFO, title=None):
 
 
 def input_dialog(widget, text, editor_config=None,
-                 default_text='', title=None):
+                 default_text='', title=None, visibility=True):
     # Get toplevel window
     window = None
     if isinstance(widget, (gtk.Widget, VirtualWidget)):
@@ -154,6 +242,7 @@ def input_dialog(widget, text, editor_config=None,
     dialog.set_title(title)
 
     ed = Editor()
+    ed.set_visibility(visibility)
     if editor_config in (bool, datetime.datetime, datetime.date,
                          datetime.time, datetime.timedelta):
         return_type = editor_config
@@ -493,7 +582,7 @@ class PopupWindow(gtk.Window, gtk.Buildable):
             status = gtk.gdk.pointer_grab(
                 window=self.window, owner_events=True,
                 event_mask=gtk.gdk.BUTTON_PRESS_MASK,
-                cursor=gtk.gdk.Cursor(gtk.gdk.LEFT_PTR))
+                cursor=gtk.gdk.Cursor(gtk.gdk.HAND2))
             if status in (gtk.gdk.GRAB_SUCCESS, gtk.gdk.GRAB_ALREADY_GRABBED):
                 break
         if status not in (gtk.gdk.GRAB_SUCCESS, gtk.gdk.GRAB_ALREADY_GRABBED):
@@ -757,6 +846,7 @@ class DateButton(gtk.Button, gtk.Buildable):
 
     def __init__(self, *args):
         super(DateButton, self).__init__(*args)
+        self.__pole_type = None
         self.__type = PoleUtil.DATE
         self.updated = False
         self.__select_then_tab = False
@@ -781,7 +871,10 @@ class DateButton(gtk.Button, gtk.Buildable):
         types = {'DATE': PoleUtil.DATE, 'TIME': PoleUtil.TIME,
                  'DATE_TIME': PoleUtil.DATE_TIME, 'MONTH': PoleUtil.MONTH,
                  'HOURS': PoleUtil.HOURS, 'DAYS_HOURS': PoleUtil.DAYS_HOURS,
+                 'HOURS_MIN': PoleUtil.HOURS_MIN,
+                 'DAYS_HOURS_MIN': PoleUtil.DAYS_HOURS_MIN,
                  'HOLLERITH': PoleUtil.HOLLERITH}
+        self.__pole_type = None
         if configs in types.values():
             self.__type = configs
         else:
@@ -789,6 +882,7 @@ class DateButton(gtk.Button, gtk.Buildable):
             for c in configs:
                 if c in PoleUtil.tipos:
                     self.__type = PoleUtil.tipos[c].casas
+                    self.__pole_type = c
                 elif c.isdigit() and int(c) in types.values():
                     self.__type = int(c)
                 elif c.upper() in types:
@@ -803,19 +897,24 @@ class DateButton(gtk.Button, gtk.Buildable):
         z = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
         if (not self.get_label() or
                 not sum(map(lambda x: x in z, self.get_label()))):
-            conv_type = (self.__type if self.__type != PoleUtil.HOLLERITH
-                         else PoleUtil.MONTH)
-            self.set_label(cf(datetime.datetime.now(),
-                              datetime.date, conv_type)[1])
+            now = datetime.datetime.now()
+            if self.__pole_type:
+                self.set_label(cf(now, self.__pole_type)[1])
+            else:
+                conv_type = (self.__type if self.__type != PoleUtil.HOLLERITH
+                             else PoleUtil.MONTH)
+                self.set_label(cf(now, datetime.datetime, conv_type)[1])
 
     def do_clicked(self, *args, **kargs):
         old = self.get_label()
         if self.__type != PoleUtil.HOLLERITH:
             try:
-                x = cf(old, datetime.datetime, self.__type)[1]
+                x = (cf(old, self.__pole_type) if self.__pole_type else
+                     cf(old, datetime.datetime, self.__type))[1]
             except ValueError:
-                x = cf(datetime.datetime.now(),
-                       datetime.datetime, self.__type)[1]
+                now = datetime.datetime.now()
+                x = (cf(now, self.__pole_type) if self.__pole_type else
+                     cf(now, datetime.datetime, self.__type))[1]
             self.set_label(x)
         changed = Calendar(self, self.__type).run()
         self.updated = (self.__type != PoleUtil.HOLLERITH and
@@ -949,18 +1048,9 @@ class ComboBoxEntryCompletion(gtk.ComboBoxEntry, gtk.Buildable):
         self.__enter_to_tab = "enter_to_tab" in [x.lower() for x in configs]
 
         # Creating or using float type from PoleUtil.tipos
-        if "float" in [x[:5] for x in configs]:
-            try:
-                decimals = int([x[5:] for x in configs if x[:5] == "float"][0])
-            except Exception:
-                decimals = PoleUtil.local['frac_digits']
-            pole_type = 'float' + str(decimals)
-            if pole_type not in PoleUtil.tipos:
-                fs = '0.' + '0' * decimals
-                PoleUtil.tipos[pole_type] = PoleUtil.T(
-                    6, 14, decimals, False,
-                    PoleUtil.cs["números"] + PoleUtil.dp + '+-',
-                    "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+        have_float = [x for x in configs if x[:5] == "float"]
+        if have_float:
+            pole_type = PoleUtil.new_float_type(have_float[0])
         # Else search for type in PoleUtil.tipos
         else:
             pole_type = None
@@ -1081,18 +1171,9 @@ class Editor(gtk.Entry, gtk.Buildable):
         self.__enter_to_tab = "enter_to_tab" in [x.lower() for x in configs]
 
         # Creating or using float type from PoleUtil.tipos
-        if "float" in [x[:5] for x in configs]:
-            try:
-                decimals = int([x[5:] for x in configs if x[:5] == "float"][0])
-            except Exception:
-                decimals = PoleUtil.local['frac_digits']
-            pole_type = 'float' + str(decimals)
-            if pole_type not in PoleUtil.tipos:
-                fs = '0.' + '0' * decimals
-                PoleUtil.tipos[pole_type] = PoleUtil.T(
-                    6, 14, decimals, False,
-                    PoleUtil.cs["números"] + PoleUtil.dp + '+-',
-                    "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+        have_float = [x for x in configs if x[:5] == "float"]
+        if have_float:
+            pole_type = PoleUtil.new_float_type(have_float[0])
         # Else search for type in PoleUtil.tipos
         else:
             pole_type = None
@@ -1241,7 +1322,6 @@ class Grid(gtk.TreeView, gtk.Buildable):
         self.__structurex = False
         self.__sizes = []
         self.__formats = []
-        self.__foreing_data = []
 
         self.__model_types = []
 
@@ -1295,7 +1375,17 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 decimals.append(PoleUtil.DATE)
             elif column[1] == 'time':
                 types.append(datetime.time)
-                decimals.append(PoleUtil.TIME)
+                if (len(column) > 2 and
+                        column[2] in ('HOURS_MIN', 'DAYS_HOURS_MIN')):
+                    decimals.append(PoleUtil.HOURS_MIN)
+                elif (len(column) > 2 and column[2].isdigit() and
+                      int(column[2]) in (PoleUtil.TIME, PoleUtil.HOURS,
+                                         PoleUtil.DAYS_HOURS,
+                                         PoleUtil.HOURS_MIN,
+                                         PoleUtil.DAYS_HOURS_MIN)):
+                    decimals.append(int(column[2]))
+                else:
+                    decimals.append(PoleUtil.TIME)
             elif column[1] == 'datetime':
                 types.append(datetime.datetime)
                 if len(column) > 2:
@@ -1311,6 +1401,10 @@ class Grid(gtk.TreeView, gtk.Buildable):
                         decimals.append(PoleUtil.HOURS)
                     elif column[2] == 'DAYS_HOURS':
                         decimals.append(PoleUtil.DAYS_HOURS)
+                    elif column[2] == 'HOURS_MIN':
+                        decimals.append(PoleUtil.HOURS_MIN)
+                    elif column[2] == 'DAYS_HOURS_MIN':
+                        decimals.append(PoleUtil.DAYS_HOURS_MIN)
                     else:
                         decimals.append(PoleUtil.DATE_TIME)
                 else:
@@ -1318,13 +1412,22 @@ class Grid(gtk.TreeView, gtk.Buildable):
             elif column[1] == 'month':
                 types.append(datetime.date)
                 decimals.append(PoleUtil.MONTH)
-            elif column[1] == 'hours':
+            elif column[1] in ('hours', 'timedelta'):
                 types.append(datetime.timedelta)
                 if len(column) > 2:
                     if column[2].isdigit():
-                        decimals.append(int(column[2]))
-                    elif column[2] in ('DATE_TIME', 'TIME', 'DATE'):
-                        decimals.append(PoleUtil.TIME)
+                        decimals.append(
+                            int(column[2])
+                            if int(column[2]) in (
+                                PoleUtil.DAYS_HOURS, PoleUtil.DAYS_HOURS_MIN,
+                                PoleUtil.HOURS_MIN, PoleUtil.HOURS)
+                            else PoleUtil.HOURS)
+                    elif column[2] == 'DAYS_HOURS':
+                        decimals.append(PoleUtil.DAYS_HOURS)
+                    elif column[2] == 'DAYS_HOURS_MIN':
+                        decimals.append(PoleUtil.DAYS_HOURS_MIN)
+                    elif column[2] == 'HOURS_MIN':
+                        decimals.append(PoleUtil.HOURS_MIN)
                     else:
                         decimals.append(PoleUtil.HOURS)
                 else:
@@ -1332,14 +1435,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
             elif column[1] in PoleUtil.tipos:
                 if (column[1] == 'float' and len(column) > 2
                         and column[2].isdigit()):
-                    _decimals = int(column[2])
-                    pole_type = 'float' + str(_decimals)
-                    if pole_type not in PoleUtil.tipos:
-                        fs = '0.' + '0' * _decimals
-                        PoleUtil.tipos[pole_type] = PoleUtil.T(
-                            6, 14, _decimals, False,
-                            PoleUtil.cs["números"] + PoleUtil.dp + '+-',
-                            "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+                    _decimals = str(int(column[2]))
+                    pole_type = PoleUtil.new_float_type('float' + _decimals)
                 else:
                     pole_type = column[1]
                 type_info = PoleUtil.tipos[pole_type]
@@ -1361,8 +1458,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
                     if column[1] not in ('date', 'time', 'datetime', 'month', 'hours') + tuple(PoleUtil.tipos):
                         decimals.append(PoleUtil.local['frac_digits'])
                     editables.append(True)
-                elif column[2] not in ('DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS', 'DAYS_HOURS'):
-                    raise ValueError(_("Invalid value for decimals ou editable `%s´. Expected digits, 'DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS' or 'DAYS_HOURS' for decimals or 'edit' for editable.") % (column[2],))
+                elif column[2] not in ('DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS', 'DAYS_HOURS', 'HOURS_MIN', 'DAYS_HOURS_MIN'):
+                    raise ValueError(_("Invalid value for decimals ou editable `%s´. Expected digits, 'DATE', 'TIME', 'DATE_TIME', 'MONTH', 'HOURS', 'DAYS_HOURS', 'HOURS_MIN' or 'DAYS_HOURS_MIN' for decimals or 'edit' for editable.") % (column[2],))
                 if len(column) == 4:
                     if column[3] == 'edit':
                         if column[2] == 'edit':
@@ -1378,7 +1475,8 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 editables.append(False)
         self.structure(titles, types, decimals, editables, with_colors, sizes, formats)
 
-    def structure(self, titles, types, decimals=None, editables=None, with_colors=False, sizes=None, formats=None, foreing_data=None):
+    def structure(self, titles, types, decimals=None, editables=None,
+                  with_colors=False, sizes=None, formats=None):
         if not decimals:
             decimals = [PoleUtil.local['frac_digits']] * len(titles)
         if not editables:
@@ -1394,8 +1492,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
         vazio = [None] * len(types)
         self.__sizes = sizes if sizes else vazio
         self.__formats = formats if formats else vazio
-        self.__foreing_data = foreing_data if foreing_data else vazio
-        self.__structurex = bool(sizes or formats or foreing_data)
+        self.__structurex = bool(sizes or formats)
 
         for column in self.get_columns():
             self.remove_column(column)
@@ -1479,8 +1576,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
 
     def get_structure(self):
         return (self.__titles, self.__types, self.__decimals, self.__editables,
-                self.__with_colors, self.__sizes, self.__formats,
-                self.__foreing_data)
+                self.__with_colors, self.__sizes, self.__formats)
 
     @try_function
     def __editable_callback(self, renderer, path, result, column):
@@ -1497,7 +1593,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
             result = self.edit_callback(result, self, path, column,
                                         self.__titles[:], self.__types[:],
                                         self.__decimals[:], self.__with_colors)
-        elif self.__crud:
+        if self.__crud:
             result = self.crud_update({self.__fields[column]:
                                        None if result is None or result == ''
                                        else cf(result, self.__formats[column]
@@ -1537,42 +1633,48 @@ class Grid(gtk.TreeView, gtk.Buildable):
                 new = editable.props.text
             c.destroy()
         else:
+            old = cf(self.__old_editing_text,
+                     tx if tx else self.__types[column],
+                     self.__decimals[column])[0]
             position = (x + area[0], y + area[1])
             p = PopupWindow()
             if (self.__crud and self.__joins and
-                    self.__fields[column].lower() in self.__joins.lower()):
+                    re.search(r'\W%s(\W|\Z)' % self.__fields[column],
+                              self.__joins, flags=re.I)):
                 area2 = self.get_cell_area(path, self.get_column(column + 1))
                 size = (area[2] + area2[2] + 5, area[3])
                 model = gtk.ListStore(str, self.__types[column])
                 e = ComboBoxEntryCompletion(model)
                 e.do_parser_finished(None)
-                join = re.split(' *(?:(?:inner|left|right) +){0,1}join ',
-                                re.sub(r'\s+', ' ', self.__joins.strip()),
-                                flags=re.I)[1:]
+                join = re.split(r'\s*(?:(?:inner|left|right)\s+){0,1}join\s',
+                                self.__joins, flags=re.I)[1:]
                 join = filter(lambda x: self.__fields[column].lower()
                               in x.lower(), join)[0]
-                tab, where = re.split(' on ', join, flags=re.I)
+                tab, where = re.split(r'\son\s', join, flags=re.I)
                 key = filter(lambda x: x, re.findall(
-                    '([^ ]*) *= *{field}|{field} *= *([^ ]*)'.format(
-                        field=self.__fields[column]),
+                    r'([^\s]*)\s*=\s*{field}|{field}\s*=\s*([^\s]*)'.
+                    format(field=self.__fields[column]),
                     where, flags=re.I)[0])[0]
-                where = re.sub('[^ ]* *[^ ]* *= *{field} *[^ ]* *|[^ ]* *'
-                               '{field} *= *[^ ]* *[^ ]* *'.format(
-                                    field=self.__fields[column]), '',
-                               where, flags=re.I)
+                where = re.sub(
+                    r'[^\s]*\s*[^\s]*\s*=\s*{field}\s*[^\s]*\s*|'
+                    r'[^\s]*\s*{field}\s*=\s*[^\s]*\s*[^\s]*\s*'.
+                    format(field=self.__fields[column]), '',
+                    where, flags=re.I)
                 where = ' where ' + where if where else ''
-                descr = key + " || ' - ' || " + self.__fields[column + 1]
+                # ▷⤐⤘⟿⤳⥤⤑⥲⬳⤇⟹⇛⇝
+                # ➊🖉⛔👈🛇💻🕲📵🔞🚫🚭🚳🚷⛔🐧📂📖📬📭🖊🖋🚏🗄🧲🔒🖆🔏🔑
+                descr = key + " || ' ⤳ ' || " + self.__fields[column + 1]
                 sql = ("select {descr}, {key} from {tab}{where} order by 2".
                        format(key=key, descr=descr, tab=tab, where=where))
                 cursor = self.__crud.cursor()
                 cursor.execute(sql)
-                gobject.timeout_add(1, load_store, e, cursor)
+                gobject.timeout_add(1, load_store, e, cursor, old, 1)
                 e.child.connect('key-press-event', self.__finish_editing, p)
             elif tx and PoleUtil.tipos[tx].combo:
                 size = (size[0], size[1] + 5)
                 model = gtk.ListStore(str, self.__types[column])
                 for opc in PoleUtil.tipos[tx].mascara[1:]:
-                    model.append(((opc[0] + ' - ' + opc[1] if len(opc) > 1
+                    model.append(((opc[0] + ' ⤳ ' + opc[1] if len(opc) > 1
                                    else opc[0]), opc[0]))
                 e = gtk.ComboBox(model)
                 cell = gtk.CellRendererText()
@@ -1598,12 +1700,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
             if isinstance(e, Editor):
                 e.props.text = self.__old_editing_text
             else:
-                old = cf(self.__old_editing_text,
-                         tx if tx else self.__types[column],
-                         self.__decimals[column])[0]
-                if isinstance(e, ComboBoxEntryCompletion):
-                    gobject.timeout_add(2, e.set_active_text, old, 1)
-                else:
+                if not isinstance(e, ComboBoxEntryCompletion):
                     set_active_text(e, old, 1)
 
             # Out click do cancel
@@ -1611,8 +1708,25 @@ class Grid(gtk.TreeView, gtk.Buildable):
             #    new = cf(e.props.text, self.__types[column],
             #             self.__decimals[column])[1]
 
-            # Out click do not cancel
             p.run(self, size, position)
+
+            if not isinstance(e, Editor):
+                def new_loop_quit():
+                    if e.get_property('popup-shown'):
+                        return True
+                    if (datetime.datetime.now() - t).total_seconds() < 0.25:
+                        e.popup()
+                        return True
+                    p._PopupWindow__loop.quit()
+                    return False
+                while e.get_property('popup-shown'):
+                    if isinstance(e, ComboBoxEntryCompletion):
+                        p.show_all()
+                    update_ui()
+                    t = datetime.datetime.now()
+                    gobject.timeout_add(100, new_loop_quit)
+                    p._PopupWindow__loop.run()
+
             text = (e.props.text if isinstance(e, Editor) else
                     e.get_active_text(1) if isinstance(e, ComboBoxCompletion)
                     else get_active_text(e, 1))
@@ -1638,6 +1752,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
         model = self.get_model()
         if model:
             model.clear()
+            model.set_sort_column_id(-2, 0)
             return
         raise ValueError(_('No columns structure defined.'))
 
@@ -1853,8 +1968,11 @@ class Grid(gtk.TreeView, gtk.Buildable):
         #    return (tuple(values), tuple(formateds))
         # return self.__get_line(path)
 
-    def __setitem__(self, item, value):
-        self.update_line(item, value)
+    def __setitem__(self, path_iter, value):
+        self.update_line(path_iter, value)
+
+    def __delitem__(self, path_iter):
+        self.remove(path_iter)
 
     def remove(self, path_iter):
         if isinstance(path_iter, tuple):
@@ -1873,7 +1991,10 @@ class Grid(gtk.TreeView, gtk.Buildable):
     def __export_csv_children(self, children, csv, cols, only_expanded_rows):
         for line in children:
             fields = self.__get_line(line.iter, bool_to_str=True)[1][:cols]
-            csv.append('\t'.join(('' if x is None else x) for x in fields))
+            csv.append('\t'.join(('' if x is None
+                                  else x.replace('\n', '\\n').
+                                  replace('\t', '\\t'))
+                                 for x in fields))
             if not only_expanded_rows or self.row_expanded(line.path):
                 self.__export_csv_children(line.iterchildren(), csv,
                                            cols, only_expanded_rows)
@@ -1950,8 +2071,10 @@ class Grid(gtk.TreeView, gtk.Buildable):
         if parent_lock:
             progress = Processing(parent_lock, _("Loading lines..."),
                                   lines, total, True)
-        while records:
-            try:
+        else:
+            change_mouse_pointer(self, 'watch')
+        try:
+            while records:
                 if isinstance(cursor, (tuple, list)):
                     self.add_data(cursor[pos:pos + lines],
                                   into_path_or_iter=into_path_or_iter,
@@ -1963,13 +2086,16 @@ class Grid(gtk.TreeView, gtk.Buildable):
                     self.add_data(records,
                                   into_path_or_iter=into_path_or_iter,
                                   with_child=with_child, model=model)
-                update_ui()
                 if parent_lock:
                     if not progress.pulse():
                         break
-            finally:
-                if parent_lock:
-                    progress.close()
+                else:
+                    update_ui()
+        finally:
+            if parent_lock:
+                progress.close()
+            else:
+                change_mouse_pointer(self, None)
         self.__updating = False
 
         if order_by[0] is not None:
@@ -1977,12 +2103,15 @@ class Grid(gtk.TreeView, gtk.Buildable):
             model.set_sort_column_id(*order_by)
 
     def selected(self):
-        if self.get_selection().get_mode() == gtk.SELECTION_MULTIPLE:
-            s = self.get_selection().get_selected_rows()[1]
+        s = self.get_selection()
+        if not s:
+            return s
+        if s.get_mode() == gtk.SELECTION_MULTIPLE:
+            s = s.get_selected_rows()[1]
             if not s:
                 return s
             return s[0]
-        return self.get_selection().get_selected()[1]
+        return s.get_selected()[1]
 
     def selected_rows(self):
         return self.get_selection().get_selected_rows()[1]
@@ -2064,47 +2193,57 @@ class Grid(gtk.TreeView, gtk.Buildable):
             self.set_search_column(column)
 
     def crud(self, db_connection, args,
-             create_enabled=True, delete_enable=True):
+             create_enabled=True, delete_enabled=True):
         self.__crud = db_connection
         if not self.__crud:
             return
         self.__crud_create_enabled = create_enabled
-        self.__crud_delete_enable = delete_enable
+        self.__crud_delete_enabled = delete_enabled
 
         self.config('|'.join(args['config']))
         self.__table = args['table']
         self.__joins = args.get('joins')
-        self.__fields, self.__defaults = zip(*[(field + '@').split('@')[:2]
-                                               for field
-                                               in args['fields']])
-        self.__ignoreds = [
-            field.strip('*+')
-            for field, default in zip(self.__fields, self.__defaults)
-            if '*' in (field.strip('+')[0], field.strip('+')[-1])
-            and not default]
-        self.__requests = [
-            field.strip('*+') for field in self.__fields
-            if '*' not in (field.strip('+')[0], field.strip('+')[-1])]
-        self.__keys = [field.strip('*+') for field in self.__fields
-                       if '+' in (field.strip('*')[0], field.strip('*')[-1])]
-        self.__fields = [field.strip('*+') for field in self.__fields]
+        self.__joins = " " + self.__joins if self.__joins else ""
+        self.__fields = [field.split('@')[0] for field in args['fields']]
+        # + -> key | * -> ignored for create | = -> unique info | - -> not null
+        self.__keys = [field.strip('*+-=') for field in self.__fields
+                       if '+' in (field.lstrip('*-=')[0],
+                                  field.rstrip('*-=')[-1])]
+        self.__ignoreds = [field.strip('*+-=') for field in self.__fields
+                           if '*' in (field.lstrip('+-=')[0],
+                                      field.rstrip('+-=')[-1])]
+        self.__uniques = [field.strip('*+-=') for field in self.__fields
+                          if '=' in (field.lstrip('+-*')[0],
+                                     field.rstrip('+-*')[-1])]
+        self.__not_null = [field.strip('*+-=') for field in self.__fields
+                           if '-' in (field.lstrip('+=*')[0],
+                                      field.rstrip('+=*')[-1])]
+        self.__fields = [field.strip('*+-=').split('@', 1)[0]
+                         for field in self.__fields]
+        self.__requests = [field for field in self.__fields
+                           if field not in self.__ignoreds]
         self.__where = args.get('where')
         self.__group = args.get('group')
+        self.__group = " group by " + self.__group if self.__group else ""
         self.__order = args.get('order')
+        self.__order = " order by " + self.__order if self.__order else ""
+        defaults = list(args.get('defaults', []))
+        defaults += [('c@' + field.strip('*+-=')).split('@', 2)
+                     for field in args['fields'] if '@' in field]
+        self.__use_gridform = args.get('grid_form')
 
-        self.__update2 = args.get('update2')
-        if self.__update2:
-            if not isinstance(self.__update2, (tuple, list, dict)):
-                raise Exception(_('CRUD_update2 must be tuple, list or dict.'))
-            if isinstance(self.__update2, dict):
-                self.__update2 = list(self.__update2)
-            elif not isinstance(self.__update2[0], (tuple, list)):
-                if len(self.__update2) % 2 == 1:
-                    self.__update2.append(None)
-                tmp = []
-                for i in range(0, len(self.__update2), 2):
-                    tmp.append((self.__update2[i], self.__update2[i + 1]))
-                self.__update2 = tmp
+        # defatuls: [['<cru>', '<field>', <value>], ...]
+        # <cru>: 'c' for create, 'r' for read and/or 'u' for update
+        self.__defaults_create = {}  # will be initial value of field
+        self.__defaults_read = {}    # will do a 'and' filter for reading
+        self.__defaults_update = {}  # will disable field editing
+        for cru, field, value in defaults:
+            if 'c' in cru:
+                self.__defaults_create[field] = value
+            if 'r' in cru:
+                self.__defaults_read[field] = value
+            if 'u' in cru:
+                self.__defaults_update[field] = value
 
         self.__nicks = [field.split('.')[0] if '.' in field else ''
                         for field in self.__fields]
@@ -2118,88 +2257,161 @@ class Grid(gtk.TreeView, gtk.Buildable):
         self.__main_fields = [
             field for field, main in zip(self.__fields, self.__main_fields_map)
             if main]
+        self.__foreign_keys = [
+            field for field, xfk in zip(self.__fields,
+                                        self.__main_fields_map[1:]) if not xfk]
         if not self.__keys:
             self.__keys = self.__main_fields
         self.__main_where = " and ".join(field + ' = :' + str(n)
                                          for n, field in
                                          enumerate(self.__keys))
-        self.__create_fields = [field for field in self.__main_fields
-                                if field not in self.__ignoreds]
-        self.__create_where = " and ".join(field + ' = :' + str(n)
-                                           for n, field in
-                                           enumerate(self.__create_fields))
 
-    def crud_create(self, fixed_values=None):
+        self.__join_fields = {}
+        joins = [re.split(r'\s+on\s+', join, maxsplit=1, flags=re.I)
+                 for join in re.split(
+                    r'\s*(?:(?:inner|left|right)\s+){0,1}join\s+',
+                    self.__joins, flags=re.I)[1:]]
+        for n, (main, field) in enumerate(zip(self.__main_fields_map,
+                                              self.__fields)):
+            if not main:
+                continue
+            # key field of foreign table
+            key = None
+            for tab, where in joins:
+                key = re.findall(
+                    r'([^\s]*)\s*=\s*{field}|{field}\s*=\s*([^\s]*)'.
+                    format(field=field), where, flags=re.I)
+                if key:
+                    key = ''.join(key[0])
+                    break
+            if not key:
+                continue
+            # Remove foreign key from auxiliar where clause
+            where = re.sub(
+                r'[^\s]*\s*[^\s]*\s*=\s*{field}\s*[^\s]*\s*|'
+                r'[^\s]*\s*{field}\s*=\s*[^\s]*\s*[^\s]*\s*'.
+                format(field=field), '',
+                where, flags=re.I)
+            where = ' where ' + where if where else ''
+            # ▷⤐⤘⟿⤳⥤⤑⥲⬳⤇⟹⇛⇝
+            descr = key + " || ' ⤳ ' || " + self.__fields[n + 1]
+            sql = ("select {descr}, {key} from {tab}{where} order by 2".
+                   format(key=key, descr=descr, tab=tab, where=where))
+            self.__join_fields[field] = sql
+
+    def crud_enable_create(self, enable=True):
+        self.__crud_create_enabled = enable
+
+    def crud_enable_delete(self, enable=True):
+        self.__crud_delete_enabled = enable
+
+    def crud_create(self, pre_fixed_values=None):
         if not self.__crud or not self.__crud_create_enabled:
             return False
 
-        if fixed_values:
-            values = (list(fixed_values) +
-                      [''] * len(self.__fields))[:len(self.__fields)]
+        # Initial values from grid selected row or '' for each field
+        values = self.selected()
+        if values:
+            values = list(self[values][:][1])
         else:
-            values = self.selected()
-            if values:
-                values = list(self[values][:][1])
-            else:
-                values = [''] * len(self.__fields)
+            values = [''] * len(self.__fields)
 
-        for i, (main_field, field, default) in enumerate(
-                zip(self.__main_fields_map, self.__fields, self.__defaults)):
-            if not main_field or field in self.__ignoreds:
+        # Empty ignored fields
+        for field in self.__ignoreds:
+            values[self.__fields.index(field)] = ''
+
+        # Default create values override initial values
+        for field, value in self.__defaults_create.items():
+            values[self.__fields.index(field)] = get_value(value)
+
+        # Pre-fixed values override others values
+        if isinstance(pre_fixed_values, (list, tuple)):
+            values = list(pre_fixed_values) + values[len(pre_fixed_values):]
+        elif isinstance(pre_fixed_values, dict):
+            for k, v in pre_fixed_values:
+                if k in self.__fields:
+                    values[self.__fields.index(k)] = v
+                else:
+                    values[self.__titles.index(k)] = v
+
+        # Empty None values
+        for i in range(len(values)):
+            if values[i] is None:
+                values[i] = ''
+
+        # For each field, create FormModel line or ask the value
+        form_lines = []
+        for i, (main_field, field) in enumerate(zip(self.__main_fields_map,
+                                                    self.__fields)):
+            if not main_field:
+                if i and self.__fields[i - 1] in self.__join_fields:
+                    form_lines[-1] = form_lines[-1]._replace(
+                        icons=form_lines[-1].icons + '🧲',
+                        join=self.__join_fields[self.__fields[i - 1]])
+                else:
+                    form_lines[-1] = form_lines[-1]._replace(
+                        icons=form_lines[-1].icons + '⚙🔏', editable=False)
                 continue
-            if default:
-                values[i] = None if default.lower() == 'null' else default
+            # ➊🖉⛔👈🛇💻🕲📵🔞🚫🚭🚳🚷⛔🐧📂📖📬📭🖊🖋🚏🗄🧲🔒🖆🔏🔑
+            # + -> 🔑  |  * -> 🔏  |  - -> 👈  |  = -> ➊
+            # 🧲 -> foreign key  |  🖆  -> edited | ⚙ -> calculeted
+            icons = ('<span color="Orange">' +
+                     ' '.join(('🔑' if field in self.__keys else
+                               '👈' if field in self.__not_null else '',
+                               '🔏' if field in self.__ignoreds else '',
+                               '➊' if field in self.__uniques else '')) +
+                     '</span>')
+            form_lines.append(FormModel(label=self.__titles[i], text=values[i],
+                                        type=self.__types[i].__name__,
+                                        decimals=self.__decimals[i],
+                                        pole_type=self.__formats[i],
+                                        key=False, icons=icons,
+                                        editable=field not in self.__ignoreds))
             if field in self.__requests:
-                resp, txt = input_dialog(self, self.__titles[i],
+                resp, txt = input_dialog(self, self.__titles[i] + '  ' + icons,
                                          self.__formats[i] if self.__formats[i]
-                                         else (self.__types[i].__name__ + ' ' +
+                                         else (self.__types[i].__name__ +
                                                str(self.__decimals[i])),
                                          values[i])
                 if resp != gtk.RESPONSE_OK:
                     return
             else:
                 txt = values[i]
-            values[i] = (None if txt is None or txt == '' else
+            values[i] = ('' if txt == '' else
                          cf(txt, self.__formats[i] if self.__formats[i] else
                             self.__types[i], self.__decimals[i])
                          [self.__types[i] == bool])
-        values = [v for v, m, f in zip(values, self.__main_fields_map,
-                                       self.__fields)
-                  if m and f not in self.__ignoreds]
+        values = [v for v, m in zip(values, self.__main_fields_map) if m]
 
-        create_fields = list(self.__create_fields)
-        values2 = list(values)
-        if self.__update2:
-            for f, v in self.__update2:
-                if f not in create_fields:
-                    create_fields.append(f)
-                    values2.append(v)
+        create_fields, values = zip(*[
+            (field, value) for field, value in zip(self.__main_fields, values)
+            if value is not None and value != ''])
 
-        sql = ("insert into " + self.__main_table + " " + self.__main_nick +
-               " (" + ", ".join(create_fields) + ") values (:" +
-               ", :".join(str(n) for n in range(len(values2))) + ")")
+        create_sql = (
+            "insert into " + self.__main_table + " " + self.__main_nick +
+            " (" + ", ".join(create_fields) + ") values (:" +
+            ", :".join(str(n) for n in range(len(create_fields))) + ")")
 
         cursor = self.__crud.cursor()
         try:
-            cursor.execute(sql, values2)
+            cursor.execute(create_sql, values)
             self.__crud.commit()
-            where, values = self.__crud_null_correction(self.__create_where,
-                                                        values)
-            sql = ("select " + ", ".join(self.__fields) +
-                   " from " + self.__table +
-                   (" " + self.__joins if self.__joins else "") +
-                   " where " + where +
-                   (" group by " + self.__group if self.__group else ""))
-            cursor.execute(sql, values)
-            try:
-                self.select(self.add_data(cursor.fetchall()[-1]))
-            except Exception:
-                PoleLog.log_except()
         except Exception:
             self.__crud.rollback()
             cursor.close()
             raise
 
+        where = " and ".join(field + ' = :' + str(n)
+                             for n, field in enumerate(create_fields))
+        where, values = self.__crud_null_correction(where, values)
+        sql = ("select " + ", ".join(self.__fields) +
+               " from " + self.__table + self.__joins +
+               " where " + where + self.__group)
+        cursor.execute(sql, values)
+        try:
+            self.select(self.add_data(cursor.fetchall()[-1]))
+        except Exception:
+            PoleLog.log_except()
         cursor.close()
 
     def crud_read(self, where=None):
@@ -2211,91 +2423,228 @@ class Grid(gtk.TreeView, gtk.Buildable):
             line_key_value = self[line_key_value][0][0]
 
         if not where:
-            where = self.__where
-        if isinstance(where, (gtk.Entry, gtk.Label, gtk.Button)):
-            where = where.get_text().strip()
+            where = get_value(self.__where)
+            if not where:
+                where = ''
+                for field, value in self.__defaults_read.items():
+                    where += field + " = '" + get_value(value) + "'"
+            if isinstance(self.__where, (Grid, GridRow, gtk.TreeView)):
+                where = ("{%s} = '%s'" % (self.__where._Grid__titles[0], where)
+                         if where else '1=2')
+
+        if where == '?':
+            detail(self, _("Filter help"),
+                   _("The filter must be in the format:\n\n"
+                     "{{column}}|field|expression operator value\n"
+                     "[junction {{column}}|field|expression operator value"
+                     " ...]\n"
+                     "\nOperators:\n{signs}\n{ops}\n"
+                     "\nJunctions:\n{joins}\n"
+                     "\nDate keywords:\n{dates}\n"
+                     "\nExamples:\n"
+                     "{{Code}} < 100 and {{Description}} = \"CABO*AC*5?MM*\"\n"
+                     "{{Description}} = null\n"
+                     "{{Date}} is not null\n"
+                     "length({{Description}}) < 5\n"
+                     "substr({{Date}}, 4, 4) = '2018'\n"
+                     "to_number(substr({{Date}}, 4, 4)) <= 2017\n"
+                     "{{Date}} is today\n"
+                     "{{Date}} was yesterday\n"
+                     "trunc({{Date}}) = '18/04/2019'\n"
+                     "\nSee SQL expressions in:\n"
+                     "http://pgdocptbr.sourceforge.net/pg80/functions.html").
+                   format(signs=' | '.join(sign_ops),
+                          ops=' | '.join(sorted(o.replace(r'\s*', ' ')
+                                                for o in re_ops[::2])),
+                          joins=' | '.join(j.replace(r'\s*', ' ')
+                                           for j in re_joins[::2]),
+                          dates=' | '.join(d.replace(r'\s*', ' ')
+                                           for d in re_dts[::2])),
+                   _("Information"))
+            return
 
         if where:
-            trans_joins = {'e': 'and', 'ou': 'or', 'em': 'in'}
-
             for title, field in zip(self.__titles, self.__fields):
-                where = where.replace('{' + title + '}', field)
-            splits = [''] + re.split(r'\s+', where)
-            if len(splits) % 4 != 0:
-                error_detail(
-                    self, _("Invalid filter!"),
-                    _("The filter must be in the format:\n\n"
-                      "[{column}|field|expression] operator value"
-                      " [junction [{column}|field|expression] operator value"
-                      " ...]\n\n"
-                      "WARNING: Spacings are required as above!\n\n"
-                      "Ex1: {Code} <100 and {Description} = \"*AC*\"\n"
-                      "Ex2: {Description} = null\n"
-                      "Ex3: len({Description}) < 5\n"
-                      "Ex4: substr({Date},4,4) = '2018'\n"
-                      "Ex5: to_number(substr({Date},4,4)) <= 2017\n\n"
-                      "See SQL expressions in:\n"
-                      "http://pgdocptbr.sourceforge.net/pg80/functions.html"))
-                return
-            where = []
-
-            i = 0
-            while i < len(splits):
-                j = splits[i].lower()
-                j = (trans_joins[j] if j in trans_joins else j)
-                i += 1
-                field, op, value = splits[i:i + 3]
-                i += 3
-                if value[-1] == ')':
-                    p = ')'
-                    value = value[:-1]
-                else:
-                    p = ''
-                if value.lower() in ('null', 'nulo'):
-                    op = 'is' if op == '=' else 'is not'
-                    value = 'null'
-                elif value[0] in ('"', "'"):
-                    while value[-1] != value[0] and value[-2] != '\\':
-                        value += p + splits[i]
-                        i += 1
-                        if value[-1] == ')':
-                            p = ')'
-                            value = value[:-1]
+                where = where.replace('{' + title + '}', ' %s ' % field)
+            i = e = 0
+            parts = []
+            part = left = []
+            right = []
+            dt_filter = join = op = None
+            while e < len(where):
+                # group 0 => string quote
+                # group 1 => operator
+                # group 2 => keyword separator at start
+                # group 3 => keyword
+                # group 4 => keyword separator at end
+                x = re_filter.search(where[e:])
+                if not x and not op:
+                    raise Exception(_('Filter mistake!'))
+                if not x:
+                    s = len(where)
+                    break
+                quote, operator, sep1, keyword, sep2 = x.groups()
+                s = x.start() + e
+                e += x.end() - bool(sep2)
+                if keyword:
+                    keyword = re.sub(r'\s+', '', keyword.lower())
+                if quote:
+                    part.append(where[i:s])
+                    s = e - 1
+                    while True:
+                        x = re.search(quote, where[e:])
+                        if not x:
+                            raise Exception(_('String mistake! %s at %i.') %
+                                            (quote, s))
+                        e += x.end()
+                        if where[e - 2] != '\\':
+                            break
+                    value = (where[s + 1:e - 1].
+                             replace('%', '\\%').replace('_', '\\_').
+                             replace('\\*', '\0').replace('\\?', '\1').
+                             replace('\\"', '"').replace("\\'", "'").
+                             replace("'", "''").
+                             replace('*', '%').replace('?', '_').
+                             replace('\0', '*').replace('\1', '?'))
+                    part.append("'" + value + "'")
+                elif operator or keyword in trans_ops:
+                    left.append(where[i:s] + (sep1 if sep1 else ''))
+                    if not ''.join(left).strip():
+                        raise Exception(_('Left side mistake!'))
+                    op = trans_ops[operator if operator else keyword]
+                    part = right
+                    if op[-4:] == 'null':
+                        op = op[:-4]
+                        part.append('null')
+                    if op in ('was not', 'will not be'):
+                        op = 'is not'
+                    elif op in ('was', 'will be'):
+                        op = 'is'
+                elif keyword in trans_dts:
+                    part.append(where[i:s] + sep1)
+                    dt_filter = trans_dts[keyword]
+                    if dt_filter[:8] == 'between ':
+                        d1, d2 = dt_filter[8:].split(' and ')
+                        if not op or op in ('in', 'not in', 'between',
+                                            '>', '>=', '<') and not join:
+                            part.append(d1)
+                        elif op == '<=' or op == 'between' and join:
+                            part.append(d2)
+                        elif 'not' in op or op == '!=':
+                            op = 'not between'
+                            join = 'and'
+                            part.extend((d1, join, d2))
                         else:
-                            p = ''
-                    if '*' in value:
-                        op = 'like' if op == '=' else 'not like'
-                        value = value.replace('%', '%%')
-                        value = (re.sub(r'([^\\])\*', r'\1%', value).
-                                 replace('\\*', '*').replace('\\"', '"').
-                                 replace("\\'", "'"))
-                        value = "'" + value[1:-1].replace("'", "''") + "'"
-                elif op != 'in' and PoleUtil.dp in value:
-                        value = str(cf(value, float, 15)[1])
-                where.extend([j, field, op, value, p])
-            where = ' '.join(where)
+                            op = 'between'
+                            join = 'and'
+                            part.extend((d1, join, d2))
+                else:  # join
+                    if dt_filter and join:
+                        part.insert(-2, where[i:s] + sep1)
+                    part.append(where[i:s] + sep1)
+                    if not op:
+                        part.append(keyword)
+                        continue
+                    if 'between' in op.lower() and not join:
+                        join = trans_joins.get(keyword, keyword)
+                        if join != 'and':
+                            raise Exception(_('Between operator fail!'))
+                        part.append(join)
+                        i = e
+                        continue
+
+                    right = ' '.join(trans_dts.get(x, x)
+                                     for x in right).strip()
+                    if not right:
+                        raise Exception(_('Right side mistake!'))
+                    left = ' '.join(trans_dts.get(x, x) for x in left).strip()
+                    if right[0] == "'" and ('%' in right or '_' in right):
+                        if op == '=':
+                            op = 'like'
+                        elif op in ('!=', '<>', '≠'):
+                            op = 'not like'
+                    if 'like' in op.lower():
+                        p = right.rfind("'") + 1
+                        right = right[:p] + " escape '\\'" + right[p:]
+                    elif right.lower() in (_('null'), 'null'):
+                        if 'is' not in op:
+                            op = ('is' if op in ('=', 'was', 'will be')
+                                  else 'is not')
+                        right = 'null'
+                    elif op in ('is not', 'was not', 'will not be'):
+                        op = '!='
+                    elif op in ('is', 'was', 'will be'):
+                        op = '='
+                    join = trans_joins.get(keyword, keyword)
+                    parts.append(' '.join((left, op, right, join)))
+                    part = left = []
+                    right = []
+                    dt_filter = op = join = None
+                i = e
+            if dt_filter and join:
+                right.insert(-2, where[i:])
+            right.append(where[i:])
+            right = ' '.join(trans_dts.get(x, x) for x in right).strip()
+            if not right:
+                raise Exception(_('Right side mistake!'))
+            left = ' '.join(trans_dts.get(x, x) for x in left).strip()
+            if right[0] == "'" and ('%' in right or '_' in right):
+                if op in ('=', 'is', 'was', 'will be'):
+                    op = 'like'
+                elif op in ('!=', '<>', '≠',
+                            'is not', 'was not', 'will not be'):
+                    op = 'not like'
+            if 'like' in op.lower():
+                p = right.rfind("'") + 1
+                right = right[:p] + " escape '\\'" + right[p:]
+            elif right.lower() in (_('null'), 'null'):
+                if 'is' not in op:
+                    op = ('is' if op in ('=', 'was', 'will be')
+                          else 'is not')
+                right = 'null'
+            elif op in ('is not', 'was not', 'will not be'):
+                op = '!='
+            elif op in ('is', 'was', 'will be'):
+                op = '='
+            parts.append(' '.join((left, op, right)))
+            where = re.sub(r'\%s' % PoleUtil.dp + r'([0-9])',
+                           r'.\1', ' '.join(parts))
+            where = re.sub(r'\s+', ' ', where).replace('( ', '(')
 
         sql = ("select " + ", ".join(self.__fields) +
-               " from " + self.__table +
-               (" " + self.__joins if self.__joins else "") +
+               " from " + self.__table + self.__joins +
                (" where " + where if where else "") +
-               (" group by " + self.__group if self.__group else "") +
-               (" order by " + self.__order if self.__order else ""))
+               self.__group + self.__order)
+        print '-' * 100
+        # print sql
+        # print '.' * 100
+        print 'where:', where
+        print '-' * 100
         self.clear()
         cursor = self.__crud.cursor()
-        cursor.execute(sql)
+        change_mouse_pointer(self, 'watch')
+        try:
+            cursor.execute(sql)
+        except Exception:
+            change_mouse_pointer(self, None)
+            raise
+        change_mouse_pointer(self, None)
         self.live_load(cursor, parent_lock=self)
         cursor.close()
         if line_key_value:
             self.select(0, line_key_value)
 
     def crud_update(self, update_fields_values):
+        # Default update values override initial values
+        for field, value in self.__defaults_update.items():
+            update_fields_values[field] = get_value(value)
+
         return self.crud_delete('update', update_fields_values)
 
     def __crud_null_correction(self, where, args):
         args = self.__crud_bool_time_correction(args)
         for i in range(len(args) - 1, -1, -1):
-            if args[i] is None or args[i] == '':
+            if args[i] == '':
                 del args[i]
                 where = where.replace('= :%i' % i, 'is null')
         return where, args
@@ -2307,18 +2656,19 @@ class Grid(gtk.TreeView, gtk.Buildable):
 
     def crud_delete(self, mode='delete', update_fields_values={}):
         if not self.__crud or (mode == 'delete'
-                               and not self.__crud_delete_enable):
+                               and not self.__crud_delete_enabled):
             return
 
         line = self.selected()
         if not line:
             return
 
-        if question(self, _("Do you really want to %s?") %
-                    _(mode)) != gtk.RESPONSE_YES:
+        if question(self, _("Do you really want %s?") %
+                    (_('to update') if mode == 'update' else
+                     _('to delete'))) != gtk.RESPONSE_YES:
             return
 
-        sql_args = [None if showed == '' else value
+        sql_args = ['' if showed == '' else value
                     for field, value, showed in
                     zip(self.__fields, *self[line][:]) if field in self.__keys]
 
@@ -2327,11 +2677,12 @@ class Grid(gtk.TreeView, gtk.Buildable):
         if mode == 'update':
             update_fields, update_values = [list(x) for x in
                                             zip(*update_fields_values.items())]
-            if self.__update2:
-                for f, v in self.__update2:
-                    if f not in update_fields:
-                        update_fields.append(f)
-                        update_values.append(v)
+            for field in self.__main_fields:
+                data = self.get_data(field)
+                if data:
+                    if field not in update_fields:
+                        update_fields.append(field)
+                        update_values.append(get_value(data))
             update_values = self.__crud_bool_time_correction(update_values)
         else:
             update_fields, update_values = [[], []]
@@ -2347,21 +2698,24 @@ class Grid(gtk.TreeView, gtk.Buildable):
         cursor = self.__crud.cursor()
         try:
             cursor.execute(sql, update_values + args)
-            lines = cf(cursor.rowcount, int)[1]
+            lines = cursor.rowcount
             self.__crud.rollback()
         except Exception:
             self.__crud.rollback()
             cursor.close()
             raise
+        cursor.close()
 
-        if lines == '0':
-            error(self, _('No lines found to %s!') % _(mode))
+        if not lines:
+            error(self, _('No lines found for %s!') % _('to ' + mode))
             return
+        elif lines > 1:
+            if question(self, _("Do you want %s %s line(s)?") %
+                        (_('to ' + mode), cf(lines, int)[1])
+                        ) != gtk.RESPONSE_YES:
+                return
 
-        if question(self, _("Do you want to %s %s line(s)?") %
-                    (_(mode), lines)) != gtk.RESPONSE_YES:
-            return
-
+        cursor = self.__crud.cursor()
         try:
             cursor.execute(sql, update_values + args)
             self.__crud.commit()
@@ -2378,13 +2732,10 @@ class Grid(gtk.TreeView, gtk.Buildable):
             where, args = self.__crud_null_correction(self.__main_where,
                                                       sql_args)
             sql = ("select " + ", ".join(self.__fields) +
-                   " from " + self.__table +
-                   (" " + self.__joins if self.__joins else "") +
-                   " where " + where +
-                   (" group by " + self.__group if self.__group else ""))
+                   " from " + self.__table + self.__joins +
+                   " where " + where + self.__group)
             cursor.execute(sql, args)
             self.update_line(self.selected(), cursor.fetchone())
-            cursor.close()
         else:
             path, column = self.get_cursor()
             path = list(path)
@@ -2395,6 +2746,7 @@ class Grid(gtk.TreeView, gtk.Buildable):
             path = tuple(path)
             self.remove(self.selected())
             self.set_cursor_on_cell(path, column)
+        cursor.close()
 
     @try_function
     def do_key_press_event(self, ev):
@@ -2427,6 +2779,358 @@ class Grid(gtk.TreeView, gtk.Buildable):
 
         gtk.TreeView.do_key_press_event(self, ev)
         return True
+
+
+FormModel = namedtuple('Form', 'label checked text join_result'
+                       ' type decimals pole_type editable key icons'
+                       ' default join'
+                       ' show_checkbox show_text show_join_result'
+                       ' label_color text_color'
+                       ' old_checked old_text old_join_result edited')
+FormModel.__new__.func_defaults = (_('Field:'), False, _('Empty'), None,
+                                   str, 0, None, True, False, None,
+                                   _('Default'), None,
+                                   False, True, True, None, None,
+                                   False, None, None, False)
+
+
+class GridForm(Grid):
+
+    __gtype_name__ = 'GridForm'
+
+    def __init__(self, *args, **kwargs):
+        super(GridForm, self).__init__(*args, **kwargs)
+        self.__old_editing_text = ''
+        model = self.get_model()
+        if model is not None:
+            self.set_model(None)
+            model.clear()
+            del model
+        model = gtk.ListStore(str, bool, str, str, str, int, str, bool, bool,
+                              str, str, str, bool, bool, bool, str, str,
+                              bool, str, str, bool)
+        self.set_model(model)
+
+        col1 = gtk.TreeViewColumn(_("Field"))
+        cell1 = gtk.CellRendererText()
+        col1.pack_start(cell1)
+        col1.add_attribute(cell1, 'text', FormModel._fields.index('label'))
+        cell1.set_property('xalign', 1)  # label aligned to right
+        col1.add_attribute(cell1, 'foreground',
+                           FormModel._fields.index('label_color'))
+        self.append_column(col1)
+
+        col2 = gtk.TreeViewColumn(_("Value"))
+        self.append_column(col2)
+
+        # Célula para visualizar o bool [✓]
+        cell2 = gtk.CellRendererToggle()
+        col2.pack_start(cell2, expand=False)
+        col2.add_attribute(cell2, "active",
+                           FormModel._fields.index('checked'))
+        col2.add_attribute(cell2, "activatable",
+                           FormModel._fields.index('editable'))
+        col2.add_attribute(cell2, 'sensitive',
+                           FormModel._fields.index('editable'))
+        col2.add_attribute(cell2, 'visible',
+                           FormModel._fields.index('show_checkbox'))
+        cell2.connect('toggled', self.__editable_callback)
+
+        # Célula para visualizar o texto
+        cell3 = gtk.CellRendererText()
+        col2.pack_start(cell3, expand=False)
+        col2.add_attribute(cell3, 'text', FormModel._fields.index('text'))
+        col2.add_attribute(cell3, 'editable',
+                           FormModel._fields.index('editable'))
+        col2.add_attribute(cell3, 'visible',
+                           FormModel._fields.index('show_text'))
+        col2.add_attribute(cell3, 'foreground',
+                           FormModel._fields.index('text_color'))
+        # cell3.set_property('background', 'Light Gray')
+        cell3.connect('editing-started', self.__start_editing_callback)
+        cell3.connect('edited', self.__editable_callback)
+
+        # Resultado do join
+        cell4 = gtk.CellRendererText()
+        col2.pack_start(cell4, expand=True)
+        col2.add_attribute(cell4, 'text',
+                           FormModel._fields.index('join_result'))
+        col2.add_attribute(cell4, 'editable',
+                           FormModel._fields.index('editable'))
+        col2.add_attribute(cell4, 'visible',
+                           FormModel._fields.index('show_join_result'))
+        col2.add_attribute(cell4, 'foreground',
+                           FormModel._fields.index('text_color'))
+        # cell4.set_property('background', 'Light Blue')
+        cell4.connect('editing-started', self.__start_editing_callback)
+        cell4.connect('edited', self.__editable_callback)
+
+        # Fim da grade / marca de obrigatório
+        col3 = gtk.TreeViewColumn()
+        cell5 = gtk.CellRendererText()
+        col3.pack_start(cell5)
+        col3.add_attribute(cell5, 'text', FormModel._fields.index('icons'))
+        cell5.set_property('foreground', 'Gold')
+        self.append_column(col3)
+
+    def structure(self, titles, types, decimals=None, editables=None,
+                  with_colors=False, sizes=None, formats=None):
+        print 'titles:', titles
+        print 'types:', types
+        print 'decimals:', decimals
+        print 'editables:', editables
+        print 'with_colors:', with_colors
+        print 'sizes:', sizes
+        print 'formats:', formats
+
+    def __finish_editing(self, editor, event, popup):
+        key = event.keyval
+        if key == gtk.keysyms.Escape:
+            editor.props.text = self.__old_editing_text
+            popup.quit()
+        elif key in (gtk.keysyms.KP_Enter, gtk.keysyms.Return):
+            popup.quit()
+        update_ui()
+        self.grab_focus()
+
+    def __remove_editable(self, editable, new):
+        print 'new:', repr(new)
+        print '__old_editing_text:', repr(self.__old_editing_text)
+        if new != self.__old_editing_text:
+            editable.set_text('' if new is None else new)
+        editable.editing_done()
+        editable.remove_widget()
+        editable.destroy()
+        update_ui()
+        self.grab_focus()
+
+    def __start_editing_callback(self, renderer, editable, path):
+        print '__start_editing_callback:', (renderer, editable, path)
+        form_model = self.get_model()
+        reg = FormModel(*tuple(form_model[path]))
+        print 'Tipo:', reg.type
+        x, y = self.get_bin_window().get_origin()
+        area = self.get_cell_area(path, self.get_column(1))
+        size = (area[2], area[3])
+        print 'editable.props.text:', repr(editable.props.text)
+        self.__old_editing_text = new = editable.props.text
+        tx = reg.type
+        # Creating or using float type from PoleUtil.tipos
+        if tx[:5] == "float":
+            try:
+                decimals = int(tx[5:])
+            except Exception:
+                decimals = PoleUtil.local['frac_digits']
+            tx = 'float' + str(decimals)
+            if tx not in PoleUtil.tipos:
+                fs = '0.' + '0' * decimals
+                PoleUtil.tipos[tx] = PoleUtil.T(
+                    6, 14, decimals, False,
+                    PoleUtil.cs["números"] + PoleUtil.dp + '+-',
+                    "{0},;-{0},;{0}".format(fs), 1, 3, 100)
+        elif tx[:7] == "<type '":
+            tx = tx[7:-2]
+        try:
+            tp = PoleUtil.python_tipos[PoleUtil.tipos[tx].tipo]
+        except Exception:
+            show_exception(self, None)
+            tx = 'str'
+            tp = PoleUtil.python_tipos[PoleUtil.tipos[tx].tipo]
+        decimals = PoleUtil.tipos[tx].casas
+        print 'Tipo:', tx, '(', decimals, ')'
+        if tp in (datetime.date, datetime.datetime,
+                  datetime.time, datetime.timedelta):
+            position = (x + area[0], y + area[1] + area[3])
+            c = Calendar(editable, tx if tx else decimals)
+            r = c.run(position, transient_for=self)
+            if r is None:
+                new = ''
+            elif r:
+                new = editable.props.text
+            c.destroy()
+        else:
+            position = (x + area[0], y + area[1])
+            p = PopupWindow()
+            if reg.join:
+                model = gtk.ListStore(str, tp)
+                e = ComboBoxEntryCompletion(model)
+                e.do_parser_finished(None)
+                cursor = self.__crud.cursor()
+                cursor.execute(reg.join)
+                gobject.timeout_add(1, load_store, e, cursor)
+                e.child.connect('key-press-event', self.__finish_editing, p)
+            elif tx and PoleUtil.tipos[tx].combo:
+                size = (size[0], size[1] + 5)
+                model = gtk.ListStore(str, str if tp == bool else tp)
+                for opc in PoleUtil.tipos[tx].mascara[1:]:
+                    model.append(((opc[0] + ' - ' + opc[1] if len(opc) > 1
+                                   else opc[0]), opc[0]))
+                e = gtk.ComboBox(model)
+                cell = gtk.CellRendererText()
+                e.pack_start(cell, True)
+                e.add_attribute(cell, 'text', 0)
+                gobject.idle_add(e.popup)
+            else:
+                e = Editor()
+                e.set_alignment(0)
+                e.connect('key-press-event', self.__finish_editing, p)
+            if not tx or not PoleUtil.tipos[tx].combo:
+                if tx:
+                    e.config(tx)
+                    # e.set_max_length(self.__sizes[column])
+                elif tp in (int, long):
+                    e.config("int")
+                elif tp == float:
+                    e.config("float" + str(decimals))
+            # else:
+            #    e.config("upper,normalize")
+            e.props.has_frame = False
+            e.show()
+            p.add(e)
+            if isinstance(e, Editor):
+                e.props.text = self.__old_editing_text
+            else:
+                old = cf(self.__old_editing_text, tx if tx else tp, decimals)[0]
+                if isinstance(e, ComboBoxEntryCompletion):
+                    gobject.timeout_add(2, e.set_active_text, old, 0)
+                else:
+                    set_active_text(e, old, 1)
+
+            # Out click do cancel
+            # if p.run(self, size, position):
+            #    new = cf(e.props.text, self.__types[column],
+            #             self.__decimals[column])[1]
+
+            # Out click do not cancel
+            p.run(self, size, position)
+            print 'e:', e
+            if isinstance(e, gtk.ComboBox):
+                print 'e.active:', e.get_active()
+                print('e.text:', get_active_text(e, 0),
+                      get_active_text(e, 1))
+            text = (
+                e.props.text if isinstance(e, Editor) else
+                e.get_active_text(1) if isinstance(e, ComboBoxCompletion)
+                else get_active_text(e, 0)
+                if isinstance(e, ComboBoxEntryCompletion)
+                else get_active_text(e, 1))
+            if reg.join:
+                new = text
+            elif tx:
+                new = cf(text, tx)[1]
+            else:
+                new = cf(text, tp, decimals)[1]
+            print 'new:', repr(new)
+            p.destroy()
+
+        # Need out of this function to finish editing mode
+        glib.timeout_add(1, self.__remove_editable, editable, new)
+
+    def __editable_callback(self, renderer, path, result=None):
+        print '__editable_callback:', (renderer, path, result)
+        form_model = self.get_model()
+        reg = FormModel(*tuple(form_model[path]))
+        print 'Tipo:', reg.type
+        print 'result:', result
+        print 'reg.checked:', reg.checked
+        print 'reg.text:', reg.text
+        print 'reg.show_checkbox:', reg.show_checkbox
+        checked = reg.checked
+        text = reg.text
+        join_result = reg.join_result
+        if reg.show_checkbox:
+            try:
+                tp = (bool if reg.type in ("bool", "<type 'bool'>")
+                      else PoleUtil.python_tipos[PoleUtil.tipos[reg.type].tipo])
+            except Exception:
+                show_exception(self, None)
+                tp = str
+            print 'tp:', tp
+            print 'gtk.CellRendererToggle:', isinstance(renderer,
+                                                        gtk.CellRendererToggle)
+            if isinstance(renderer, gtk.CellRendererToggle):
+                checked = not reg.checked
+                if tp == bool:
+                    text = PoleUtil.cf(checked, bool)[1]
+            else:
+                try:
+                    print 'result:', result
+                    txt_to_bool = PoleUtil.cf(result, bool)[0]
+                    print 'txt_to_bool:', txt_to_bool
+                    if reg.checked != txt_to_bool:
+                        checked = txt_to_bool
+                except Exception:
+                    PoleLog.log_except()
+                    show_exception(self, None)
+        print 'reg.show_join_result:', reg.show_join_result
+        if reg.show_join_result:
+            join_result = result
+            result = result.split(' ⤳ ', 1)[0]
+        print 'join_result:', join_result
+        print 'result:', result
+        if reg.text != result and not isinstance(renderer, gtk.CellRendererToggle):
+            text = result
+        edited = checked != reg.old_checked or text != reg.old_text
+        form_model[path][FormModel._fields.index('edited')] = edited
+        form_model[path][
+            FormModel._fields.index('label_color')] = 'Green' if edited else None
+        form_model[path][FormModel._fields.index('checked')] = checked
+        form_model[path][FormModel._fields.index('text')] = text
+        form_model[path][FormModel._fields.index('join_result')] = join_result
+        print 'Novo checked:', form_model[path][FormModel._fields.index('checked')]
+        print 'Novo text:', form_model[path][FormModel._fields.index('text')]
+        print 'Novo join_res:', form_model[path][FormModel._fields.index('join_result')]
+
+    def do_cell_clicked(self, widget, event):
+        print 'cell_clicked:', (widget, event)
+        form_model = self.get_model()
+        pos = self.get_path_at_pos(int(event.x), int(event.y))
+        print 'pos:', pos
+        if pos:
+            row = form_model[pos[0]]
+            reg = FormModel(*tuple(row))
+            column = self.get_columns().index(pos[1])
+            print 'column:', column
+            print 'row/reg:', reg
+            if column == 0 and reg.edited:
+                resp = question(self,
+                                _('Restore original data for %s?') % reg.label)
+                if resp == gtk.RESPONSE_YES:
+                    row[FormModel._fields.index('label_color')] = None
+                    row[FormModel._fields.index('edited')] = False
+                    row[FormModel._fields.index('checked')] = reg.old_checked
+                    row[FormModel._fields.index('text')] = reg.old_text
+                    row[FormModel._fields.index('join_result')] = reg.old_join_result
+
+    def crud(self, *args, **kwargs):
+        super(GridForm, self).crud(*args, **kwargs)
+
+        print '__crud               :', self._Grid__crud
+        print '__crud_create_enabled:', self._Grid__crud_create_enabled
+        print '__crud_delete_enabled:', self._Grid__crud_delete_enabled
+        print '__table              :', self._Grid__table
+        print '__joins              :', self._Grid__joins
+        print '__fields             :', self._Grid__fields
+        print '__defaults           :', self._Grid__defaults
+        print '__keys               :', self._Grid__keys
+        print '__ignoreds           :', self._Grid__ignoreds
+        print '__uniques            :', self._Grid__uniques
+        print '__requireds          :', self._Grid__requireds
+        print '__requests           :', self._Grid__requests
+        print '__where              :', self._Grid__where
+        print '__group              :', self._Grid__group
+        print '__order              :', self._Grid__order
+        print '__update2            :', self._Grid__update2
+        print '__nicks              :', self._Grid__nicks
+        print '__main_nick          :', self._Grid__main_nick
+        print '__main_table         :', self._Grid__main_table
+        print '__main_fields_map    :', self._Grid__main_fields_map
+        print '__main_fields        :', self._Grid__main_fields
+        print '__foreign_keys       :', self._Grid__foreign_keys
+        print '__main_where         :', self._Grid__main_where
+        print '__create_fields      :', self._Grid__create_fields
+        print '__create_where       :', self._Grid__create_where
+        # print 'model                :', self.model
 
 
 class Processing(gtk.Window):
@@ -2484,13 +3188,36 @@ class Processing(gtk.Window):
         update_ui()
 
 
-def load_module(parent_project, parent_main_window, module_name, title, main_window_name, data=None):
+def load_module(parent_project, parent_main_window, module_name, title,
+                main_window_name, data=None, new_process=False):
     if parent_main_window:
         parent_main_window.hide()
+        update_ui()
     loop = glib.MainLoop()
-    module = importlib.import_module(module_name)
     if data is None:
         data = []
+
+    if new_process:
+        sub = subprocess.Popen(module_name,
+                               stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+        out, err = sub.communicate(title)
+        data.append(out)
+        data.append(err)
+        if err:
+            error(parent_main_window, err)
+
+        loop.quit()
+        if parent_main_window is not None:
+            parent_main_window.show()
+            update_ui()
+            t = gtk.gdk.x11_get_server_time(parent_main_window.get_window())
+            parent_main_window.present_with_time(t)
+            update_ui()
+        return data
+
+    module = importlib.import_module(module_name)
     if isinstance(parent_main_window, VirtualWidget):
         try:
             parent_main_window = parent_main_window.widget
@@ -2509,6 +3236,7 @@ def load_module(parent_project, parent_main_window, module_name, title, main_win
         main_window = None
     else:
         if parent_main_window is not None:
+            parent_project.active_window = main_window
             main_window.set_transient_for(parent_main_window)
             main_window.set_modal(True)
             main_window.set_title(title + " - " + parent_main_window.get_title())
@@ -2516,7 +3244,8 @@ def load_module(parent_project, parent_main_window, module_name, title, main_win
         else:
             main_window.set_title(title)
         main_window.show()
-        main_window.present()
+        t = gtk.gdk.x11_get_server_time(main_window.get_window())
+        main_window.present_with_time(t)
     loop.run()
     if main_window:
         main_window.destroy()
@@ -2527,7 +3256,8 @@ def load_module(parent_project, parent_main_window, module_name, title, main_win
         del(sys.modules[module_name])
     if parent_main_window is not None:
         parent_main_window.show()
-        parent_main_window.present()
+        t = gtk.gdk.x11_get_server_time(parent_main_window.get_window())
+        parent_main_window.present_with_time(t)
     return data
 
 
@@ -2535,6 +3265,7 @@ def load_module(parent_project, parent_main_window, module_name, title, main_win
 # name start with third element in (GtkClass, PoleGtkClass, start of name)
 NEW_CLASSES = (
     ('GtkTreeView', 'Grid', 'gr_'),
+    ('GtkTreeView', 'GridForm', 'gf_'),
     ('GtkEntry', 'Editor', 'ed_'),
     ('GtkWindow', 'PopupWindow', 'popup_'),
     ('GtkButton', 'DateButton', 'dt_'),
@@ -2636,6 +3367,9 @@ class VirtualWidget(object):
 
     def __setitem__(self, index, value):
         object.__getattribute__(self, "widget")[index] = value
+
+    def __delitem__(self, index):
+        del object.__getattribute__(self, "widget")[index]
 
 
 class Project(object):
@@ -2744,29 +3478,20 @@ def get_active_text(combo, column=0,
     return value
 
 
-def load_store(combo, cursor, active=True):
+def load_store(combo, cursor, active=True, column=-1):
     model = combo.get_model()
-    model.clear()
-    # model = gtk.ListStore(*[model.get_column_type(i)
-    #                         for i in range(model.get_n_columns())])
     combo.set_model(None)
-    for row in cursor:
+    model.clear()
+    for n, row in enumerate(cursor):
         model.append(row)
-    if active:
-        combo.set_active(0)
-    if isinstance(cursor, (tuple, list, dict)):
-        for row in cursor:
-            model.append(row)
-    else:
-        data = cursor.fetchmany()
-        while data:
-            for row in data:
-                model.append(row)
+        if n % 100 == 0:
             update_ui()
-            data = cursor.fetchmany()
     combo.set_model(model)
-    if active:
-        combo.set_active(0)
+    if column == -1:
+        if active:
+            combo.set_active(0)
+    else:
+        set_active_text(combo, active, column)
 
 
 def hide_window(widget):
@@ -2775,12 +3500,137 @@ def hide_window(widget):
     # else:
     toplevel = widget.get_toplevel()
     toplevel.hide()
+    return True
 
 
 def copy_to_clipboard(text, modal_to=None):
     gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD).set_text(text)
     if modal_to:
         info(modal_to, _("Data copied to memory!"))
+
+
+def all_grids_to_clipboard(parent):
+    csvs = []
+
+    def __exportar(parent, csvs):
+        if not isinstance(parent, gtk.Container):
+            return
+        for child in parent.children():
+            if isinstance(child, Grid):
+                csvs.append(child.get_csv())
+            else:
+                __exportar(child, csvs)
+
+    __exportar(parent, csvs)
+
+    gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD).set_text(
+        '\n\n'.join(csvs))
+
+
+__get_TreeModelRow = gtk.ListStore(int)
+__get_TreeModelRow.append((0,))
+TreeModelRow = __get_TreeModelRow[0].__class__
+del __get_TreeModelRow
+
+
+def get_value(x):
+    if isinstance(x, VirtualWidget):
+        x = x.widget
+    if isinstance(x, gtk.Entry):
+        x = x.get_text()
+    elif isinstance(x, (gtk.Label, gtk.Button)):
+        x = x.get_label()
+    elif isinstance(x, gtk.ComboBox):
+        x = get_active_text(x)
+    elif isinstance(x, TreeModelRow):
+        x = x[0]
+    elif isinstance(x, GridRow):
+        x = x[0][0] if x[0][1] else None
+    elif isinstance(x, gtk.TreeModel):
+        s = x[0].get_selection()
+        if not s:
+            x = None
+        elif s.get_mode() == gtk.SELECTION_MULTIPLE:
+            s = s.get_selected_rows()[1]
+            x = x = x[0][s[0]][0] if s else None
+        else:
+            s = s.get_selected()[1]
+            x = x = x[0][s][0] if s else None
+    elif isinstance(x, Grid):
+        line = x.selected()
+        x = x[line][0][0] if line and x[line][0][1] else None
+    elif isinstance(x, (list, tuple, dict)):
+        if isinstance(x[0], gtk.ComboBox):
+            x = get_active_text(x[0], int(x[1]) if len(x) > 1 else 0)
+        elif isinstance(x[0], (list, tuple, dict, TreeModelRow)):
+            x = x[0][x[1]]
+        elif isinstance(x[0], GridRow):
+            x = x[0][x[1]][x[2] if x > 2 else 0]
+        elif isinstance(x[0], gtk.TreeModel):
+            s = x[0].get_selection()
+            if not s:
+                x = None
+            elif s.get_mode() == gtk.SELECTION_MULTIPLE:
+                s = s.get_selected_rows()[1]
+                x = x = x[0][s[0]][x[1]] if s else None
+            else:
+                s = s.get_selected()[1]
+                x = x = x[0][s][x[1]] if s else None
+        elif isinstance(x[0], Grid):
+            line = x[0].selected()
+            x = (x[0][x[1]][x[2]][x[3]
+                 if x > 3 else 0] if line and x[0][x[1]][x[2]][1] else None)
+    return x
+
+
+def change_mouse_pointer(widget, cursor=None):
+    if cursor is not None and not isinstance(cursor, gtk.gdk.Cursor):
+        try:
+            cursor = gtk.gdk.Cursor(cursor)
+        except Exception:
+            cursor = None
+    win = widget.get_toplevel()
+    win.realize()
+    win.get_window().set_cursor(cursor)
+    update_ui()
+
+
+# Notify
+
+try:
+    import notify2
+    notify2.init('pole', 'glib')
+except Exception:
+    print "Fail to start notify system."
+
+
+def notify(title, message, icon=None, insistent=0,
+           callback=None, actions=[], user_data=None):
+
+    def __closed_notice(notice, *args):
+        if notice.get_data('finished'):
+            return
+        action = args[0] if args else None
+        if insistent and not action:
+            glib.timeout_add(insistent * 1000, notify, title, message, icon,
+                             insistent, callback, actions, user_data)
+        notice.set_data('finished', True)
+        if callback:
+            callback(action, title, message, icon, insistent,
+                     callback, actions, user_data)
+
+    notice = notify2.Notification(title, message, icon)
+    notice.set_data('finished', False)
+    notice.connect('closed', __closed_notice)
+    for action in actions:
+        notice.add_action(action, action, __closed_notice)
+    if insistent:
+        notice.set_urgency(notify2.URGENCY_CRITICAL)
+        notice.set_timeout(notify2.EXPIRES_NEVER)
+    notice.show()
+    if callback:
+        callback('#!notice', title, notice, icon, insistent,
+                 callback, actions, user_data)
 
 
 if __name__ == '__main__':

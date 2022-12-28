@@ -80,11 +80,10 @@ class UserSettings(object):
         self._read()
 
     def set(self, name, value):
-        name = name.replace('_', '-')
         self._root[name.encode('utf-8')] = value
 
     def get(self, name, default=None):
-        if not name in self._root:
+        if name not in self._root:
             self.set(name, default)
         return self._root[name]
 

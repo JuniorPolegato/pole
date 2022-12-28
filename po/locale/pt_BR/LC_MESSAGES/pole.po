@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pole 1.0.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2019-05-16 08:39-0300\n"
-"PO-Revision-Date: 2018-03-02 05:26-0300\n"
+"POT-Creation-Date: 2019-08-21 08:52-0300\n"
+"PO-Revision-Date: 2019-08-15 17:15-0300\n"
 "Last-Translator: Junior Polegato <linux@juniorpolegato.com.br>\n"
 "Language: pt_BR\n"
 "Language-Team: pt_BR <linux@juniorpolegato.com.br>\n"
@@ -14,68 +14,184 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.6.0\n"
 
-#: src/pole/PoleGTK.py:110
+#: src/pole/PoleGTK.py:61
+msgid "and"
+msgstr "e"
+
+#: src/pole/PoleGTK.py:61
+msgid "or"
+msgstr "ou"
+
+#: src/pole/PoleGTK.py:69
+msgid "not\\s*in"
+msgstr "não\\s*em"
+
+#: src/pole/PoleGTK.py:70
+msgid "is\\s*not\\s*null"
+msgstr "não\\s*é\\s*nulo"
+
+#: src/pole/PoleGTK.py:71
+msgid "is\\s*not"
+msgstr "não\\s*é"
+
+#: src/pole/PoleGTK.py:72
+msgid "is\\s*null"
+msgstr "é\\s*nulo"
+
+#: src/pole/PoleGTK.py:73
+msgid "not\\s*like"
+msgstr "não\\s*contém"
+
+#: src/pole/PoleGTK.py:74
+msgid "not\\s*between"
+msgstr "não\\s*entre"
+
+#: src/pole/PoleGTK.py:75
+msgid "will\\s*be"
+msgstr "será"
+
+#: src/pole/PoleGTK.py:76
+msgid "will\\s*not\\s*be"
+msgstr "não\\s*será"
+
+#: src/pole/PoleGTK.py:77
+msgid "was\\s*not"
+msgstr "não\\s*foi"
+
+#: src/pole/PoleGTK.py:78
+msgid "was"
+msgstr "foi"
+
+#: src/pole/PoleGTK.py:78
+msgid "in"
+msgstr "em"
+
+#: src/pole/PoleGTK.py:78
+msgid "is"
+msgstr "é"
+
+#: src/pole/PoleGTK.py:79
+msgid "like"
+msgstr "contém"
+
+#: src/pole/PoleGTK.py:79
+msgid "between"
+msgstr "entre"
+
+#: src/pole/PoleGTK.py:88
+msgid "this\\s*month"
+msgstr "este\\s*mês"
+
+#: src/pole/PoleGTK.py:91
+msgid "next\\s*month"
+msgstr "próximo\\s*mês"
+
+#: src/pole/PoleGTK.py:94
+msgid "last\\s*month"
+msgstr "mês\\s*passado"
+
+#: src/pole/PoleGTK.py:98
+msgid "this\\s*year"
+msgstr "este\\s*ano"
+
+#: src/pole/PoleGTK.py:101
+msgid "next\\s*year"
+msgstr "próximo\\s*ano"
+
+#: src/pole/PoleGTK.py:104
+msgid "last\\s*year"
+msgstr "ano\\s*passado"
+
+#: src/pole/PoleGTK.py:108
+msgid "this\\s*week"
+msgstr "esta\\s*semana"
+
+#: src/pole/PoleGTK.py:111
+msgid "next\\s*week"
+msgstr "próxima\\s*semana"
+
+#: src/pole/PoleGTK.py:114
+msgid "last\\s*week"
+msgstr "semana\\s*passada"
+
+#: src/pole/PoleGTK.py:118
+msgid "yesterday"
+msgstr "ontem"
+
+#: src/pole/PoleGTK.py:120
+msgid "today"
+msgstr "hoje"
+
+#: src/pole/PoleGTK.py:122
+msgid "tomorrow"
+msgstr "amanhã"
+
+#: src/pole/PoleGTK.py:125
+msgid "now"
+msgstr "agora"
+
+#: src/pole/PoleGTK.py:196 src/pole/PoleGTK.py:2397
 msgid "Information"
 msgstr "Informação"
 
-#: src/pole/PoleGTK.py:111
+#: src/pole/PoleGTK.py:197
 msgid "Warning"
 msgstr "Aviso"
 
-#: src/pole/PoleGTK.py:112
+#: src/pole/PoleGTK.py:198
 msgid "Question"
 msgstr "Questão"
 
-#: src/pole/PoleGTK.py:113
+#: src/pole/PoleGTK.py:199
 msgid "Error"
 msgstr "Erro"
 
-#: src/pole/PoleGTK.py:153
+#: src/pole/PoleGTK.py:239
 msgid "Give the resquested information"
 msgstr "Forneça a informação solicitada"
 
-#: src/pole/PoleGTK.py:282
+#: src/pole/PoleGTK.py:368
 msgid "Details"
 msgstr "Detalhes"
 
-#: src/pole/PoleGTK.py:328
+#: src/pole/PoleGTK.py:414
 msgid "Select folder"
 msgstr "Selecione uma pasta"
 
-#: src/pole/PoleGTK.py:332
+#: src/pole/PoleGTK.py:418
 msgid "Select file to save to"
 msgstr "Selecione o arquivo para salvar"
 
-#: src/pole/PoleGTK.py:336
+#: src/pole/PoleGTK.py:422
 msgid "Select file"
 msgstr "Selecione um arquivo"
 
-#: src/pole/PoleGTK.py:378
+#: src/pole/PoleGTK.py:464
 msgid "Overwrite the file?"
 msgstr "Sobrescrever o arquivo?"
 
-#: src/pole/PoleGTK.py:573
+#: src/pole/PoleGTK.py:659
 msgid "_Now"
 msgstr "_Agora"
 
-#: src/pole/PoleGTK.py:574
+#: src/pole/PoleGTK.py:660
 msgid "_Today"
 msgstr "_Hoje"
 
-#: src/pole/PoleGTK.py:618
+#: src/pole/PoleGTK.py:704
 msgid "Year:"
 msgstr "Ano:"
 
-#: src/pole/PoleGTK.py:645
+#: src/pole/PoleGTK.py:731
 msgid "Time:"
 msgstr "Horário:"
 
-#: src/pole/PoleGTK.py:880 src/pole/PoleGTK.py:890
-#, fuzzy, python-format
+#: src/pole/PoleGTK.py:966 src/pole/PoleGTK.py:976
+#, python-format
 msgid "Invalid or not found column name `%s´."
 msgstr "Nome de coluna `%s´ inválido ou não encontrado."
 
-#: src/pole/PoleGTK.py:901
+#: src/pole/PoleGTK.py:987
 msgid ""
 "This value could not be converted or formatted.\n"
 "\n"
@@ -85,21 +201,21 @@ msgstr ""
 "\n"
 "Eles serão mostrados como são e avaliados para zero (0 ou 0,00) ou falso."
 
-#: src/pole/PoleGTK.py:922
+#: src/pole/PoleGTK.py:1008
 msgid "Invalid type of column index or name `´."
-msgstr ""
+msgstr "Tipo de coluna ou nome `´ inválido."
 
-#: src/pole/PoleGTK.py:1282
+#: src/pole/PoleGTK.py:1349
 msgid ""
 "Invalid values column format, expected max of 4 values: name, type[, "
 "decimal][,edit]."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1287
+#: src/pole/PoleGTK.py:1354
 msgid "Invalid column parameters. Expected color or title,type[,decimals][,edit]."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1351
+#: src/pole/PoleGTK.py:1412
 #, python-format
 msgid ""
 "Invalid type `%s´. Expected int, long, bool, float, str, datetime, date, "
@@ -108,7 +224,7 @@ msgstr ""
 "Argumento \"conteúdo\" do tipo `%s´ é inválido. Esperado int, bool, "
 "float, str, date, time ou datetime."
 
-#: src/pole/PoleGTK.py:1365
+#: src/pole/PoleGTK.py:1426
 #, python-format
 msgid ""
 "Invalid value for decimals ou editable `%s´. Expected digits, 'DATE', "
@@ -116,36 +232,36 @@ msgid ""
 "'edit' for editable."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1369
+#: src/pole/PoleGTK.py:1430
 msgid "Expected just one `edit´ for editable."
 msgstr "Esperado apenas um `edit´ para editável."
 
-#: src/pole/PoleGTK.py:1372
+#: src/pole/PoleGTK.py:1433
 #, python-format
 msgid "Invalid value for editable `%s´. Expected `edit´ for editable, just one."
 msgstr ""
 "O valor `%s´ é inválido para coluna editável. Esperado `edit´ para tornar"
 " uma coluna editável."
 
-#: src/pole/PoleGTK.py:1642 src/pole/PoleGTK.py:1652 src/pole/PoleGTK.py:1754
+#: src/pole/PoleGTK.py:1706 src/pole/PoleGTK.py:1716 src/pole/PoleGTK.py:1818
 msgid "No columns structure defined."
 msgstr "Estrutura de colunas não definida."
 
-#: src/pole/PoleGTK.py:1663 src/pole/PoleGTK.py:1763
+#: src/pole/PoleGTK.py:1727 src/pole/PoleGTK.py:1827
 msgid ""
 "Type `´of path is not valid. Expected str, int, long, tuple, list (path) "
 "or gtk.TreeIter."
 msgstr ""
 
-#: src/pole/PoleGTK.py:1667
+#: src/pole/PoleGTK.py:1731
 msgid "Path or iter is not valid for this model."
 msgstr "O caminho \"path/iter\" não é válido para este modelo."
 
-#: src/pole/PoleGTK.py:1711 src/pole/PoleGTK.py:1801
+#: src/pole/PoleGTK.py:1775 src/pole/PoleGTK.py:1865
 msgid "Error!"
 msgstr "Erro!"
 
-#: src/pole/PoleGTK.py:1746 src/pole/PoleGTK.py:1809
+#: src/pole/PoleGTK.py:1810 src/pole/PoleGTK.py:1873
 msgid ""
 "Some values could not be converted or formatted!\n"
 "\n"
@@ -156,113 +272,197 @@ msgstr ""
 "\n"
 "Eles serão mostrados como são e avaliados para zero (0 ou 0,00) ou falso."
 
-#: src/pole/PoleGTK.py:1765 src/pole/PoleGTK.py:1767
+#: src/pole/PoleGTK.py:1829 src/pole/PoleGTK.py:1831
 msgid "Path or iter is not valid."
 msgstr "O caminho \"path/iter\" não é válido."
 
-#: src/pole/PoleGTK.py:1920
+#: src/pole/PoleGTK.py:1984
 msgid "Please wait..."
 msgstr "Por favor aguarde..."
 
-#: src/pole/PoleGTK.py:1935
+#: src/pole/PoleGTK.py:1999
 msgid "Getting lines..."
 msgstr "Obtendo linhas..."
 
-#: src/pole/PoleGTK.py:1951
+#: src/pole/PoleGTK.py:2015
 msgid "Loading lines..."
 msgstr "Carregando linhas..."
 
-#: src/pole/PoleGTK.py:2012
+#: src/pole/PoleGTK.py:2084
 msgid "Invalid or not found column name `´."
 msgstr "Nome de coluna `´ inválido ou não encontrado."
 
-#: src/pole/PoleGTK.py:2021
+#: src/pole/PoleGTK.py:2093
 msgid "Invalid or not found column name or number `´."
 msgstr "Nome ou número de coluna `´ inválido ou não encontrado."
 
-#: src/pole/PoleGTK.py:2033 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
+#: src/pole/PoleGTK.py:2105 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
 msgid "Y"
 msgstr "S"
 
-#: src/pole/PoleGTK.py:2035 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
+#: src/pole/PoleGTK.py:2107 src/pole/PoleUtil.py:1145 src/pole/PoleUtil.py:1209
 msgid "N"
 msgstr "N"
 
-#: src/pole/PoleGTK.py:2098
-msgid "CRUD_update2 must be tuple, list or dict."
-msgstr ""
+#: src/pole/PoleGTK.py:2370
+msgid "Filter help"
+msgstr "Ajuda com o filtro"
 
-#: src/pole/PoleGTK.py:2226
-msgid "Invalid filter!"
-msgstr "Filtro Inválido!"
-
-#: src/pole/PoleGTK.py:2227
+#: src/pole/PoleGTK.py:2371
 msgid ""
 "The filter must be in the format:\n"
 "\n"
-"[{column}|field|expression] operator value [junction "
-"[{column}|field|expression] operator value ...]\n"
+"{{column}}|field|expression operator value\n"
+"[junction {{column}}|field|expression operator value ...]\n"
 "\n"
-"WARNING: Spacings are required as above!\n"
+"Operators:\n"
+"{signs}\n"
+"{ops}\n"
 "\n"
-"Ex1: {Code} <100 and {Description} = \"*AC*\"\n"
-"Ex2: {Description} = null\n"
-"Ex3: len({Description}) < 5\n"
-"Ex4: substr({Date},4,4) = '2018'\n"
-"Ex5: to_number(substr({Date},4,4)) <= 2017\n"
+"Junctions:\n"
+"{joins}\n"
+"\n"
+"Date keywords:\n"
+"{dates}\n"
+"\n"
+"Examples:\n"
+"{{Code}} < 100 and {{Description}} = \"CABO*AC*5?MM*\"\n"
+"{{Description}} = null\n"
+"{{Date}} is not null\n"
+"length({{Description}}) < 5\n"
+"substr({{Date}}, 4, 4) = '2018'\n"
+"to_number(substr({{Date}}, 4, 4)) <= 2017\n"
+"{{Date}} is today\n"
+"{{Date}} was yesterday\n"
+"trunc({{Date}}) = '18/04/2019'\n"
 "\n"
 "See SQL expressions in:\n"
 "http://pgdocptbr.sourceforge.net/pg80/functions.html"
 msgstr ""
 "O filtro precisa estar no formato:\n"
 "\n"
-"[{coluna}|campo|expressão] operador valor [junção "
-"[{coluna}|campo|expressão] operador valor ...]\n"
+"{{coluna}}|campo|expressão operador valor\n"
+"[junção {{coluna}}|campo|expressão operador valor ...]\n"
 "\n"
-"AVISO: São obrigatórios os espaçamentos como acima!\n"
+"Operadores:\n"
+"{signs}\n"
+"{ops}\n"
 "\n"
-"Ex1: {Cód.} < 100 e {Descrição} = \"*AC*\"\n"
-"Ex2: {Descrição} = nulo\n"
-"Ex3: len({Descrição}) < 5\n"
-"Ex4: substr({Data},4,4) = '2018'\n"
-"Ex5: to_number(substr({Data},4,4)) <= 2017\n"
+"Junções:\n"
+"{joins}\n"
+"\n"
+"Palavras-chaves para datas:\n"
+"{dates}\n"
+"\n"
+"Exemplos:\n"
+"{{Código}} < 100 e {{Descrição}} = \"CABO*AC*5?MM*\"\n"
+"{{Descrição}} = nulo\n"
+"{{Data}} não é nulo\n"
+"length({{Descrição}}) < 5\n"
+"substr({{Data}}, 4, 4) = '2018'\n"
+"to_number(substr({{Data}}, 4, 4)) <= 2017\n"
+"{{Data}} é hoje\n"
+"{{Data}} foi ontem\n"
+"trunc({{Date}}) = '18/04/2019'\n"
 "\n"
 "Consulte expressões SQL em:\n"
 "http://pgdocptbr.sourceforge.net/pg80/functions.html"
 
-#: src/pole/PoleGTK.py:2317
+#: src/pole/PoleGTK.py:2416
+msgid "Filter mistake!"
+msgstr "Problemas no filtro!"
+
+#: src/pole/PoleGTK.py:2431
 #, python-format
-msgid "Do you really want to %s?"
+msgid "String mistake! %s at %i."
+msgstr "Problema no texto! %s em %i."
+
+#: src/pole/PoleGTK.py:2447
+msgid "Left side mistake!"
+msgstr "Problema no lado esquerdo!"
+
+#: src/pole/PoleGTK.py:2485
+msgid "Between operator fail!"
+msgstr "Operador \"entre\" com problemas!"
+
+#: src/pole/PoleGTK.py:2493 src/pole/PoleGTK.py:2523
+msgid "Right side mistake!"
+msgstr "Problema no lado direito!"
+
+#: src/pole/PoleGTK.py:2503 src/pole/PoleGTK.py:2534
+msgid "null"
+msgstr "nulo"
+
+#: src/pole/PoleGTK.py:2596
+#, python-format
+msgid "Do you really want %s?"
 msgstr "Você quer realmente %s?"
 
-#: src/pole/PoleGTK.py:2358
+#: src/pole/PoleGTK.py:2597
+msgid "to update"
+msgstr "atualizar"
+
+#: src/pole/PoleGTK.py:2598
+msgid "to delete"
+msgstr "deletar"
+
+#: src/pole/PoleGTK.py:2640
 #, python-format
-msgid "No lines found to %s!"
+msgid "No lines found for %s!"
 msgstr "Nenhuma linha encontrada para %s!"
 
-#: src/pole/PoleGTK.py:2361
+#: src/pole/PoleGTK.py:2640 src/pole/PoleGTK.py:2644
+msgid "to "
+msgstr "para "
+
+#: src/pole/PoleGTK.py:2643
 #, python-format
-msgid "Do you want to %s %s line(s)?"
+msgid "Do you want %s %s line(s)?"
 msgstr "Você quer %s %s linha(s)?"
 
-#: src/pole/PoleGTK.py:2500
+#: src/pole/PoleGTK.py:2720
+msgid "Field:"
+msgstr "Campo:"
+
+#: src/pole/PoleGTK.py:2720
+msgid "Empty"
+msgstr "Vazio"
+
+#: src/pole/PoleGTK.py:2722
+msgid "Default"
+msgstr "Padrão"
+
+#: src/pole/PoleGTK.py:2744
+msgid "Field"
+msgstr "Campo"
+
+#: src/pole/PoleGTK.py:2753
+msgid "Value"
+msgstr "Valor"
+
+#: src/pole/PoleGTK.py:3027
+#, python-format
+msgid "Restore original data for %s?"
+msgstr "Restaurar dados originais de %s?"
+
+#: src/pole/PoleGTK.py:3156
 msgid "Error: Parent project has no window."
 msgstr "Erro: Projeto pai não possui janela."
 
-#: src/pole/PoleGTK.py:2508
+#: src/pole/PoleGTK.py:3164
 msgid "Error: Module has no window."
 msgstr "Erro: Módulo não possui janela."
 
-#: src/pole/PoleGTK.py:2548
+#: src/pole/PoleGTK.py:3205
 #, python-format
 msgid "Invalid argument \"xml_file_or_xml_string\" of type `%s´. Expected str."
 msgstr "Argumento \"xml_file_or_xml_string\" inválido do tipo `%s´. Esperado str."
 
-#: src/pole/PoleGTK.py:2557
+#: src/pole/PoleGTK.py:3214
 msgid "Invalid content. Expected XML data."
 msgstr "Conteúdo inválido. Esperado dados em XML."
 
-#: src/pole/PoleGTK.py:2783
+#: src/pole/PoleGTK.py:3441
 msgid "Data copied to memory!"
 msgstr "Dados copiados para memória!"
 
@@ -384,6 +584,8 @@ msgstr ""
 #: src/pole/PoleUtil.py:1280
 msgid "Invalid return_type of type `date´ when `time´ content was specified."
 msgstr ""
+"Tipo de retorno `date´ inválido quando um conteúdo `time´ foi "
+"especificado."
 
 #: src/pole/PoleUtil.py:1282
 msgid "Invalid return_type of type `time´ when `date´ content was specified."
@@ -395,11 +597,17 @@ msgstr ""
 #: src/pole/PoleUtil.py:1650 src/pole/PoleUtil.py:1652
 #, python-format
 msgid "It is not possible get printers from %s plataform or operating system."
-msgstr ""
+msgstr "Não é possível listar impressoras na plataforma %s ou sistema operacional."
 
 #~ msgid "update"
 #~ msgstr "atualizar"
 
 #~ msgid "delete"
 #~ msgstr "deletar"
+
+#~ msgid "not is"
+#~ msgstr "não é"
+
+#~ msgid "Invalid filter!"
+#~ msgstr "Filtro Inválido!"
 
